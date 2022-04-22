@@ -1,0 +1,67 @@
+Player Base
+
+******************************
+Player ID: 1
+Name: Test1
+Surname: Subject1
+Nickname: #001
+Goals: 0
+Assists: 120
+Autogoals: 0
+Attendences:
+- Total: 0
+- Last: 1.1.2022
+MMR: 2130
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 2
+Name: Test2
+Surname: Subject2
+Nickname: #002
+Goals: 0
+Assists: 120
+Autogoals: 0
+Attendences:
+- Total: 0
+- Last: 1.1.2022
+MMR: 2130
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 3
+Name: Test3
+Surname: Subject3
+Nickname: #003
+Goals: 0
+Assists: 120
+Autogoals: 0
+Attendences:
+- Total: 0
+- Last: 1.1.2022
+MMR: 2130
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 4
+Name: Test4
+Surname: Subject4
+Nickname: #004
+Goals: 0
+Assists: 120
+Autogoals: 0
+Attendences:
+- Total: 0
+- Last: 1.1.2022
+MMR: 2130
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
