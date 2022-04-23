@@ -1,17 +1,22 @@
 Player Base
-2022-04-22 10:48:51.572538
+2022-04-23 15:44:17.567927
+21.1.2022
+Current Season: 3
 ******************************
 Player ID: 1
 Name: Test1
 Surname: Subject1
 Nickname: #001
 Goals: 0
-Assists: 120
+Assists: 0
 Autogoals: 0
+Wins: 3
+Loses: 0
+Draws: 0
 Attendences:
-- Total: 0
-- Last: 1.1.2022
-MMR: 2130
+- Total: 3
+- Last: 21.1.2022
+MMR: 1324
 Seasons Ratings: 
 - Season 1: 0
 - Season 2: 0
@@ -21,13 +26,16 @@ Player ID: 2
 Name: Test2
 Surname: Subject2
 Nickname: #002
-Goals: 0
-Assists: 120
+Goals: 2
+Assists: 0
 Autogoals: 0
+Wins: 3
+Loses: 0
+Draws: 0
 Attendences:
-- Total: 0
-- Last: 1.1.2022
-MMR: 2130
+- Total: 3
+- Last: 21.1.2022
+MMR: 1398
 Seasons Ratings: 
 - Season 1: 0
 - Season 2: 0
@@ -37,13 +45,16 @@ Player ID: 3
 Name: Test3
 Surname: Subject3
 Nickname: #003
-Goals: 0
-Assists: 120
+Goals: 1
+Assists: 2
 Autogoals: 0
+Wins: 2
+Loses: 1
+Draws: 0
 Attendences:
-- Total: 0
-- Last: 1.1.2022
-MMR: 2130
+- Total: 3
+- Last: 21.1.2022
+MMR: 1159
 Seasons Ratings: 
 - Season 1: 0
 - Season 2: 0
@@ -53,13 +64,130 @@ Player ID: 4
 Name: Test4
 Surname: Subject4
 Nickname: #004
-Goals: 0
-Assists: 120
+Goals: 3
+Assists: 0
 Autogoals: 0
+Wins: 3
+Loses: 0
+Draws: 0
 Attendences:
-- Total: 0
-- Last: 1.1.2022
-MMR: 2130
+- Total: 3
+- Last: 21.1.2022
+MMR: 1437
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 5
+Name: Test5
+Surname: Subject5
+Nickname: #005
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Loses: 3
+Draws: 0
+Attendences:
+- Total: 3
+- Last: 21.1.2022
+MMR: 803
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 6
+Name: Test6
+Surname: Subject6
+Nickname: #006
+Goals: 3
+Assists: 3
+Autogoals: 0
+Wins: 0
+Loses: 3
+Draws: 0
+Attendences:
+- Total: 3
+- Last: 21.1.2022
+MMR: 951
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 7
+Name: Test7
+Surname: Subject7
+Nickname: #007
+Goals: 1
+Assists: 0
+Autogoals: 0
+Wins: 0
+Loses: 2
+Draws: 0
+Attendences:
+- Total: 2
+- Last: 14.1.2022
+MMR: 858
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 8
+Name: Test8
+Surname: Subject8
+Nickname: #008
+Goals: 1
+Assists: 1
+Autogoals: 0
+Wins: 0
+Loses: 2
+Draws: 0
+Attendences:
+- Total: 2
+- Last: 14.1.2022
+MMR: 881
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 9
+Name: Test9
+Surname: Subject9
+Nickname: #009
+Goals: 1
+Assists: 0
+Autogoals: 0
+Wins: 0
+Loses: 1
+Draws: 0
+Attendences:
+- Total: 1
+- Last: 21.1.2022
+MMR: 916
+Seasons Ratings: 
+- Season 1: 0
+- Season 2: 0
+- Season 3: 0
+******************************
+Player ID: 10
+Name: Test10
+Surname: Subject10
+Nickname: #010
+Goals: 1
+Assists: 1
+Autogoals: 0
+Wins: 1
+Loses: 0
+Draws: 0
+Attendences:
+- Total: 1
+- Last: 21.1.2022
+MMR: 1472
 Seasons Ratings: 
 - Season 1: 0
 - Season 2: 0

@@ -260,118 +260,119 @@ def standings_koefficient(team):
         k += S[player]
     return k
 
-
-if len(DIC) < 15:
-    global_pair = two_team_partitions(DIC)
-    partitions = len(global_pair[0]) 
-    print("*" * 50)
-    for i in range(partitions):
-        strong = global_pair[0][i][1]
-        s = standings_koefficient(strong)
-        weak = global_pair[1][i][1]
-        w = standings_koefficient(weak)
-        k = abs(s - w)
-        print("Option ", i + 1 , ":")
-        print("Team A: ", strong)
-        print("Average Rating: ", average_rating(DIC, strong))
-        print("Team B: ", weak)
-        print("Average Rating: ", average_rating(DIC, weak))
-        print("Standings Divergence: ", k)
+def create(DIC):
+    if len(DIC) < 15:
+        global_pair = two_team_partitions(DIC)
+        partitions = len(global_pair[0]) 
         print("*" * 50)
-
-if len(DIC) == 15:
-    Players = Player_Complier(DIC)
-    ratings = list(Players.values())
-    print("*" * 10, " TURNAMENT 3x3 ", "*" * 10)
-    min = 1000
-    for i in range(10):
-        teams = three_teams_generator_simple(ratings)
-        maximum = max(abs(average_rating(DIC,teams[0]) - average_rating(DIC, teams[1])), abs(average_rating(DIC, teams[1]) - average_rating(DIC, teams[2])), abs(average_rating(DIC, teams[2]) - average_rating(DIC, teams[0])))
-        if maximum < min:
-            save_teams = teams
-            min = maximum
-    print("Team A:{}; ".format(save_teams[0]))
-    print("Average rating: {}".format(average_rating(DIC, save_teams[0])))
-    print("Team A:{}; ".format(save_teams[1]))
-    print("Average rating: {}".format(average_rating(DIC, save_teams[1])))
-    print("Team A:{}; ".format(save_teams[2]))
-    print("Average rating: {}".format(average_rating(DIC, save_teams[2])))
-    # print("Team B:{}; Average rating: {}".format(save_teams[1], average_rating(DIC, save_teams[1])))
-    # print("Team C:{}; Average rating: {}".format(save_teams[2], average_rating(DIC, save_teams[2])))
-    print("*" * 40)
-
-if len(DIC) > 15 & len(DIC) < 21:
-    global_pair = two_team_partitions(DIC)
-    partitions = min(len(global_pair[0]), len(global_pair[1]))
-    n = random.randint(0, partitions)
-    step1 = team_to_dic(DIC_COPY, global_pair[0][n][1])
-    step1_pair = two_team_partitions(step1) 
-    team_A = step1_pair[0][0][1]
-    team_B = step1_pair[1][0][1]
-    step2 = team_to_dic(DIC_COPY, global_pair[1][n][1])
-    step2_pair = two_team_partitions(step2)
-    team_C = step2_pair[0][0][1]
-    team_D = step2_pair[1][0][1]
-    for player in (global_pair[0][n][1] + global_pair[1][n][1]):
-        if (player not in team_A) & (player not in team_B) & (player not in team_C) & (player not in team_D):
-            rating_A = average_rating(DIC, team_A)
-            rating_B = average_rating(DIC, team_B)
-            rating_C = average_rating(DIC, team_C)
-            rating_D = average_rating(DIC, team_D)
-            target = min(rating_A, rating_B, rating_C, rating_D)
-            if target == rating_A:
-                team_A.append(player)
-                rating_A = average_rating(DIC, team_A)
-            if target == rating_B & target != rating_A:
-                team_B.append(player)
-                rating_B = average_rating(DIC, team_B)
-            if target == rating_C & target != rating_A & target != rating_B:
-                team_C.append(player)
-                rating_C = average_rating(DIC, team_C)
-            if target == rating_D & target != rating_A & target != rating_B & target != rating_C:
-                team_D.append(player)
-                rating_D = average_rating(DIC, team_D) 
-    k1 = min(len(team_A), len(team_B), len(team_C), len(team_D))
-    k2 = max(len(team_A), len(team_B), len(team_C), len(team_D))
-    if k1 == k2:
-        print("*" * 15, " TOURNAMENT ", "4 x", k1, " ",   "*" * 15)
-    else:
-        print("*" * 15, " TOURNAMENT ", "4 x", k1, "-", k2, " ",   "*" * 15)
-    print("Total players: ", len(DIC))
-    print("Chance of success: ", random.randint(0,99), "%")
-    print("-" * 30)
-    time.sleep(3)
-    check = (len(DIC) == len(team_A) + len(team_B) + len(team_C) + len(team_D))
-    if check:
-        print("Success!")
-        print("Team A: ", team_A,";")
-        print("Average Rating: ", average_rating(DIC, team_A),";")
-        print("Players: ", len(team_B))
-        print("Team B: ", team_B,";")
-        print("Average Rating: ", average_rating(DIC, team_B),";")
-        print("Players: ", len(team_B))
-        print("Team C: ", team_C,";")
-        print("Average Rating: ", average_rating(DIC, team_C),";")
-        print("Players: ", len(team_C))
-        print("Team D: ", team_D,";")
-        print("Average Rating: ", average_rating(DIC, team_D),";")
-        print("Players: ", len(team_D))
-        # print("Team B: ", team_B, " , Average Rating: ", average_rating(DIC, team_B), "; Players: ", len(team_B))
-        # print("Team C: ", team_C, " , Average Rating: ", average_rating(DIC, team_C), "; Players: ", len(team_C))
-        # print("Team D: ", team_D, " , Average Rating: ", average_rating(DIC, team_D), "; Players: ", len(team_D))
-    else:
-        print("Failed! Try Again...")
+        for i in range(partitions):
+            strong = global_pair[0][i][1]
+            s = standings_koefficient(strong)
+            weak = global_pair[1][i][1]
+            w = standings_koefficient(weak)
+            k = abs(s - w)
+            print("Option ", i + 1 , ":")
+            print("Team A: ", strong)
+            print("Average Rating: ", average_rating(DIC, strong))
+            print("Team B: ", weak)
+            print("Average Rating: ", average_rating(DIC, weak))
+            print("Standings Divergence: ", k)
+            print("*" * 50)
     
-    # if check:
-    #     print("Matches:")
-    #     print("A:B")
-    #     print("C:D")
-    #     print("A:C")
-    #     print("B:D")
-    #     print("A:D")
-    #     print("B:C")
-    print("*" * 50)
-
-
-
+    if len(DIC) == 15:
+        Players = Player_Complier(DIC)
+        ratings = list(Players.values())
+        print("*" * 10, " TURNAMENT 3x3 ", "*" * 10)
+        min = 1000
+        for i in range(10):
+            teams = three_teams_generator_simple(ratings)
+            maximum = max(abs(average_rating(DIC,teams[0]) - average_rating(DIC, teams[1])), abs(average_rating(DIC, teams[1]) - average_rating(DIC, teams[2])), abs(average_rating(DIC, teams[2]) - average_rating(DIC, teams[0])))
+            if maximum < min:
+                save_teams = teams
+                min = maximum
+        print("Team A:{}; ".format(save_teams[0]))
+        print("Average rating: {}".format(average_rating(DIC, save_teams[0])))
+        print("Team A:{}; ".format(save_teams[1]))
+        print("Average rating: {}".format(average_rating(DIC, save_teams[1])))
+        print("Team A:{}; ".format(save_teams[2]))
+        print("Average rating: {}".format(average_rating(DIC, save_teams[2])))
+        # print("Team B:{}; Average rating: {}".format(save_teams[1], average_rating(DIC, save_teams[1])))
+        # print("Team C:{}; Average rating: {}".format(save_teams[2], average_rating(DIC, save_teams[2])))
+        print("*" * 40)
+    
+    if len(DIC) > 15 & len(DIC) < 21:
+        global_pair = two_team_partitions(DIC)
+        partitions = min(len(global_pair[0]), len(global_pair[1]))
+        n = random.randint(0, partitions)
+        step1 = team_to_dic(DIC_COPY, global_pair[0][n][1])
+        step1_pair = two_team_partitions(step1) 
+        team_A = step1_pair[0][0][1]
+        team_B = step1_pair[1][0][1]
+        step2 = team_to_dic(DIC_COPY, global_pair[1][n][1])
+        step2_pair = two_team_partitions(step2)
+        team_C = step2_pair[0][0][1]
+        team_D = step2_pair[1][0][1]
+        for player in (global_pair[0][n][1] + global_pair[1][n][1]):
+            if (player not in team_A) & (player not in team_B) & (player not in team_C) & (player not in team_D):
+                rating_A = average_rating(DIC, team_A)
+                rating_B = average_rating(DIC, team_B)
+                rating_C = average_rating(DIC, team_C)
+                rating_D = average_rating(DIC, team_D)
+                target = min(rating_A, rating_B, rating_C, rating_D)
+                if target == rating_A:
+                    team_A.append(player)
+                    rating_A = average_rating(DIC, team_A)
+                if target == rating_B & target != rating_A:
+                    team_B.append(player)
+                    rating_B = average_rating(DIC, team_B)
+                if target == rating_C & target != rating_A & target != rating_B:
+                    team_C.append(player)
+                    rating_C = average_rating(DIC, team_C)
+                if target == rating_D & target != rating_A & target != rating_B & target != rating_C:
+                    team_D.append(player)
+                    rating_D = average_rating(DIC, team_D) 
+        k1 = min(len(team_A), len(team_B), len(team_C), len(team_D))
+        k2 = max(len(team_A), len(team_B), len(team_C), len(team_D))
+        if k1 == k2:
+            print("*" * 15, " TOURNAMENT ", "4 x", k1, " ",   "*" * 15)
+        else:
+            print("*" * 15, " TOURNAMENT ", "4 x", k1, "-", k2, " ",   "*" * 15)
+        print("Total players: ", len(DIC))
+        print("Chance of success: ", random.randint(0,99), "%")
+        print("-" * 30)
+        time.sleep(3)
+        check = (len(DIC) == len(team_A) + len(team_B) + len(team_C) + len(team_D))
+        if check:
+            print("Success!")
+            print("Team A: ", team_A,";")
+            print("Average Rating: ", average_rating(DIC, team_A),";")
+            print("Players: ", len(team_B))
+            print("Team B: ", team_B,";")
+            print("Average Rating: ", average_rating(DIC, team_B),";")
+            print("Players: ", len(team_B))
+            print("Team C: ", team_C,";")
+            print("Average Rating: ", average_rating(DIC, team_C),";")
+            print("Players: ", len(team_C))
+            print("Team D: ", team_D,";")
+            print("Average Rating: ", average_rating(DIC, team_D),";")
+            print("Players: ", len(team_D))
+            # print("Team B: ", team_B, " , Average Rating: ", average_rating(DIC, team_B), "; Players: ", len(team_B))
+            # print("Team C: ", team_C, " , Average Rating: ", average_rating(DIC, team_C), "; Players: ", len(team_C))
+            # print("Team D: ", team_D, " , Average Rating: ", average_rating(DIC, team_D), "; Players: ", len(team_D))
+        else:
+            print("Failed! Try Again...")
+        
+        # if check:
+        #     print("Matches:")
+        #     print("A:B")
+        #     print("C:D")
+        #     print("A:C")
+        #     print("B:D")
+        #     print("A:D")
+        #     print("B:C")
+        print("*" * 50)
+    
+    
+    
+        
     
