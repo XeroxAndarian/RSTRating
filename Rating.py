@@ -1,17 +1,21 @@
-
 import Player
+import Season
 from datetime import date, datetime
 from datetime import time 
 # from TeamCalculatorVerisons import TeamCalculator
 
 
-RATINGS = "Ratings.txt"
+RATINGS = "Data.txt"
 CALENDAR = "Calendar.txt"
-LAST_MATCH = ""
-LATEST_RESULTS = "Last.csv"
+LAST_MATCH = " "
+LATEST_RESULTS = "Match History/Last.csv"
 PLAYERS_DICT = {}
 PLAYERS_LIST = []
+SEASON_DICT = {}
+SEASON_LIST = []
 Seasons = 0
+Matches = 0
+
 
 def rating_in():
     '''Fills up PLAYERS_DICT dictionary and PLAYERS_LIST with Ratings until the last update.'''
@@ -42,29 +46,77 @@ def rating_in():
     R.close()
     return None
 
-def extract_from_dict(id, str):
-    return PLAYERS_DICT.get(id).get(str)
+def season_in(n):
+    R = open("Seasons/Season_" + str(n) + ".txt", "r")
+    content = R.read()
+    R_list = content.split("\n")
+    id = 0
+    pl = {}
+    def confirm_season():
+        SC = R_list[1].split(" ")
+        return int(SC[1]) == n
+    if confirm_season():
+        for line in R_list[5:-1]:
+            if line == 30*"*":
+                if id > 0:
+                    SEASON_DICT[id] = pl.copy()
+                    SEASON_LIST.append(Season.Season(id, n))
+                id += 1
+                continue
+            else:
+                sublist = line.split(":")
+                info = sublist[0] 
+                value = sublist[1].replace(" ", "")
+                pl[info] = value
+    global Matches
+    g = (R_list[4].split(" "))[3]
+    h = g.replace(" ", "")
+    Matches = int(h)
+    return None
+
+def extract_from_dict(dict, id, str):
+    return dict.get(id).get(str)
 
 def update_players():
 
     for player in PLAYERS_LIST:
         id = player.id
-        player.name = extract_from_dict(id, "Name")
-        player.sur = extract_from_dict(id, "Surname")
-        player.nick = extract_from_dict(id, "Nickname")
-        player.g = int(extract_from_dict(id, "Goals"))
-        player.a = int(extract_from_dict(id, "Assists"))
-        player.w = int(extract_from_dict(id, "Wins"))
-        player.l = int(extract_from_dict(id, "Loses"))
-        player.atn = int(extract_from_dict(id, "- Total"))
-        player.atl = extract_from_dict(id, "- Last")
-        player.ag = int(extract_from_dict(id, "Autogoals"))
+        player.name = extract_from_dict(PLAYERS_DICT, id, "Name")
+        player.sur = extract_from_dict(PLAYERS_DICT, id, "Surname")
+        player.nick = extract_from_dict(PLAYERS_DICT, id, "Nickname")
+        player.g = int(extract_from_dict(PLAYERS_DICT, id, "Goals"))
+        player.a = int(extract_from_dict(PLAYERS_DICT, id, "Assists"))
+        player.w = int(extract_from_dict(PLAYERS_DICT, id, "Wins"))
+        player.l = int(extract_from_dict(PLAYERS_DICT, id, "Loses"))
+        player.atn = int(extract_from_dict(PLAYERS_DICT, id, "- Total"))
+        player.atl = extract_from_dict(PLAYERS_DICT, id, "- Last")
+        player.ag = int(extract_from_dict(PLAYERS_DICT, id, "Autogoals"))
         player.mmr = round(player.get_mmr())
 
         list = []
         for i in range(Seasons):
             list.append(int(extract_from_dict(id, "- Season " + str(i+1))))
         player.sr = list
+    return None
+
+def update_season():
+
+    for player in SEASON_LIST:
+        id = player.id
+        player.name = extract_from_dict(SEASON_DICT, id, "Name")
+        player.sur = extract_from_dict(SEASON_DICT, id, "Surname")
+        player.nick = extract_from_dict(SEASON_DICT, id, "Nickname")
+        player.g = int(extract_from_dict(SEASON_DICT, id, "Goals"))
+        player.a = int(extract_from_dict(SEASON_DICT, id, "Assists"))
+        player.w = int(extract_from_dict(SEASON_DICT, id, "Wins"))
+        player.l = int(extract_from_dict(SEASON_DICT, id, "Loses"))
+        player.atn = int(extract_from_dict(SEASON_DICT, id, "- Total"))
+        player.atl = extract_from_dict(SEASON_DICT, id, "- Last")
+        player.ag = int(extract_from_dict(SEASON_DICT, id, "Autogoals"))
+        player.cw = int(extract_from_dict(SEASON_DICT, id, "Consecutive Wins"))
+        player.pos = [int(extract_from_dict(SEASON_DICT, id, "- Current")), int(extract_from_dict(SEASON_DICT, id, "- Previous"))]
+        player.winstreak = int(extract_from_dict(SEASON_DICT, id, "Winstreak"))
+        player.sr = int(extract_from_dict(SEASON_DICT, id, "SR"))
     return None
 
 def update_last_match():
@@ -90,6 +142,7 @@ def update_last_match():
             teams[team_name] = team_list
         return teams
     
+    
     def match_result():
         results = {}
         team_score = 0
@@ -108,6 +161,8 @@ def update_last_match():
                 draw = True
         return results, won, lost
 
+    
+
 
     def duplicate_safety():
         global LAST_MATCH
@@ -117,25 +172,60 @@ def update_last_match():
         else:
             return False
 
+    def SR_diff():
+        ''' Team 1 - team 2'''
+        t = teams()
+        bright = list(t.values())[0]
+        sum_bright = 0
+        for player in bright:
+            sum_bright += int(extract_from_dict(SEASON_DICT, player, "SR"))
+        
+        dark = list(t.values())[1]
+        sum_dark = 0
+        for player in dark:
+            sum_dark += int(extract_from_dict(SEASON_DICT, player, "SR"))
+        
+        diff = sum_bright - sum_dark
+        if diff > 0:
+            fav = 1 #fav is bright 
+        elif diff < 0:
+            fav = -1 #fav is dark
+        else:
+            fav = 0 #noone is fav
+        
+        base = 15
+
+
+        return  None
+
+
+    print(SR_diff())
+
     
     if duplicate_safety():        
         for line in R_list[2:]:
             line_list = line.split(",")
             id = find_id(line_list[1])
-            player = PLAYERS_LIST[id - 1]
-            goals = len(line_list[2])
-            assists = len(line_list[3])
-            auto_goals = len(line_list[4])
-            player.g += goals
-            player.a += assists
-            player.ag += auto_goals
-            player.atl = last_date
-            player.atn += 1
-            if not draw:
-                if player.id in teams().get(match_result()[1]):
-                    player.w += 1
+            for ps in [0, 1]:
+                if ps == 0:
+                    player = PLAYERS_LIST[id - 1]
                 else: 
-                    player.l += 1
+                    player = SEASON_LIST[id - 1]
+                goals = len(line_list[2])
+                assists = len(line_list[3])
+                auto_goals = len(line_list[4])
+                player.g += goals
+                player.a += assists
+                player.ag += auto_goals
+                player.atl = last_date
+                player.atn += 1
+                if draw:
+                    if player.id in teams().get(match_result()[1]):
+                        player.w += 1
+                    else: 
+                        player.l += 1
+                
+            
             
             
 
@@ -176,7 +266,46 @@ def ratings_out():
         f.write(30*"*" + "\n")
     return None
 
+def season_out(n):
+    with open("Seasons/Season_" + str(n) + ".txt", "w") as f:
+        f.write("Season Information\n")
+        f.write("Season: " + str(n) + "\n")
+        f.write("" + str(datetime.now()) + "\n")
+        f.write(LAST_MATCH + "\n")
+        f.write("Number of matches: " + str(Matches) + "\n")
+        for player in SEASON_LIST:
+            f.write(30*"*" + "\n")
+            f.write("Player ID: " + str(player.id) + "\n")  
+            f.write("Name: " + player.name + "\n")
+            f.write("Surname: " + player.sur + "\n")
+            f.write("Nickname: " + player.nick + "\n")
+            f.write("Goals: " + str(player.g) + "\n")
+            f.write("Assists: " + str(player.a) + "\n")
+            f.write("Autogoals: " + str(player.ag) + "\n")
+            f.write("Wins: " + str(player.w) + "\n")
+            f.write("Consecutive Wins: " + str(player.cw) + "\n")
+            f.write("Winstreak: " + str(player.winstreak) + "\n")
+            f.write("Loses: " + str(player.l) + "\n")
+            f.write("Draws: " + str(player.atn - player.w - player.l) + "\n")
+            f.write("Attendences:" + "\n")
+            f.write("- Total: " + str(player.atn) + "\n")
+            f.write("- Last: " + player.atl + "\n" )
+            f.write("SR: " + str(player.sr) + "\n")
+            f.write("Position: " + "\n")
+            f.write("- Current: " + str(player.pos[0]) + "\n")
+            f.write("- Previous: " + str(player.pos[1])  + "\n")
+            f.write("Leap: " + str(player.pos[0] - player.pos[1]) + "\n")
+        f.write(30*"*" + "\n")
+    return None
+
 rating_in()
 update_players()
+season_in(Seasons)
+update_season()
+
+
 update_last_match()
+
+
 ratings_out()
+season_out(Seasons)

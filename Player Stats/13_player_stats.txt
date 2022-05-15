@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.188187
+******************************
+Player ID: 13
+Name: Blaz
+Surname: Petrovic
+Nickname: Blaz
+------------------------------
+Goals: 22
+Average Goals per match: 0.7333333333333333
+Assists: 10
+Autogoals: 0
+Wins: 7
+Loses: 14
+Draws: 9
+Attendences:
+- Total: 30
+- Last: 
+MMR: 979
+Seasons Ratings: 
+******************************

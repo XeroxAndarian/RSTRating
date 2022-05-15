@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.185187
+******************************
+Player ID: 4
+Name: Miha
+Surname: Fele
+Nickname: Fele
+------------------------------
+Goals: 1
+Average Goals per match: 0.06666666666666667
+Assists: 3
+Autogoals: 0
+Wins: 6
+Loses: 3
+Draws: 6
+Attendences:
+- Total: 15
+- Last: 
+MMR: 969
+Seasons Ratings: 
+******************************

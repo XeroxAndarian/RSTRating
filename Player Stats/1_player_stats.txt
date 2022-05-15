@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.182187
+******************************
+Player ID: 1
+Name: Nejc
+Surname: Babnik
+Nickname: Becho
+------------------------------
+Goals: 15
+Average Goals per match: 0.6
+Assists: 9
+Autogoals: 1
+Wins: 9
+Loses: 11
+Draws: 5
+Attendences:
+- Total: 25
+- Last: 
+MMR: 994
+Seasons Ratings: 
+******************************

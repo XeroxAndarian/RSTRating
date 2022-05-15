@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.187187
+******************************
+Player ID: 10
+Name: Maks
+Surname: Lajovic
+Nickname: Maks
+------------------------------
+Goals: 12
+Average Goals per match: 0.5454545454545454
+Assists: 5
+Autogoals: 0
+Wins: 4
+Loses: 8
+Draws: 10
+Attendences:
+- Total: 22
+- Last: 
+MMR: 934
+Seasons Ratings: 
+******************************

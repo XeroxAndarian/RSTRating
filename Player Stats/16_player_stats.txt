@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.189187
+******************************
+Player ID: 16
+Name: Marko
+Surname: Salamun
+Nickname: Marko
+------------------------------
+Goals: 3
+Average Goals per match: 0.42857142857142855
+Assists: 0
+Autogoals: 0
+Wins: 2
+Loses: 2
+Draws: 3
+Attendences:
+- Total: 7
+- Last: 
+MMR: 950
+Seasons Ratings: 
+******************************

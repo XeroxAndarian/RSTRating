@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.185187
+******************************
+Player ID: 5
+Name: Danijel
+Surname: Grad
+Nickname: Daniel
+------------------------------
+Goals: 16
+Average Goals per match: 0.8
+Assists: 6
+Autogoals: 0
+Wins: 2
+Loses: 9
+Draws: 9
+Attendences:
+- Total: 20
+- Last: 
+MMR: 937
+Seasons Ratings: 
+******************************

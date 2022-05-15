@@ -1,8 +1,9 @@
 import math
+import Season
 
 class Player:
 
-    def __init__(self, id, name="", surname="", nick = "", goal=0, assist=0, attendence=[0, ""], autogoal=0, MMR=0, SR = [], wins=0, loses=0):
+    def __init__(self, id, name="", surname="", nick = "", goal=0, assist=0, attendence=[0, ""], autogoal=0, MMR=0, Seasons = [], wins=0, loses=0):
         self.id = id
         self.name = name
         self.sur = surname
@@ -13,7 +14,7 @@ class Player:
         self.atl = attendence[1]
         self.ag = autogoal
         self.mmr = MMR
-        self.sr = SR
+        self.seasons = Seasons
         self.w = wins
         self.l = loses
 
@@ -38,11 +39,12 @@ class Player:
         C = self.a_avg()
         D = self.ag_avg()
 
-        Z = (math.pi / 4) * math.atan(math.exp(B/2) + math.exp(C/4) - 2)
+        Z = (4 / math.pi) * math.atan(math.exp(B/2) + math.exp(C/4) - 2)
         X = math.exp(-D) * 250
         Y = 500 * math.exp(-D)
         W = 500 * (math.exp(A - 0.5))
         return Z * X + Y + W
+    
 
 def fraction(n,m):
     if m == 0:

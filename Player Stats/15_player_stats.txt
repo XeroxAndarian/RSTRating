@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.189187
+******************************
+Player ID: 15
+Name: Gal
+Surname: Prednik
+Nickname: Gal
+------------------------------
+Goals: 25
+Average Goals per match: 1.0416666666666667
+Assists: 5
+Autogoals: 0
+Wins: 8
+Loses: 9
+Draws: 7
+Attendences:
+- Total: 24
+- Last: 
+MMR: 1048
+Seasons Ratings: 
+******************************

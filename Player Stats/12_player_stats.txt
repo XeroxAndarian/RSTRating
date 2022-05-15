@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.188187
+******************************
+Player ID: 12
+Name: Matej
+Surname: Pavli
+Nickname: Pavli
+------------------------------
+Goals: 10
+Average Goals per match: 0.43478260869565216
+Assists: 6
+Autogoals: 0
+Wins: 13
+Loses: 6
+Draws: 4
+Attendences:
+- Total: 23
+- Last: 
+MMR: 1093
+Seasons Ratings: 
+******************************

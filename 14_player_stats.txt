@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:37:02.993340
+******************************
+Player ID: 14
+Name: Gasper
+Surname: Petrovic
+Nickname: Gap
+------------------------------
+Goals: 26
+Average Goals per match: 0.65
+Assists: 20
+Autogoals: 0
+Wins: 19
+Loses: 11
+Draws: 10
+Attendences:
+- Total: 40
+- Last: 
+MMR: 1081
+Seasons Ratings: 
+******************************

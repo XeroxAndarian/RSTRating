@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.188187
+******************************
+Player ID: 11
+Name: Andraz
+Surname: Lovsin
+Nickname: Andro
+------------------------------
+Goals: 8
+Average Goals per match: 0.5
+Assists: 3
+Autogoals: 0
+Wins: 6
+Loses: 5
+Draws: 5
+Attendences:
+- Total: 16
+- Last: 
+MMR: 1004
+Seasons Ratings: 
+******************************

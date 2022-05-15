@@ -1,0 +1,309 @@
+Player Base
+2022-04-24 18:34:55.684318
+
+Current Season: 0
+******************************
+Player ID: 1
+Name: Nejc
+Surname: Babnik
+Nickname: Becho
+Goals: 15
+Assists: 9
+Autogoals: 1
+Wins: 9
+Loses: 11
+Draws: 5
+Attendences:
+- Total: 25
+- Last: 
+MMR: 994
+Seasons Ratings: 
+******************************
+Player ID: 2
+Name: Erik
+Surname: Bogataj
+Nickname: Speedy
+Goals: 17
+Assists: 5
+Autogoals: 0
+Wins: 6
+Loses: 9
+Draws: 11
+Attendences:
+- Total: 26
+- Last: 
+MMR: 963
+Seasons Ratings: 
+******************************
+Player ID: 3
+Name: Jaka
+Surname: Dezelak
+Nickname: Dezelak
+Goals: 14
+Assists: 7
+Autogoals: 0
+Wins: 10
+Loses: 8
+Draws: 8
+Attendences:
+- Total: 26
+- Last: 
+MMR: 1017
+Seasons Ratings: 
+******************************
+Player ID: 4
+Name: Miha
+Surname: Fele
+Nickname: Fele
+Goals: 1
+Assists: 3
+Autogoals: 0
+Wins: 6
+Loses: 3
+Draws: 6
+Attendences:
+- Total: 15
+- Last: 
+MMR: 969
+Seasons Ratings: 
+******************************
+Player ID: 5
+Name: Danijel
+Surname: Grad
+Nickname: Daniel
+Goals: 16
+Assists: 6
+Autogoals: 0
+Wins: 2
+Loses: 9
+Draws: 9
+Attendences:
+- Total: 20
+- Last: 
+MMR: 937
+Seasons Ratings: 
+******************************
+Player ID: 6
+Name: Janez
+Surname: Hribar
+Nickname: Johney
+Goals: 16
+Assists: 5
+Autogoals: 0
+Wins: 5
+Loses: 9
+Draws: 8
+Attendences:
+- Total: 22
+- Last: 
+MMR: 971
+Seasons Ratings: 
+******************************
+Player ID: 7
+Name: Matej
+Surname: Jerak
+Nickname: Jerak
+Goals: 3
+Assists: 3
+Autogoals: 0
+Wins: 6
+Loses: 6
+Draws: 9
+Attendences:
+- Total: 21
+- Last: 
+MMR: 925
+Seasons Ratings: 
+******************************
+Player ID: 8
+Name: Jernej
+Surname: Kokalj
+Nickname: Jernej
+Goals: 12
+Assists: 6
+Autogoals: 0
+Wins: 13
+Loses: 11
+Draws: 12
+Attendences:
+- Total: 36
+- Last: 
+MMR: 978
+Seasons Ratings: 
+******************************
+Player ID: 9
+Name: Matevz
+Surname: Kokalj
+Nickname: Matevz K
+Goals: 11
+Assists: 7
+Autogoals: 0
+Wins: 12
+Loses: 14
+Draws: 9
+Attendences:
+- Total: 35
+- Last: 
+MMR: 970
+Seasons Ratings: 
+******************************
+Player ID: 10
+Name: Maks
+Surname: Lajovic
+Nickname: Maks
+Goals: 12
+Assists: 5
+Autogoals: 0
+Wins: 4
+Loses: 8
+Draws: 10
+Attendences:
+- Total: 22
+- Last: 
+MMR: 934
+Seasons Ratings: 
+******************************
+Player ID: 11
+Name: Andraz
+Surname: Lovsin
+Nickname: Andro
+Goals: 8
+Assists: 3
+Autogoals: 0
+Wins: 6
+Loses: 5
+Draws: 5
+Attendences:
+- Total: 16
+- Last: 
+MMR: 1004
+Seasons Ratings: 
+******************************
+Player ID: 12
+Name: Matej
+Surname: Pavli
+Nickname: Pavli
+Goals: 10
+Assists: 6
+Autogoals: 0
+Wins: 13
+Loses: 6
+Draws: 4
+Attendences:
+- Total: 23
+- Last: 
+MMR: 1093
+Seasons Ratings: 
+******************************
+Player ID: 13
+Name: Blaz
+Surname: Petrovic
+Nickname: Blaz
+Goals: 22
+Assists: 10
+Autogoals: 0
+Wins: 7
+Loses: 14
+Draws: 9
+Attendences:
+- Total: 30
+- Last: 
+MMR: 979
+Seasons Ratings: 
+******************************
+Player ID: 14
+Name: Gasper
+Surname: Petrovic
+Nickname: Gap
+Goals: 26
+Assists: 20
+Autogoals: 0
+Wins: 19
+Loses: 11
+Draws: 10
+Attendences:
+- Total: 40
+- Last: 
+MMR: 1081
+Seasons Ratings: 
+******************************
+Player ID: 15
+Name: Gal
+Surname: Prednik
+Nickname: Gal
+Goals: 25
+Assists: 5
+Autogoals: 0
+Wins: 8
+Loses: 9
+Draws: 7
+Attendences:
+- Total: 24
+- Last: 
+MMR: 1048
+Seasons Ratings: 
+******************************
+Player ID: 16
+Name: Marko
+Surname: Salamun
+Nickname: Marko
+Goals: 3
+Assists: 0
+Autogoals: 0
+Wins: 2
+Loses: 2
+Draws: 3
+Attendences:
+- Total: 7
+- Last: 
+MMR: 950
+Seasons Ratings: 
+******************************
+Player ID: 17
+Name: Tilen
+Surname: Salamun
+Nickname: Tilen S
+Goals: 11
+Assists: 10
+Autogoals: 0
+Wins: 6
+Loses: 7
+Draws: 8
+Attendences:
+- Total: 21
+- Last: 
+MMR: 983
+Seasons Ratings: 
+******************************
+Player ID: 18
+Name: Jan
+Surname: Salamun
+Nickname: Jan
+Goals: 12
+Assists: 16
+Autogoals: 0
+Wins: 15
+Loses: 9
+Draws: 9
+Attendences:
+- Total: 33
+- Last: 
+MMR: 1040
+Seasons Ratings: 
+******************************
+Player ID: 19
+Name: Luka
+Surname: Strumbelj
+Nickname: Strumbl
+Goals: 13
+Assists: 9
+Autogoals: 1
+Wins: 7
+Loses: 11
+Draws: 9
+Attendences:
+- Total: 27
+- Last: 
+MMR: 940
+Seasons Ratings: 
+******************************

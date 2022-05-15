@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.187187
+******************************
+Player ID: 9
+Name: Matevz
+Surname: Kokalj
+Nickname: MatevzK
+------------------------------
+Goals: 11
+Average Goals per match: 0.3142857142857143
+Assists: 7
+Autogoals: 0
+Wins: 12
+Loses: 14
+Draws: 9
+Attendences:
+- Total: 35
+- Last: 
+MMR: 970
+Seasons Ratings: 
+******************************

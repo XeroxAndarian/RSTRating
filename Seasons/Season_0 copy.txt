@@ -1,0 +1,405 @@
+Season Information
+Season: 0
+2022-05-03 15:30:34.889245
+21.4.2021
+Number of matches: 0
+******************************
+Player ID: 1
+Name: Nejc
+Surname: Babnik
+Nickname: Becho
+Goals: 1
+Assists: 2
+Autogoals: 3
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 1097
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 2
+Name: Erik
+Surname: Bogataj
+Nickname: Speedy
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 0
+Attendences:
+- Total: 0
+- Last: 
+SR: 1075
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 3
+Name: Jaka
+Surname: Dezelak
+Nickname: Dezelak
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 1041
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 4
+Name: Miha
+Surname: Fele
+Nickname: Fele
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 0
+Attendences:
+- Total: 0
+- Last: 
+SR: 0
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 5
+Name: Danijel
+Surname: Grad
+Nickname: Daniel
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 1102
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 6
+Name: Janez
+Surname: Hribar
+Nickname: Johney
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 0
+Attendences:
+- Total: 0
+- Last: 
+SR: 1115
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 7
+Name: Matej
+Surname: Jerak
+Nickname: Jerak
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 962
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 8
+Name: Jernej
+Surname: Kokalj
+Nickname: Jernej
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 1023
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 9
+Name: Matevz
+Surname: Kokalj
+Nickname: MatevzK
+Goals: 0
+Assists: 0
+Autogoals: 0
+Wins: 0
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 0
+Draws: 1
+Attendences:
+- Total: 1
+- Last: 21.4.2021
+SR: 1100
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 10
+Name: Maks
+Surname: Lajovic
+Nickname: Maks
+Goals: 12
+Assists: 5
+Autogoals: 0
+Wins: 4
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 8
+Draws: 11
+Attendences:
+- Total: 23
+- Last: 21.4.2021
+SR: 1137
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 11
+Name: Andraz
+Surname: Lovsin
+Nickname: Andro
+Goals: 8
+Assists: 3
+Autogoals: 0
+Wins: 6
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 5
+Draws: 6
+Attendences:
+- Total: 17
+- Last: 21.4.2021
+SR: 1056
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 12
+Name: Matej
+Surname: Pavli
+Nickname: Pavli
+Goals: 10
+Assists: 6
+Autogoals: 0
+Wins: 13
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 6
+Draws: 4
+Attendences:
+- Total: 23
+- Last: 
+SR: 1061
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 13
+Name: Blaz
+Surname: Petrovic
+Nickname: Blaz
+Goals: 22
+Assists: 10
+Autogoals: 0
+Wins: 7
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 14
+Draws: 10
+Attendences:
+- Total: 31
+- Last: 21.4.2021
+SR: 1077
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 14
+Name: Gasper
+Surname: Petrovic
+Nickname: Gap
+Goals: 26
+Assists: 20
+Autogoals: 0
+Wins: 19
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 11
+Draws: 11
+Attendences:
+- Total: 41
+- Last: 21.4.2021
+SR: 1207
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 15
+Name: Gal
+Surname: Prednik
+Nickname: Gal
+Goals: 25
+Assists: 5
+Autogoals: 0
+Wins: 8
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 9
+Draws: 8
+Attendences:
+- Total: 25
+- Last: 21.4.2021
+SR: 1284
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 16
+Name: Marko
+Surname: Salamun
+Nickname: Marko
+Goals: 3
+Assists: 0
+Autogoals: 0
+Wins: 2
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 2
+Draws: 3
+Attendences:
+- Total: 7
+- Last: 
+SR: 1009
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 17
+Name: Tilen
+Surname: Salamun
+Nickname: TilenS
+Goals: 11
+Assists: 10
+Autogoals: 0
+Wins: 6
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 7
+Draws: 8
+Attendences:
+- Total: 21
+- Last: 
+SR: 1011
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 18
+Name: Jan
+Surname: Salamun
+Nickname: Jan
+Goals: 12
+Assists: 16
+Autogoals: 0
+Wins: 15
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 9
+Draws: 10
+Attendences:
+- Total: 34
+- Last: 21.4.2021
+SR: 1222
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************
+Player ID: 19
+Name: Luka
+Surname: Strumbelj
+Nickname: Strumbl
+Goals: 13
+Assists: 9
+Autogoals: 1
+Wins: 7
+Consecutive Wins: 0
+Winstreak: 0
+Loses: 11
+Draws: 10
+Attendences:
+- Total: 28
+- Last: 21.4.2021
+SR: 1132
+Position: 
+- Current: 0
+- Previous: 0
+Leap: 0
+******************************

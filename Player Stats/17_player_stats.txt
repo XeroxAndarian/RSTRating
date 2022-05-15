@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.190188
+******************************
+Player ID: 17
+Name: Tilen
+Surname: Salamun
+Nickname: TilenS
+------------------------------
+Goals: 11
+Average Goals per match: 0.5238095238095238
+Assists: 10
+Autogoals: 0
+Wins: 6
+Loses: 7
+Draws: 8
+Attendences:
+- Total: 21
+- Last: 
+MMR: 983
+Seasons Ratings: 
+******************************

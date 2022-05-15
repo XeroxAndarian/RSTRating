@@ -1,0 +1,21 @@
+Player Stats
+2022-04-24 18:49:15.184187
+******************************
+Player ID: 3
+Name: Jaka
+Surname: Dezelak
+Nickname: Dezelak
+------------------------------
+Goals: 14
+Average Goals per match: 0.5384615384615384
+Assists: 7
+Autogoals: 0
+Wins: 10
+Loses: 8
+Draws: 8
+Attendences:
+- Total: 26
+- Last: 
+MMR: 1017
+Seasons Ratings: 
+******************************
