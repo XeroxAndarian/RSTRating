@@ -199,7 +199,7 @@ def update_last_match():
         return  None
 
 
-    print(SR_diff())
+    
 
     
     if duplicate_safety():        
@@ -300,12 +300,12 @@ def season_out(n):
 
 rating_in()
 update_players()
-season_in(Seasons)
-update_season()
+# season_in(Seasons)
+# update_season()
 
 
 update_last_match()
 
 
 ratings_out()
-season_out(Seasons)
+# season_out(Seasons)
