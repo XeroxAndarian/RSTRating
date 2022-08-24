@@ -18,8 +18,7 @@ def previous_match_stats():
         file_name = "Version2.0\Data\Match History\\" +  str(date) + ".csv"
         exsists = os.path.exists(file_name)
         k+=1
-        if k > 100:
-            print("Error")
+        if k > 10000:
             break
         
     file = open(file_name, "r")

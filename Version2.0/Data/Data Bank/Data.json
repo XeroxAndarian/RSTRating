@@ -1,5 +1,6 @@
 {
     "update": "2022-08-20",
+    "season": 9,
     "90": {
         "id": 90,
         "name": "test0",
@@ -20,7 +21,26 @@
         "win": 7,
         "loss": 16,
         "draw": 10,
-        "MMR": 1025.7007315007063
+        "MMR": 1025.7007315007063,
+        "S8R": 1050,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "91": {
         "id": 91,
@@ -41,7 +61,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.0
+        "MMR": 1000.0,
+        "S8R": 1100,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "92": {
         "id": 92,
@@ -59,7 +98,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.0
+        "MMR": 1000.0,
+        "S8R": 1030,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "93": {
         "id": 93,
@@ -77,7 +135,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.0
+        "MMR": 1000.0,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "94": {
         "id": 94,
@@ -95,7 +172,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.4140408333708
+        "MMR": 1000.4140408333708,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "95": {
         "id": 95,
@@ -113,7 +209,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.0
+        "MMR": 1000.0,
+        "S8R": 1020,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "96": {
         "id": 96,
@@ -131,7 +246,26 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1002.0960075801976
+        "MMR": 1002.0960075801976,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "97": {
         "id": 97,
@@ -145,7 +279,26 @@
         "win": 0,
         "loss": 0,
         "draw": 0,
-        "MMR": 0
+        "MMR": 0,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "98": {
         "id": 98,
@@ -160,7 +313,26 @@
         "loss": 0,
         "draw": 0,
         "auto goal average": 0,
-        "MMR": 0
+        "MMR": 0,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     },
     "99": {
         "id": 99,
@@ -178,6 +350,25 @@
         "loss": 0,
         "draw": 10,
         "auto goal average": 0.0,
-        "MMR": 1000.4140408333708
+        "MMR": 1000.4140408333708,
+        "S8R": 1000,
+        "winstreak": 0,
+        "last match played": "",
+        "season 9": {
+            "SR": 999,
+            "rank": "Unranked",
+            "goal": 0,
+            "assist": 0,
+            "auto goal": 0,
+            "attendance": 0,
+            "standing": 0,
+            "win": 0,
+            "loss": 0,
+            "draw": 0,
+            "winrate": 0,
+            "goal average": 0,
+            "assist average": 0,
+            "auto goal average": 0
+        }
     }
 }
