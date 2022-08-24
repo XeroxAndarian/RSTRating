@@ -5,14 +5,14 @@ import math
 import Load
 
 Players = Load.load()
-SEASON = "S" + str(Players["season"]) + "R"
+SEASON = "season " + str(Players["season"])
 
 # Values of each
 G = lambda x: 10*x + max(0, 2*(x - 2))   # 10 SR for 1st and second, after that, 12 per goal
 A = lambda x: 6*x + max(0, 2*(x - 2))    # 6 SR for 1st and second, after that, 8 per assist
 AG = lambda x: -2*x                     # -2 SR per auto goal
 W = lambda x: 20*x                      # 20 SR for victory, 0 for draw and -20 for defeat, but it's weighted
-WS = lambda x: 5*(x - 1)                # 5 for each winstreak: 5, 10, 15, 20 ...
+WS = lambda x: max(0, 5*(x - 1))                # 5 for each winstreak: 5, 10, 15, 20 ...
 H = lambda x,y: 1 + 10 * (x/y - 1)      # Weight (Heavy)
 
 
@@ -27,10 +27,10 @@ def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own, opp):
     SR_own = 0
     SR_opp = 0
     for player in own:
-        SR_own += Players[player][SEASON]
+        SR_own += Players[player][SEASON]["SR"]
     SR_own_avg = SR_own / len(own)
     for player in opp:
-        SR_opp += Players[player][SEASON]
+        SR_opp += Players[player][SEASON]["SR"]
     SR_opp_avg = SR_opp / len(opp)
 
     if R == "win":
@@ -49,3 +49,4 @@ def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own, opp):
     return current +  G(g) + A(a) + AG(ag) + W(r) * H(SR_opp_avg, SR_own_avg) + k + WS(ws)
 
 
+SR_calculator(999, "draw", 1, 1, 0, 0, False, False, ["90"], ["90"]) 
