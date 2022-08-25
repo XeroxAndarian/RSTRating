@@ -22,6 +22,7 @@ Season_Template["winrate"] = 0
 Season_Template["goal average"] = 0
 Season_Template["assist average"] = 0
 Season_Template["auto goal average"] = 0
+Season_Template["match played"] = 0
 
 
 for player in list(Players.keys()):

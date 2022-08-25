@@ -17,21 +17,26 @@ H = lambda x,y: 1 + 10 * (x/y - 1)      # Weight (Heavy)
 
 
 
-def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own, opp):
+def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own=[], opp=[]):
     # R = result from previous match [win | loss | draw]
     # G/A/AG = goals/assists/autogoals from previoous match
     # WS = winstreak
     # MVPG/MVPA = [True | False] MVPs for Goals or Assists
     # own/opp = firendly team / opponent team
 
-    SR_own = 0
-    SR_opp = 0
-    for player in own:
-        SR_own += Players[player][SEASON]["SR"]
-    SR_own_avg = SR_own / len(own)
-    for player in opp:
-        SR_opp += Players[player][SEASON]["SR"]
-    SR_opp_avg = SR_opp / len(opp)
+
+    if own == []:
+        SR_opp_avg = 1
+        SR_own_avg = 1
+    else:    
+        SR_own = 0
+        SR_opp = 0
+        for player in own:
+            SR_own += Players[player][SEASON]["SR"]
+        SR_own_avg = SR_own / len(own)
+        for player in opp:
+            SR_opp += Players[player][SEASON]["SR"]
+        SR_opp_avg = SR_opp / len(opp)
 
     if R == "win":
         r = 1

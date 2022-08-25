@@ -4,6 +4,20 @@ import Find
 
 
 
+def determine_winner(key, value):
+    team_1 = key[0]
+    team_2 = key[2]
+    score_team_1 = value[0]
+    score_team_2 = value[2]
+    if score_team_1 > score_team_2:
+        team_1 = True
+        team_2 = False
+    if score_team_1 == score_team_2:
+        team_1 = team_2 = None
+    if score_team_2 > score_team_1:
+        team_2 = True
+        team_1 = False
+    return team_1, team_2    
 
 def previous_match_stats():
     PMI = {}
@@ -25,34 +39,102 @@ def previous_match_stats():
     last = file.read()
     Last = last.split("\n")
     match_type = Last[0].split(",")[0]
+    
     last_date = Last[1].split(",")[0]
-    team = 0
-    for i in range(len(Last) - 2):
-        line = Last[i + 2].split(",")
-        if line[0] != "":
-            team +=1
-            Teams[str(team)] = []
-            Results[str(team)] = 0        
+    if match_type == "Match":
+        PMI["match type"] = "Match"
+        team = 0
+        for i in range(len(Last) - 2):
+            line = Last[i + 2].split(",")
+            if line[0] != "":
+                team +=1
+                Teams[str(team)] = []
+                Results[str(team)] = 0        
 
-        player_info = {}
-        id = str(Find.find(line[1])[0])
-        player_info["goal"] = len(line[2])
-        player_info["ass"] = len(line[3])
-        player_info["ag"] = len(line[4])
-        PMI[id] = player_info
-        Teams[str(team)].append(id)
-        Results[str(team)] += player_info["goal"]
+            player_info = {}
+            id = str(Find.find(line[1])[0])
+            player_info["goal"] = len(line[2])
+            player_info["ass"] = len(line[3])
+            player_info["ag"] = len(line[4])
+            PMI[id] = player_info
+            Teams[str(team)].append(id)
+            Results[str(team)] += player_info["goal"]
 
-    if team == 2:
-        if Results["1"] > Results["2"]:
-            Results["Win"] = "1"
-            Results["Loss"] = "2"
-        elif Results["1"] < Results["2"]:
-            Results["Win"] = "2"
-            Results["Loss"] = "1"
-        else:
-            Results["Win"] = "0"
-            Results["Loss"] = "0"
+        if team == 2:
+            if Results["1"] > Results["2"]:
+                Results["Win"] = "1"
+                Results["Loss"] = "2"
+            elif Results["1"] < Results["2"]:
+                Results["Win"] = "2"
+                Results["Loss"] = "1"
+            else:
+                Results["Win"] = "0"
+                Results["Loss"] = "0"
+
+    if match_type == "Tournament":
+        team = 0
+        i = 2
+        while Last[i].split(",")[0] != "*":
+            Pl = True
+            line = Last[i].split(",")
+            if (team == 3) & (line[4] == ""):
+                break
+            if line[4] == "":
+                Pl = False
+            if line[0] != "":
+                team +=1
+                Teams[str(team)] = []
+                Results[str(team)] = {"win": 0, "loss": 0, "draw": 0}
+
+            if Pl:
+                player_info = {}
+                id = str(Find.find(line[4])[0])
+                player_info["goal"] = len(line[5])
+                player_info["ass"] = len(line[6])
+                player_info["ag"] = len(line[7])
+                PMI[id] = player_info
+                Teams[str(team)].append(id)
+            i += 1
+
+
+
+        if team == 3:
+            PMI["match type"] = "Tournament"
+            Results["separate"] = {}
+            Results["separate"]["1:2"] = Last[24].split(",")[3]
+            Results["separate"]["1:3"] = Last[25].split(",")[3]
+            Results["separate"]["2:3"] = Last[26].split(",")[3]
+        if team == 4:
+            PMI["match type"] = "Tournament"
+            Results["separate"] = {}
+            Results["separate"]["1:2"] = Last[24].split(",")[6]
+            Results["separate"]["1:3"] = Last[25].split(",")[6]
+            Results["separate"]["1:4"] = Last[26].split(",")[6]
+            Results["separate"]["2:3"] = Last[24].split(",")[6]
+            Results["separate"]["2:4"] = Last[25].split(",")[6]
+            Results["separate"]["3:4"] = Last[26].split(",")[6]
+        
+        for team in list(Results.keys()):
+            if team != "separate":
+                for match in list(Results["separate"].keys()):
+                    outcome = determine_winner(match, Results["separate"][match])
+
+                    if team == match[0]:
+                        if outcome[0] == None:
+                            Results[team]["draw"] += 1
+                        elif outcome[0]:
+                            Results[team]["win"] += 1
+                        else:
+                            Results[team]["loss"] += 1
+
+                    if team == match[2]:
+                        if outcome[1] == None:
+                            Results[team]["draw"] += 1
+                        elif outcome[1]:
+                            Results[team]["win"] += 1
+                        else:
+                            Results[team]["loss"] += 1
+   
 
     return [PMI, Teams, str(date), Results]
 
