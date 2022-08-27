@@ -20,7 +20,7 @@ def find_by_surname(sur):
     data = list(Bank.keys())
     for player in list(Bank.values()):
         if type(player) is dict:
-            if player["sur"] == sur:
+            if player["surname"] == sur:
                 pl_names.append(player["id"])
     
     return pl_names
@@ -31,7 +31,7 @@ def find_by_nickname(nick):
     data = list(Bank.keys())
     for player in list(Bank.values()):
         if type(player) is dict:
-            if nick in player["nick"]:
+            if nick in player["nickname"]:
                 pl_names.append(player["id"])
     
     return pl_names
@@ -73,3 +73,23 @@ def remove_duplicates(list):
         if i not in lst:
             lst.append(i)
     return lst
+
+def find_by(by, value):
+    match = []
+    for player in Bank:
+        if player == "update" or player == "season":
+            continue
+        if Bank[player][by] == value:
+            match.append(player)
+
+    return match
+
+def find_by_season(season, by, value):
+    match = []
+    for player in Bank:
+        if player == "update" or player == "season":
+            continue
+        if Bank[player][season][by] == value:
+            match.append(player)
+
+    return match
