@@ -92,7 +92,7 @@ def phase_1():
             Players[player]["MMR"] = MMR.MMR_calculator(Players[player]["winrate"], Players[player]["goal average"], Players[player]["assist average"], Players[player]["auto goal average"])
 
             ## Calculate SR
-            # -> Winstreak
+            # -> Winstreak / losing streak
             winstreak = 0
             for team in PMT:
                 if player in PMT[team]:
@@ -104,6 +104,18 @@ def phase_1():
                             if R == 0 or R == -1:
                                 winstreak = 0
             Players[player]["winstreak"] += winstreak
+            losing_streak = 0
+            for team in PMT:
+                if player in PMT[team]:
+                    for match in RESULTS["separate"]:
+                        if team in match:
+                            R = MatchResult.match_analysis(team, match, RESULTS["separate"][match])
+                            if R == -1:
+                                losing_streak += 1
+                            if R == 0 or R == 1:
+                                losing_streak = 0
+            Players[player]["losing streak"] += losing_streak
+            
             # --> Check for MVP
             if player == MVP_G["player"]:
                 mvp_g = True

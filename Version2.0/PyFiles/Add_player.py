@@ -56,6 +56,7 @@ def new_player(name="",surname="", nick=[]):
         Players[str(i)]["ties"] = 0
         Players[str(i)]["MMR"] = 0
         Players[str(i)]["winstreak"] = 0
+        Players[str(i)]["losing streak"] = 0
         Players[str(i)]["last match played"] = 0
         Players[str(i)]["teammates plays"] = {} 
         Players[str(i)]["teammates wins"] = {} 
