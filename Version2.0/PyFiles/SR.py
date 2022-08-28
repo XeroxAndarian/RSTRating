@@ -43,8 +43,22 @@ def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own=[], opp=[]):
         k = 25
     elif (mvpa | mvpg):
         k = 10
-             
-    return current +  G(g) + A(a) + AG(ag) + R * H(SR_opp_avg, SR_own_avg) + k + WS(ws)
 
-
+    if R == 1:
+        return current +  G(g) + A(a) + AG(ag) + W(R) * H(SR_opp_avg, SR_own_avg) + k + WS(ws)
+    elif R == -1:
+        return current +  G(g) + A(a) + AG(ag) + W(R) * H(SR_own_avg, SR_opp_avg) + k + WS(ws)
+    else:
+        return current +  G(g) + A(a) + AG(ag) + k + WS(ws)
+    
+def average(own, opp):
+    SR_own = 0
+    SR_opp = 0
+    for player in own:
+        SR_own += Players[player][SEASON]["SR"]
+    SR_own_avg = SR_own / len(own)
+    for player in opp:
+        SR_opp += Players[player][SEASON]["SR"]
+    SR_opp_avg = SR_opp / len(opp)
+    return SR_opp_avg, SR_own_avg
 
