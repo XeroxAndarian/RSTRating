@@ -61,6 +61,10 @@ def new_player(name="",surname="", nick=[]):
         Players[str(i)]["teammates wins"] = {} 
         Players[str(i)]["teammates losses"] = {}
         Players[str(i)]["teammates ties"] = {}
+        Players[str(i)]["teammates winrate"] = {}
+        Players[str(i)]["teammates lossrate"] = {}
+        Players[str(i)]["best teammate"] = []
+        Players[str(i)]["worst teammate"] = []
         Players[str(i)]["tournaments won"] = 0
         Players[str(i)]["weeks on top"] = 0
         Players[str(i)]["highest SR"] = 0
@@ -116,6 +120,10 @@ def new_player(name="",surname="", nick=[]):
         Season_Template["teammates wins"] = {}
         Season_Template["teammates losses"] = {}
         Season_Template["teammates ties"] = {}
+        Season_Template["teammates winrate"] = {}
+        Season_Template["teammates lossrate"] = {}
+        Season_Template["best teammate"] = []
+        Season_Template["worst teammate"] = []
         Season_Template["title"] = []
         Season_Template["highest SR"] = 0
         Season_Template["tournaments won"] = 0
@@ -140,7 +148,12 @@ def new_player(name="",surname="", nick=[]):
                 Players[player]["teammates ties"][str(i)] = 0
                 Players[str(i)]["teammates losses"][player] = 0
                 Players[player]["teammates losses"][str(i)] = 0
-                
+                Players[str(i)]["teammates winrate"][player] = 0
+                Players[player]["teammates winrate"][str(i)] = 0
+                Players[str(i)]["teammates lossrate"][player] = 0
+                Players[player]["teammates lossrate"][str(i)] = 0
+
+
                 Players[str(i)][SEASON]["teammates plays"][player] = 0
                 Players[player][SEASON]["teammates plays"][str(i)] = 0
                 Players[str(i)][SEASON]["teammates wins"][player] = 0
@@ -149,7 +162,10 @@ def new_player(name="",surname="", nick=[]):
                 Players[player][SEASON]["teammates ties"][str(i)] = 0
                 Players[str(i)][SEASON]["teammates losses"][player] = 0
                 Players[player][SEASON]["teammates losses"][str(i)] = 0
-
+                Players[str(i)][SEASON]["teammates winrate"][player] = 0
+                Players[player][SEASON]["teammates winrate"][str(i)] = 0
+                Players[str(i)][SEASON]["teammates lossrate"][player] = 0
+                Players[player][SEASON]["teammates lossrate"][str(i)] = 0
 
         
         
@@ -166,7 +182,8 @@ def new_test():
     
     new_player("test" + str(i), "TEST")
 
-
-new_test()
+def add_tests(n):
+    for i in range(n):
+        new_test()
     
     

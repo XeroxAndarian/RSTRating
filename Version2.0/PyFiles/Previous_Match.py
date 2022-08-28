@@ -1,5 +1,6 @@
 from cgi import print_environ_usage
 import datetime as dt
+from gzip import READ
 import os.path
 import Find
 
@@ -80,12 +81,18 @@ def previous_match_stats():
     last_date = Last[1].split(",")[0]
     if match_type == "Match":
         team = 0
+        team_score = 0
+        Results["separate"] = {"1:2" : ""}  
         for i in range(len(Last) - 2):
             line = Last[i + 2].split(",")
             if line[0] != "":
                 team +=1
                 Teams[str(team)] = []
-                Results[str(team)] = 0        
+                Results[str(team)] = {"win": 0, "loss": 0, "tie": 0}   
+                if team == 2:
+                    Results["separate"]["1:2"] += str(team_score)
+                    Results["separate"]["1:2"] += ":"     
+                team_score = 0
 
             player_info = {}
             id = str(Find.find(line[1])[0])
@@ -94,19 +101,31 @@ def previous_match_stats():
             player_info["ag"] = len(line[4])
             PMI[id] = player_info
             Teams[str(team)].append(id)
-            Results[str(team)] += player_info["goal"]
+            team_score += int(player_info["goal"])
+            team_score -= int(player_info["ag"])
+        
+        Results["separate"]["1:2"] += str(team_score)
+    
+        for team in list(Results.keys()):
+            if team != "separate":
+                for match in list(Results["separate"].keys()):
+                    outcome = determine_winner(match, Results["separate"][match])
 
-        if team == 2:
-            if Results["1"] > Results["2"]:
-                Results["Win"] = "1"
-                Results["Loss"] = "2"
-            elif Results["1"] < Results["2"]:
-                Results["Win"] = "2"
-                Results["Loss"] = "1"
-            else:
-                Results["Win"] = "0"
-                Results["Loss"] = "0"
-        Results["separate"] = {"1:2" : Results["1"] + ":" + Results["2"]}
+                    if team == match[0]:
+                        if outcome[0] == None:
+                            Results[team]["tie"] += 1
+                        elif outcome[0]:
+                            Results[team]["win"] += 1
+                        else:
+                            Results[team]["loss"] += 1
+
+                    if team == match[2]:
+                        if outcome[1] == None:
+                            Results[team]["tie"] += 1
+                        elif outcome[1]:
+                            Results[team]["win"] += 1
+                        else:
+                            Results[team]["loss"] += 1
 
     if match_type == "Tournament":
         team = 0
@@ -132,21 +151,23 @@ def previous_match_stats():
                 PMI[id] = player_info
                 Teams[str(team)].append(id)
             i += 1
+        teams = 4
+        if Last[22].split(",")[6] == "":
+            teams = 3
 
 
-
-        if team == 3:
+        if teams == 3:
             Results["separate"]["1:2"] = Last[24].split(",")[3]
             Results["separate"]["1:3"] = Last[25].split(",")[3]
             Results["separate"]["2:3"] = Last[26].split(",")[3]
-        if team == 4:
+        if teams == 4:
             Results["separate"] = {}
-            Results["separate"]["1:2"] = Last[24].split(",")[6]
-            Results["separate"]["1:3"] = Last[25].split(",")[6]
-            Results["separate"]["1:4"] = Last[26].split(",")[6]
-            Results["separate"]["2:3"] = Last[24].split(",")[6]
-            Results["separate"]["2:4"] = Last[25].split(",")[6]
-            Results["separate"]["3:4"] = Last[26].split(",")[6]
+            Results["separate"]["1:2"] = Last[22].split(",")[6]
+            Results["separate"]["1:3"] = Last[23].split(",")[6]
+            Results["separate"]["1:4"] = Last[24].split(",")[6]
+            Results["separate"]["2:3"] = Last[25].split(",")[6]
+            Results["separate"]["2:4"] = Last[26].split(",")[6]
+            Results["separate"]["3:4"] = Last[27].split(",")[6]
         
         for team in list(Results.keys()):
             if team != "separate":
@@ -171,5 +192,4 @@ def previous_match_stats():
    
 
     return [PMI, Teams, str(date), Results, match_type]
-
-# print(previous_match_stats())
+print(previous_match_stats())

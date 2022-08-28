@@ -1,3 +1,4 @@
+from distutils.dir_util import copy_tree
 import Load
 import Save
 import datetime as dt
@@ -8,6 +9,7 @@ import MatchResult
 import Standings
 
 def phase_1():
+    '''Update personal info such as goal count, winrate, MMR ... Also it counts attendences, mathes played and such.'''
     Players = Load.load()
     Previous = Previous_Match.previous_match_stats()
     Save.backup_save(Players)
@@ -29,16 +31,17 @@ def phase_1():
         for player in PMP:
             goals = PMP[player]["goal"]
             assists = PMP[player]["ass"]
+            if goals == MVP_G["count"]:
+                MVP_G["player"] = ""
             if goals > MVP_G["count"]:
                 MVP_G["count"] = goals
                 MVP_G["player"] = player
-            if goals == MVP_G["count"]:
-                MVP_G["player"] = ""
+            if goals == MVP_A["count"]:
+                MVP_A["player"] = ""
             if goals > MVP_A["count"]:
                 MVP_A["count"] = assists
                 MVP_A["player"] = player
-            if goals == MVP_A["count"]:
-                MVP_A["player"] = ""
+            
 
 
         for player in PMP:
@@ -194,6 +197,7 @@ def phase_1():
     Save.save(Players, False)
 
 def phase_2():
+    '''Calculate players' standigs in each category.'''
     Players = Load.load()
     Previous = Previous_Match.previous_match_stats()
     PMP = Previous[0] # Previous Match Players
@@ -204,43 +208,140 @@ def phase_2():
     MVP_G = {"player":"", "count": 0}
     MVP_A = {"player":"", "count": 0}
     match_type = Previous[4]
+    N = len(Players) - 2
 
     Overall = {
-    "GSO": Standings.overall_standings("goals"),                                # Goal Standings Overall
-    "ASO": Standings.overall_standings("assists"),                              # Assists Standings Overall
-    "AGO": Standings.overall_standings("auto goals"),                           # Auto goal Standings Overall
-    "WRSO": Standings.overall_standings("winrate"),                             # Winrate Standings Overall
-    "WSO": Standings.overall_standings("wins"),                                 # Wins Standings Overall
-    "LSO": Standings.overall_standings("losses"),                               # Losses Standings Overall
-    "TSO": Standings.overall_standings("ties"),                                 # Ties Standings Overall
-    "TWO": Standings.overall_standings("tournaments won"),                      # Tournaments Won Standings Overall
-    "MMRSO": Standings.overall_standings("MMR"),                                # MMR Standings Overall
-    "ATSO": Standings.overall_standings("attendance"),                          # Attendance Standings Overall
-    "MPSO": Standings.overall_standings("matches played"),                      # Matches Played Standings Overall
-    "GASO": Standings.overall_standings("goal average"),                        # Goal Average Standings Overall
-    "AASO": Standings.overall_standings("assist average"),                     # Assist Average Standings Overall
-    "AGASO": Standings.overall_standings("auto goal average"),                  # Auto Goal Average Standings Overall
-    "GSS": Standings.seasonal_standings("goals", SEASON),                       # Goal Standings Overall
-    "ASS": Standings.seasonal_standings("assists", SEASON),                     # Assists Standings Overall
-    "AGS": Standings.seasonal_standings("auto goals", SEASON),                  # Auto goal Standings Overall
-    "WRSS": Standings.seasonal_standings("winrate", SEASON),                    # Winrate Standings Overall
-    "WSS": Standings.seasonal_standings("wins", SEASON),                        # Wins Standings Overall
-    "LSS": Standings.seasonal_standings("losses", SEASON),                      # Losses Standings Overall
-    "TSS": Standings.seasonal_standings("ties", SEASON),                        # Ties Standings Overall
-    "TWS": Standings.seasonal_standings("tournaments won", SEASON),             # Tournaments Won Standings Overall
-    "SRSS": Standings.seasonal_standings("SR", SEASON),                         # SR Standings Overall
-    "ATSS": Standings.seasonal_standings("attendance", SEASON),                 # Attendance Standings Overall
-    "MPSS": Standings.seasonal_standings("matches played", SEASON),             # Matches Played Standings Overall
-    "GASS": Standings.seasonal_standings("goal average", SEASON),               # Goal Average Standings Overall
-    "AASS": Standings.seasonal_standings("assist average", SEASON),             # Assist Average Standings Overall
-    "AGASS": Standings.seasonal_standings("auto goal average", SEASON),         # Auto Goal Average Standings Overall
-    "MVPGSS": Standings.seasonal_standings("MVP goal", SEASON),                 # MVP Goals Standings Overall
-    "MVPASS": Standings.seasonal_standings("MVP assist", SEASON),               # MVP Assists Standings Overall
+    "goals": Standings.overall_standings("goals"),                                # Goal Standings Overall
+    "assists": Standings.overall_standings("assists"),                              # Assists Standings Overall
+    "auto goals": Standings.overall_standings("auto goals"),                           # Auto goal Standings Overall
+    "winrate": Standings.overall_standings("winrate"),                             # Winrate Standings Overall
+    "wins": Standings.overall_standings("wins"),                                 # Wins Standings Overall
+    "losses": Standings.overall_standings("losses"),                               # Losses Standings Overall
+    "ties": Standings.overall_standings("ties"),                                 # Ties Standings Overall
+    "tournaments won": Standings.overall_standings("tournaments won"),                      # Tournaments Won Standings Overall
+    "MMR": Standings.overall_standings("MMR"),                                # MMR Standings Overall
+    "attendance": Standings.overall_standings("attendance"),                          # Attendance Standings Overall
+    "matches played": Standings.overall_standings("matches played"),                      # Matches Played Standings Overall
+    "goal average": Standings.overall_standings("goal average"),                        # Goal Average Standings Overall
+    "assist average": Standings.overall_standings("assist average"),                     # Assist Average Standings Overall
+    "auto goal average": Standings.overall_standings("auto goal average"),                  # Auto Goal Average Standings Overall
         }
+    Seasonal = {    
+    "goals": Standings.seasonal_standings("goals", SEASON),                       # Goal Standings Overall
+    "assists": Standings.seasonal_standings("assists", SEASON),                     # Assists Standings Overall
+    "auto goals": Standings.seasonal_standings("auto goals", SEASON),                  # Auto goal Standings Overall
+    "winrate": Standings.seasonal_standings("winrate", SEASON),                    # Winrate Standings Overall
+    "wins": Standings.seasonal_standings("wins", SEASON),                        # Wins Standings Overall
+    "losses": Standings.seasonal_standings("losses", SEASON),                      # Losses Standings Overall
+    "ties": Standings.seasonal_standings("ties", SEASON),                        # Ties Standings Overall
+    "tournaments won": Standings.seasonal_standings("tournaments won", SEASON),             # Tournaments Won Standings Overall
+    "SR": Standings.seasonal_standings("SR", SEASON),                         # SR Standings Overall
+    "attendance": Standings.seasonal_standings("attendance", SEASON),                 # Attendance Standings Overall
+    "matches played": Standings.seasonal_standings("matches played", SEASON),             # Matches Played Standings Overall
+    "goal average": Standings.seasonal_standings("goal average", SEASON),               # Goal Average Standings Overall
+    "assist average": Standings.seasonal_standings("assist average", SEASON),             # Assist Average Standings Overall
+    "auto goal average": Standings.seasonal_standings("auto goal average", SEASON),         # Auto Goal Average Standings Overall
+    "MVP goal": Standings.seasonal_standings("MVP goal", SEASON),                 # MVP Goals Standings Overall
+    "MVP assist": Standings.seasonal_standings("MVP assist", SEASON)               # MVP Assists Standings Overall
+    }
+    
+    for std in Overall:
+        rank = "rank " + std
+        for i in range(1, N):
+            for player in Overall[std][str(i)]:
+                Players[player][rank] = i
+    
+    
+    for std in Seasonal:
+        rank = "rank " + std
+        for i in range(1, N):
+            for player in Seasonal[std][str(i)]:
+                Players[player][SEASON][rank] = i
+    
+    for player in Players:
+        if player == "update" or player == "season":
+            continue
+        if Players[player][SEASON]["rank SR"] == 1:
+            Players[player][SEASON]["weeks on top"] += 1
+            Players[player]["weeks on top"] += 1
+            Players[player][SEASON]["consecutive weeks on top"] += 1
+        else: 
+            Players[player][SEASON]["consecutive weeks on top"] = 0
+
+    WOT = {"weeks on top": Standings.seasonal_standings("weeks on top", SEASON)}
+    std = "weeks on top"
+    rank = "rank " + std
+    for i in range(1, N):
+        for player in WOT[std][str(i)]:
+            Players[player][SEASON][rank] = i
 
     
-        ### Not yet done!
-     
+    Save.save(Players, False)
+
+    
+def phase_3():
+    '''Teammates and best/worst teammates'''
+    Players = Load.load()
+    Previous = Previous_Match.previous_match_stats()
+    PMP = Previous[0] # Previous Match Players
+    PMT = Previous[1] # Previous Match Teams
+    DATE = Previous[2] # Previous Match Date
+    RESULTS = Previous[3] # Previous Match Results
+    SEASON = "season " + str(Players["season"])
+    MVP_G = {"player":"", "count": 0}
+    MVP_A = {"player":"", "count": 0}
+    match_type = Previous[4]
+    N = len(Players) - 2
 
 
-    return Overall
+    # Set Winrates and lossrates
+    for player in Players:
+        if player == "update" or player == "season":
+            continue
+        for teammate in Players[player]["teammates winrate"]:
+            if teammate == player:
+                continue
+            Players[player]["teammates winrate"][teammate] = Players[player]["teammates wins"][teammate] / max(Players[player]["teammates plays"][teammate], 1)
+            Players[player]["teammates lossrate"][teammate] = Players[player]["teammates losses"][teammate] / max(Players[player]["teammates plays"][teammate], 1)
+            Players[player][SEASON]["teammates winrate"][teammate] = Players[player][SEASON]["teammates wins"][teammate] / max(Players[player][SEASON]["teammates plays"][teammate], 1)
+            Players[player][SEASON]["teammates lossrate"][teammate] = Players[player][SEASON]["teammates losses"][teammate] / max(Players[player][SEASON]["teammates plays"][teammate], 1)
+
+    # Determine best / worst teammate
+        player_winrates = sorted(list(Players[player]["teammates winrate"].values()), reverse=True) 
+        player_lossrates = sorted(list(Players[player]["teammates lossrate"].values()), reverse=True) 
+        player_winrates_season = sorted(list(Players[player][SEASON]["teammates winrate"].values()), reverse=True) 
+        player_lossrates_season = sorted(list(Players[player][SEASON]["teammates lossrate"].values()), reverse=True) 
+        
+
+        def find(by, value, season=None):
+            if season == None:
+                Data = []
+                for teammate in Players[player]["teammates " + by]:
+                    if Players[player]["teammates " + by][teammate] == value:
+                        Data += [teammate]
+                return Data
+            else:
+                Data = []
+                for teammate in Players[player][SEASON]["teammates " + by]:
+                    if Players[player][SEASON]["teammates " + by][teammate] == value:
+                        Data += [teammate]
+                return Data
+        
+        Players[player]["best teammate"] = find("winrate", player_winrates[0]) 
+        Players[player]["worst teammate"] = find("lossrate", player_lossrates[0]) 
+        Players[player][SEASON]["best teammate"] = find("winrate", player_winrates_season[0]) 
+        Players[player][SEASON]["worst teammate"] = find("lossrate", player_lossrates_season[0])
+
+        A = Players[player]["worst teammate"].copy()
+        for teammate in A:
+            if teammate == player:
+                continue
+            if Players[player]["teammates losses"][teammate] == 0:
+                Players[player]["worst teammate"].remove(teammate)
+
+    Save.save(Players, False)
+
+    
+phase_1()
+phase_2()
+phase_3()

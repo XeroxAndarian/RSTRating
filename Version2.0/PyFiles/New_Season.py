@@ -43,6 +43,8 @@ Season_Template["teammates plays"] = {}
 Season_Template["teammates wins"] = {}
 Season_Template["teammates losses"] = {}
 Season_Template["teammates ties"] = {}
+Season_Template["teammates winrate"] = {}
+Season_Template["teammates lossrate"] = {}
 Season_Template["title"] = []
 Season_Template["highest SR"] = 0
 Season_Template["tournaments won"] = 0
@@ -50,6 +52,8 @@ Season_Template["rank tournaments won"] = 0
 Season_Template["weeks on top"] = 0
 Season_Template["rank weeks on top"] = 0
 Season_Template["consecutive weeks on top"] = 0
+Season_Template["best teammate"] = []
+Season_Template["worst teammate"] = []
 
 for player in Players:
     if player == "update":
@@ -76,6 +80,10 @@ for player in list(Players.keys()):
             Players[player][SEASON]["teammates ties"][another] = 0
             Players[another][SEASON]["teammates losses"][player] = 0
             Players[player][SEASON]["teammates losses"][another] = 0
+            Players[another][SEASON]["teammates winrate"][player] = 0
+            Players[player][SEASON]["teammates winrate"][another] = 0
+            Players[another][SEASON]["teammates lossrate"][player] = 0
+            Players[player][SEASON]["teammates lossrate"][another] = 0
 
 
 Players["season"] = New_Season

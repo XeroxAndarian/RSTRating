@@ -11,7 +11,7 @@ def overall_standings(of):
     Standings = {}
     N = len(Players) - 2
     for i in range(N):
-        Standings[i + 1] = 0
+        Standings[str(i + 1)] = []
 
     Data = []
 
@@ -28,7 +28,7 @@ def overall_standings(of):
     stnd = Find.remove_duplicates(list(map(find_to_map, Data_sort)))
     
     for j in range(len(stnd)):
-        Standings[j + 1] = stnd[j]
+        Standings[str(j + 1)] = stnd[j]
      
 
     return Standings
@@ -37,7 +37,7 @@ def seasonal_standings(of, season):
     Standings = {}
     N = len(Players) - 2
     for i in range(N):
-        Standings[i + 1] = 0
+        Standings[str(i + 1)] = []
 
     Data = []
 
@@ -56,7 +56,7 @@ def seasonal_standings(of, season):
     stsd = Find.remove_duplicates(stnd)
 
     for i in range(len(stsd)):
-        Standings[i + 1] = stsd[i]
+        Standings[str(i + 1)] = stsd[i]
      
      
     return Standings
