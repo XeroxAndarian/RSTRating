@@ -338,6 +338,7 @@ def phase_3():
                 continue
             if Players[player]["teammates losses"][teammate] == 0:
                 Players[player]["worst teammate"].remove(teammate)
+                Players[player][SEASON]["worst teammate"].remove(teammate)
 
     Save.save(Players, False)
 

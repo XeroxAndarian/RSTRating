@@ -71,7 +71,7 @@ def previous_match_stats():
         if k > 10000:
             break
         
-    file = open(file_name, "r")
+    file = open(file_name, "r",encoding="utf-8")
     last = file.read()
     Last = last.split("\n")
     match_type = Last[0].split(",")[0]
