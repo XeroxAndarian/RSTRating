@@ -1,6 +1,4 @@
-from cgi import print_environ_usage
 import datetime as dt
-from gzip import READ
 import os.path
 import Find
 
@@ -94,6 +92,8 @@ def previous_match_stats():
                     Results["separate"]["1:2"] += ":"     
                 team_score = 0
 
+            if line[1] == "":
+                continue
             player_info = {}
             id = str(Find.find(line[1])[0])
             player_info["goal"] = len(line[2])
