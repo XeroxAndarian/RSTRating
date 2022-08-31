@@ -1,4 +1,3 @@
-from distutils.dir_util import copy_tree
 import Load
 import Save
 import datetime as dt
@@ -7,6 +6,7 @@ import MMR
 import SR
 import MatchResult
 import Standings
+import Export
 
 def phase_1():
     '''Update personal info such as goal count, winrate, MMR ... Also it counts attendences, mathes played and such.'''
@@ -55,6 +55,10 @@ def phase_1():
             Players[player][SEASON]["auto goals"] += PMP[player]["ag"]
             Players[player]["attendance"] += 1
             Players[player][SEASON]["attendance"] += 1
+
+            # Add one time fee to how much money player owns
+            Players[player]["debt"] += 1                # Standard attendance fee == 1 €
+            Players[player]["debt"] -= PMP[player]["money"]     # Amount player contributed this week
 
             # Add number of wins, ties and losses
             for team in PMT:
@@ -352,9 +356,14 @@ def phase_3():
                 Players[player]["worst teammate"].remove(teammate)
                 Players[player][SEASON]["worst teammate"].remove(teammate)
 
-    Save.save(Players, False)
+    Save.save(Players, True, DATE)
 
+def phase_4():
+    '''Update and export in .csv format. Players seperately and general statistics.'''
+    Export.export_csv()
+    Export.update_player_stats_all()
     
 phase_1()
 phase_2()
 phase_3()
+phase_4()

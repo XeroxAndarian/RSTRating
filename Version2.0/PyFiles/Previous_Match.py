@@ -99,6 +99,7 @@ def previous_match_stats():
             player_info["goal"] = len(line[2])
             player_info["ass"] = len(line[3])
             player_info["ag"] = len(line[4])
+            player_info["money"] = int(line[5]) if line[5] != "" else  0
             PMI[id] = player_info
             Teams[str(team)].append(id)
             team_score += int(player_info["goal"])
@@ -148,6 +149,7 @@ def previous_match_stats():
                 player_info["goal"] = len(line[5])
                 player_info["ass"] = len(line[6])
                 player_info["ag"] = len(line[7])
+                player_info["money"] = int(line[8])
                 PMI[id] = player_info
                 Teams[str(team)].append(id)
             i += 1

@@ -84,6 +84,7 @@ def new_player(name="",surname="", nick=[]):
         Players[str(i)]["rank goal average"] = 0
         Players[str(i)]["rank assist average"] = 0
         Players[str(i)]["rank auto goal average"] = 0
+        Players[str(i)]["debt"] = 0
         
         Season_Template = {}
         Season_Template["SR"] = 999

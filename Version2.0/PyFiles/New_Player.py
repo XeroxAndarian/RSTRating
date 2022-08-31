@@ -55,7 +55,7 @@ if a == "Y":
                 if x != 5:  
                     y = "Adding" + "." * x
                     print (y, end="\r")
-                    time.sleep(0.75)
+                    time.sleep(0.75)     
                 else:
                     y = "Adding" + "." * x
                     print (y)
