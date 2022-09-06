@@ -168,7 +168,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -3,
         "season 0": {
             "SR": 1071,
             "rank SR": 14,
@@ -496,7 +496,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -29,
         "season 0": {
             "SR": 1223,
             "rank SR": 5,
@@ -1151,7 +1151,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": 1,
         "season 0": {
             "SR": 1114,
             "rank SR": 10,
@@ -1479,7 +1479,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": 1,
         "season 0": {
             "SR": 1081,
             "rank SR": 13,
@@ -1807,7 +1807,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -1,
         "season 0": {
             "SR": 1198,
             "rank SR": 6,
@@ -3113,7 +3113,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": 1,
         "season 0": {
             "SR": 1251,
             "rank SR": 4,
@@ -3442,7 +3442,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": 9,
         "season 0": {
             "SR": 1155,
             "rank SR": 8,
@@ -4095,7 +4095,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -5,
         "season 0": {
             "SR": 1058,
             "rank SR": 15,
@@ -4424,7 +4424,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -1,
         "season 0": {
             "SR": 1107,
             "rank SR": 11,
@@ -5403,7 +5403,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -3,
         "season 0": {
             "SR": 1182,
             "rank SR": 7,
@@ -5728,7 +5728,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": -1,
         "season 0": {
             "SR": 1088,
             "rank SR": 12,
@@ -6053,7 +6053,7 @@
         "rank goal average": 0,
         "rank assist average": 0,
         "rank auto goal average": 0,
-        "debt": 0,
+        "debt": 1,
         "season 0": {
             "SR": 996,
             "rank SR": 17,

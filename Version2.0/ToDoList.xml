@@ -13,4 +13,8 @@
 
 
 
-### Theoretically, everything is ready for the opening of new season
+### List of Bugs:
+    -> Rankings do not work properly, however only for specific stats <Resolved>
+    -> winstreak does not increase properly <Resolved>
+    -> SR calculator or update information does not seem to count loss correctly <Resolved>
+    -> Worst Teammate appears to be as Best Teammate instead <Resolved>

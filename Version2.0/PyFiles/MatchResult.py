@@ -11,19 +11,25 @@ def match_analysis(team, comp, score):
         Ana[Teams[1]] = {}
         Ana[Teams[0]]["score"] = int(score[0])
         Ana[Teams[1]]["score"] = int(score[2])
-
+        if team == Teams[0]:
+            other = Teams[1]
+        if team == Teams[1]:
+            other = Teams[0]
         for t in Teams:
             if team == t:
-                if Ana[Teams[0]]["score"] > Ana[Teams[1]]["score"]:
+                if Ana[team]["score"] > Ana[other]["score"]:
                     return 1
                     
-                if Ana[Teams[0]]["score"] == Ana[Teams[1]]["score"]:
+                if Ana[team]["score"] == Ana[other]["score"]:
                     return 0
                     
-                if Ana[Teams[0]]["score"] < Ana[Teams[1]]["score"]:
+                if Ana[team]["score"] < Ana[other]["score"]:
                     return -1
                     
 
 
 
 a = match_analysis("2", "1:2", "2:3")
+b = match_analysis("1", "1:2", "2:3")
+c = match_analysis("1", "1:2", "2:2")
+d = match_analysis("2", "1:2", "2:2")

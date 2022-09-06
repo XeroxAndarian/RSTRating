@@ -1,0 +1,10 @@
+1. Make sure you have backed Data.
+2. Run Update.py twice or three times
+3. Run Weeks_on_top.py
+4. Run Export.py 
+5. Import data into Google Sheet
+6. Auto detect data type = True
+7. Custom separation character = ;
+8. Replace data in this Sheet
+9. Manually set a few data types to "number"
+

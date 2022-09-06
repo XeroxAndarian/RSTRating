@@ -83,6 +83,9 @@ def previous_match_stats():
         Results["separate"] = {"1:2" : ""}  
         for i in range(len(Last) - 2):
             line = Last[i + 2].split(",")
+            if line[0] == "*":
+                Results["separate"]["1:2"] += str(team_score)
+                break
             if line[0] != "":
                 team +=1
                 Teams[str(team)] = []
@@ -105,7 +108,7 @@ def previous_match_stats():
             team_score += int(player_info["goal"])
             team_score -= int(player_info["ag"])
         
-        Results["separate"]["1:2"] += str(team_score)
+        
     
         for team in list(Results.keys()):
             if team != "separate":
@@ -194,4 +197,4 @@ def previous_match_stats():
    
 
     return [PMI, Teams, str(date), Results, match_type]
-print(previous_match_stats())
+# print(previous_match_stats())

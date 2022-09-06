@@ -7,6 +7,7 @@ import SR
 import MatchResult
 import Standings
 import Export
+import time
 
 def phase_1():
     '''Update personal info such as goal count, winrate, MMR ... Also it counts attendences, mathes played and such.'''
@@ -212,7 +213,7 @@ def phase_1():
 
     Save.save(Players, False)
 
-def phase_2():
+def phase_8():
     '''Calculate players' standigs in each category.'''
     Players = Load.load()
     Previous = Previous_Match.previous_match_stats()
@@ -274,28 +275,17 @@ def phase_2():
             for player in Seasonal[std][str(i)]:
                 Players[player][SEASON][rank] = i
     
-    for player in Players:
-        if player == "update" or player == "season":
-            continue
-        if Players[player][SEASON]["rank SR"] == 1:
-            Players[player][SEASON]["weeks on top"] += 1
-            Players[player]["weeks on top"] += 1
-            Players[player][SEASON]["consecutive weeks on top"] += 1
-        else: 
-            Players[player][SEASON]["consecutive weeks on top"] = 0
-
     WOT = {"weeks on top": Standings.seasonal_standings("weeks on top", SEASON)}
-    std = "weeks on top"
-    rank = "rank " + std
+    rank = "rank weeks on top"
     for i in range(1, N):
-        for player in WOT[std][str(i)]:
+        for player in WOT["weeks on top"][str(i)]:
             Players[player][SEASON][rank] = i
 
     
     Save.save(Players, False)
 
     
-def phase_3():
+def phase_2():
     '''Teammates and best/worst teammates'''
     Players = Load.load()
     Previous = Previous_Match.previous_match_stats()
@@ -356,14 +346,81 @@ def phase_3():
                 Players[player]["worst teammate"].remove(teammate)
                 Players[player][SEASON]["worst teammate"].remove(teammate)
 
-    Save.save(Players, True, DATE)
+    Save.save(Players, False)
 
-def phase_4():
+def phase_10():
     '''Update and export in .csv format. Players seperately and general statistics.'''
     Export.export_csv()
     Export.update_player_stats_all()
+
+def phase_9():
+    '''Ladder Advancements Calculator'''
+    Players_old = Load.load("Backup_Data")
+    Players_new = Load.load()
+    SEASON = "season " + str(Players_new["season"])
+    DATE = Players_new["update"]
+    Old = {}
+    New = {}
+    Climb = {}
+    for player in Players_new:
+        if type(Players_new[player]) != dict:
+            continue
+        if player == "season 0":
+            break
+        if SEASON in Players_old:
+            if player in Players_old:
+                Old[player] = Players_old[player][SEASON]["rank SR"]
+                New[player] = Players_new[player][SEASON]["rank SR"]
+            else:
+                Climb[player] = "N"
+        else:
+            Climb[player] = "N"
+    for player in Old:
+        Climb[player] = Old[player] - New[player]
     
+    for player in Climb:
+        Players_new[player][SEASON]["climb"] = Climb[player]
+
+    Save.save(Players_new, True, DATE)
+
+# for i in range(0, 5):
+#     if i == 0:
+#         print("Phase 1:")
+#         phase_1()
+#     if i == 1:
+#         print("Phase 2:")
+#         phase_2()
+#     if i == 2:
+#         print("Phase 3:")
+#         phase_3()
+#     if i == 3:
+#         print("Phase 4:")
+#         phase_5()
+#     if i == 4:
+#         print("Phase 5:")
+#         phase_4()
+# 
+#     for x in range (0,7):
+#         if x < 5:  
+#             y = "Updating (" + str(i + 1) + "/5)" + "." * x
+#             print (y, end="\r")
+#             time.sleep(0.5)
+#         elif x == 5:  
+#             y = "Updating (" + str(i + 1) + "/5)" + "." * x
+#             print (y)
+#             time.sleep(0.5)      
+#         else:
+#             y = "Phase " + str(i + 1) + " Done."
+#             print (y)
+#             time.sleep(0.75)
+# print("Update Complete!")
+
+
+
 phase_1()
 phase_2()
-phase_3()
-phase_4()
+phase_8()
+phase_9()
+phase_10()
+
+
