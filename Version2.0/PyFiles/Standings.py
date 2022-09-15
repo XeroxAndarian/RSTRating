@@ -1,28 +1,24 @@
-import Load
 import Find
+import Load
 
 
-
-Players = Load.load()
-SEASON = "season " + str(Players["season"]) 
-
-def overall_standings(of):
+def overall_standings(of, dict):
     Standings = {}
-    N = len(Players) - 2
+    N = len(dict) - 2
     for i in range(N):
         Standings[str(i + 1)] = []
 
     Data = []
 
-    for player in Players:
+    for player in dict:
         if player == "update" or player == "season":
             continue
-        Data.append(Players[player][of])
+        Data.append(dict[player][of])
     
     Data_sort = sorted(Data, reverse=True)
     
     def find_to_map(n):
-        return Find.find_by(of, n)
+        return Find.find_by_2(of, n, dict)
 
     stnd = Find.remove_duplicates(list(map(find_to_map, Data_sort)))
     
@@ -32,30 +28,31 @@ def overall_standings(of):
 
     return Standings
 
-def seasonal_standings(of, season):
+def seasonal_standings(of, season, dict):
+    SEASON = "season " + str(dict["season"]) 
     Standings = {}
-    N = len(Players) - 2
+    N = len(dict) - 2
     for i in range(N):
         Standings[str(i + 1)] = []
 
     Data = []
 
-    for player in Players:
+    for player in dict:
         if player == "update" or player == "season":
             continue
-        Data.append(Players[player][season][of])
+        Data.append(dict[player][season][of])
     
     Data_sort = sorted(Data, reverse=True)
     
     def find_to_map(n):
-        return Find.find_by_season(season, of, n)
+        return Find.find_by_season_2(season, of, n, dict)
 
     stnd = list(map(find_to_map, Data_sort))
     
     stsd = Find.remove_duplicates(stnd)
 
-    for i in range(len(stsd)):
-        Standings[str(i + 1)] = stsd[i]
+    for j in range(len(stsd)):
+        Standings[str(j + 1)] = stsd[j]
      
      
     return Standings

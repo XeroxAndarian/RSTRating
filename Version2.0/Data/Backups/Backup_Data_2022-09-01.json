@@ -351,8 +351,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -513,7 +513,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "1",
@@ -710,7 +710,7 @@
         ],
         "tournaments won": 1,
         "weeks on top": 1,
-        "highest SR": 977.0,
+        "highest SR": 983.521328034218,
         "highest MMR": 1057.7003569897713,
         "rank goals": 6,
         "rank assists": 3,
@@ -890,7 +890,7 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 977.0,
+            "SR": 983.521328034218,
             "rank SR": 9,
             "rank": "Bronze",
             "goals": 0,
@@ -1052,11 +1052,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 977.0,
+            "highest SR": 983.521328034218,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -1585,7 +1585,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "3",
@@ -1749,7 +1749,7 @@
         "worst teammate": [],
         "tournaments won": 2,
         "weeks on top": 0,
-        "highest SR": 1085.0,
+        "highest SR": 1083.1749652846656,
         "highest MMR": 1027.9116466068647,
         "rank goals": 5,
         "rank assists": 5,
@@ -1929,7 +1929,7 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1085.0,
+            "SR": 1083.1749652846656,
             "rank SR": 1,
             "rank": "Silver",
             "goals": 4,
@@ -2091,12 +2091,12 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1085.0,
+            "highest SR": 1083.1749652846656,
             "tournaments won": 0,
             "rank tournaments won": 1,
-            "weeks on top": 0,
+            "weeks on top": 1,
             "rank weeks on top": 1,
-            "consecutive weeks on top": 0,
+            "consecutive weeks on top": 1,
             "best teammate": [
                 "2",
                 "9",
@@ -2454,8 +2454,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -2616,7 +2616,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -2989,8 +2989,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -3151,7 +3151,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -3521,8 +3521,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -3683,7 +3683,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -3877,7 +3877,7 @@
         ],
         "tournaments won": 0,
         "weeks on top": 11,
-        "highest SR": 1005.0,
+        "highest SR": 1012.2859123875992,
         "highest MMR": 1095.6971566607144,
         "rank goals": 2,
         "rank assists": 7,
@@ -4057,8 +4057,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1005.0,
-            "rank SR": 6,
+            "SR": 1012.2859123875992,
+            "rank SR": 7,
             "rank": "Silver",
             "goals": 2,
             "rank goals": 3,
@@ -4219,11 +4219,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1005.0,
+            "highest SR": 1012.2859123875992,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -4425,7 +4425,7 @@
         ],
         "tournaments won": 2,
         "weeks on top": 5,
-        "highest SR": 1011.0,
+        "highest SR": 1019.257960083013,
         "highest MMR": 1137.2853339302783,
         "rank goals": 1,
         "rank assists": 1,
@@ -4605,7 +4605,7 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1011.0,
+            "SR": 1019.257960083013,
             "rank SR": 5,
             "rank": "Silver",
             "goals": 3,
@@ -4767,11 +4767,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1011.0,
+            "highest SR": 1019.257960083013,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -4953,7 +4953,7 @@
         "worst teammate": [],
         "tournaments won": 3,
         "weeks on top": 3,
-        "highest SR": 1031.0,
+        "highest SR": 1023.65365263463,
         "highest MMR": 1067.2579880808273,
         "rank goals": 10,
         "rank assists": 1,
@@ -5133,8 +5133,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1031.0,
-            "rank SR": 3,
+            "SR": 1023.65365263463,
+            "rank SR": 4,
             "rank": "Silver",
             "goals": 0,
             "rank goals": 5,
@@ -5295,11 +5295,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1031.0,
+            "highest SR": 1023.65365263463,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "2",
@@ -5465,7 +5465,7 @@
         "worst teammate": [],
         "tournaments won": 0,
         "weeks on top": 0,
-        "highest SR": 1045.0,
+        "highest SR": 1039.920174777782,
         "highest MMR": 1054.2304577320342,
         "rank goals": 5,
         "rank assists": 5,
@@ -5645,8 +5645,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1045.0,
-            "rank SR": 2,
+            "SR": 1039.920174777782,
+            "rank SR": 3,
             "rank": "Silver",
             "goals": 2,
             "rank goals": 3,
@@ -5807,11 +5807,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1045.0,
+            "highest SR": 1039.920174777782,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "2",
@@ -5973,7 +5973,7 @@
         "worst teammate": [],
         "tournaments won": 0,
         "weeks on top": 0,
-        "highest SR": 1025.0,
+        "highest SR": 1018.3762296115832,
         "highest MMR": 1007.885127742958,
         "rank goals": 13,
         "rank assists": 8,
@@ -6153,8 +6153,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 1025.0,
-            "rank SR": 4,
+            "SR": 1018.3762296115832,
+            "rank SR": 6,
             "rank": "Silver",
             "goals": 0,
             "rank goals": 5,
@@ -6315,11 +6315,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 1025.0,
+            "highest SR": 1018.3762296115832,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "2",
@@ -6678,8 +6678,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -6840,7 +6840,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -7214,8 +7214,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -7376,7 +7376,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -7746,8 +7746,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -7908,7 +7908,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -8278,8 +8278,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -8440,7 +8440,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -8638,7 +8638,7 @@
         ],
         "tournaments won": 2,
         "weeks on top": 0,
-        "highest SR": 995.0,
+        "highest SR": 1001.6484078972696,
         "highest MMR": 1040.7813582787344,
         "rank goals": 10,
         "rank assists": 3,
@@ -8818,9 +8818,9 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 995.0,
+            "SR": 1001.6484078972696,
             "rank SR": 8,
-            "rank": "Bronze",
+            "rank": "Silver",
             "goals": 1,
             "rank goals": 4,
             "assists": 1,
@@ -8980,11 +8980,11 @@
                 "New Career Best (SR)",
                 "New Career Best (MMR)"
             ],
-            "highest SR": 995.0,
+            "highest SR": 1001.6484078972696,
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -9358,8 +9358,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -9520,7 +9520,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",
@@ -9890,8 +9890,8 @@
             "consecutive weeks on top": 0
         },
         "season 1": {
-            "SR": 999,
-            "rank SR": 7,
+            "SR": 0,
+            "rank SR": 10,
             "rank": "Unranked",
             "goals": 0,
             "rank goals": 5,
@@ -10052,7 +10052,7 @@
             "tournaments won": 0,
             "rank tournaments won": 1,
             "weeks on top": 0,
-            "rank weeks on top": 1,
+            "rank weeks on top": 2,
             "consecutive weeks on top": 0,
             "best teammate": [
                 "0",

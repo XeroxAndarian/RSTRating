@@ -84,12 +84,32 @@ def find_by(by, value):
 
     return match
 
+def find_by_2(by, value, dict):
+    match = []
+    for player in dict:
+        if player == "update" or player == "season":
+            continue
+        if dict[player][by] == value:
+            match.append(player)
+
+    return match
+
 def find_by_season(season, by, value):
     match = []
     for player in Bank:
         if player == "update" or player == "season":
             continue
         if Bank[player][season][by] == value:
+            match.append(player)
+
+    return match
+
+def find_by_season_2(season, by, value, dict):
+    match = []
+    for player in dict:
+        if player == "update" or player == "season":
+            continue
+        if dict[player][season][by] == value:
             match.append(player)
 
     return match

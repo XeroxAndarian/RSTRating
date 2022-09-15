@@ -8,7 +8,7 @@
 6. Other, such as find best pair <Done>
 7. Upgrade Team Calculator if necessary ? 
 8. Update Data with new info from previous match / tournament <Done>  
-9. Update with custom titles 
+9. Update with custom titles <SemiDone>
 10. Automatic finances <Done>
 
 
@@ -18,3 +18,8 @@
     -> winstreak does not increase properly <Resolved>
     -> SR calculator or update information does not seem to count loss correctly <Resolved>
     -> Worst Teammate appears to be as Best Teammate instead <Resolved>
+
+    -> Consecutive wins not working properly <Resolved> 
+    -> Climb is not calculated properly <Resolved>
+    -> MVP assists not working <Resolved>
+
