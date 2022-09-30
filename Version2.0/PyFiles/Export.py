@@ -161,10 +161,10 @@ def update_player_stats(player, dic=Players):
         f.close
     return None
 
-def update_player_stats_all(dic):
+def update_player_stats_all(dic=Players):
     for player in dic:
         if type(dic[player]) == dict:
             update_player_stats(player)
 
-export_csv()
-update_player_stats_all()
+# export_csv()
+# update_player_stats_all()

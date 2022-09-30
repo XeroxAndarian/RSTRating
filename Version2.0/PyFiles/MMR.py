@@ -26,10 +26,10 @@ def MMR_updator():
     for player in Players:
         if type(Players[player]) != dict:
             continue
-        avg_g = Players[player]["goals"] / Players[player]["matches played"]
-        avg_a = Players[player]["assists"] / Players[player]["matches played"]
-        avg_ag = Players[player]["auto goals"] / Players[player]["matches played"]
-        wr = Players[player]["wins"] / Players[player]["matches played"]
+        avg_g = Players[player]["goals"] / max(Players[player]["matches played"], 1)
+        avg_a = Players[player]["assists"] / max(Players[player]["matches played"], 1)
+        avg_ag = Players[player]["auto goals"] / max(Players[player]["matches played"],1)
+        wr = Players[player]["wins"] / max(Players[player]["matches played"], 1)
         Players[player]["MMR"] = MMR_calculator(wr, avg_g, avg_a, avg_ag)
     
     Save.save(Players, False)

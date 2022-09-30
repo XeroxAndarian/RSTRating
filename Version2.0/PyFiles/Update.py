@@ -216,6 +216,7 @@ def phase_1():
         
         # On a Roll!, On Fire!, Unstoppable!; Winstreak == 3 | 4 | 5+
         ws = Players[player]["winstreak"]
+        title = ""
         if ws == 3:
             title = "On a Roll!"
         if ws == 4:
@@ -449,8 +450,14 @@ def phase_9():
         # To the Moon!; player who climbed the most
         lst = list(Climb.values())
         keys = list(Climb.keys())
-        max = max(lst)
-        pos = lst.index(max)
+        for e in lst:
+            if type(e) != int:
+                lst.remove(e)
+        if type(lst[-1]) != int:
+            lst.remove(lst[-1])
+        
+        m = max(lst)
+        pos = lst.index(m)
         P = keys[pos]
         if player == P:
             Players[player][SEASON]["title"] += ["To the Moon!"]

@@ -1,4 +1,4 @@
-
+import re
 
 
 def match_analysis(team, comp, score):
@@ -7,10 +7,11 @@ def match_analysis(team, comp, score):
     else:
         Ana = {}
         Teams = [comp[0], comp[2]]
+        Score = score.split(":")
         Ana[Teams[0]] = {}
         Ana[Teams[1]] = {}
-        Ana[Teams[0]]["score"] = int(score[0])
-        Ana[Teams[1]]["score"] = int(score[2])
+        Ana[Teams[0]]["score"] = int(Score[0])
+        Ana[Teams[1]]["score"] = int(Score[1])
         if team == Teams[0]:
             other = Teams[1]
         if team == Teams[1]:

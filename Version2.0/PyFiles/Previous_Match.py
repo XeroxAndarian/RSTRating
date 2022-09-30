@@ -98,7 +98,7 @@ def previous_match_stats():
             if line[1] == "":
                 continue
             player_info = {}
-            id = str(Find.find(line[1])[0])
+            id = str((Find.find(line[1]))[0])
             player_info["goal"] = len(line[2])
             player_info["ass"] = len(line[3])
             player_info["ag"] = len(line[4])
@@ -133,11 +133,13 @@ def previous_match_stats():
 
     if match_type == "Tournament":
         team = 0
+        teams = 0
         i = 2
         while Last[i].split(",")[0] != "*":
             Pl = True
             line = Last[i].split(",")
-            if (team == 3) & (line[4] == ""):
+            if line[0] == "+":
+                teams = team
                 break
             if line[4] == "":
                 Pl = False
@@ -152,13 +154,14 @@ def previous_match_stats():
                 player_info["goal"] = len(line[5])
                 player_info["ass"] = len(line[6])
                 player_info["ag"] = len(line[7])
-                player_info["money"] = int(line[8])
+                if line[8] == "":
+                    player_info["money"] = 0
+                else: 
+                    player_info["money"] = int(line[8])
                 PMI[id] = player_info
                 Teams[str(team)].append(id)
             i += 1
-        teams = 4
-        if Last[22].split(",")[6] == "":
-            teams = 3
+            
 
 
         if teams == 3:
@@ -167,12 +170,12 @@ def previous_match_stats():
             Results["separate"]["2:3"] = Last[26].split(",")[3]
         if teams == 4:
             Results["separate"] = {}
-            Results["separate"]["1:2"] = Last[22].split(",")[6]
-            Results["separate"]["1:3"] = Last[23].split(",")[6]
-            Results["separate"]["1:4"] = Last[24].split(",")[6]
-            Results["separate"]["2:3"] = Last[25].split(",")[6]
-            Results["separate"]["2:4"] = Last[26].split(",")[6]
-            Results["separate"]["3:4"] = Last[27].split(",")[6]
+            Results["separate"]["1:2"] = Last[23].split(",")[6]
+            Results["separate"]["1:3"] = Last[24].split(",")[6]
+            Results["separate"]["1:4"] = Last[25].split(",")[6]
+            Results["separate"]["2:3"] = Last[26].split(",")[6]
+            Results["separate"]["2:4"] = Last[27].split(",")[6]
+            Results["separate"]["3:4"] = Last[28].split(",")[6]
         
         for team in list(Results.keys()):
             if team != "separate":
@@ -197,4 +200,4 @@ def previous_match_stats():
    
 
     return [PMI, Teams, str(date), Results, match_type]
-# print(previous_match_stats())
+print(previous_match_stats())
