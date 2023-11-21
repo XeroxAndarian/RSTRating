@@ -14,13 +14,5 @@
 
 
 ### List of Bugs:
-    -> Rankings do not work properly, however only for specific stats <Resolved>
-    -> winstreak does not increase properly <Resolved>
-    -> SR calculator or update information does not seem to count loss correctly <Resolved>
-    -> Worst Teammate appears to be as Best Teammate instead <Resolved>
-
-    -> Consecutive wins not working properly <Resolved> 
-    -> Climb is not calculated properly <Resolved>
-    -> MVP assists not working <Resolved>
-
+    -> if number of goals for one team is greater than 9 the calculation for results is wrong! <Unresolved>
     *-> MMR should not be calculated if player's attendance is fewer then 4 <Unresolved>
