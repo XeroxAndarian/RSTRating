@@ -33,4 +33,4 @@ def match_analysis(team, comp, score):
 a = match_analysis("2", "1:2", "2:3")
 b = match_analysis("1", "1:2", "2:3")
 c = match_analysis("1", "1:2", "2:2")
-d = match_analysis("2", "1:2", "2:2")
+d = match_analysis("2", "11:2", "2:2")
