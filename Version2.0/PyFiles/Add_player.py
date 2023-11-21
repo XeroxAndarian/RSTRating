@@ -123,8 +123,6 @@ def new_player(name="",surname="", nick=[]):
         Season_Template["teammates ties"] = {}
         Season_Template["teammates winrate"] = {}
         Season_Template["teammates lossrate"] = {}
-        Season_Template["best teammate"] = []
-        Season_Template["worst teammate"] = []
         Season_Template["title"] = []
         Season_Template["highest SR"] = 0
         Season_Template["tournaments won"] = 0
@@ -132,6 +130,8 @@ def new_player(name="",surname="", nick=[]):
         Season_Template["weeks on top"] = 0
         Season_Template["rank weeks on top"] = 0
         Season_Template["consecutive weeks on top"] = 0
+        Season_Template["best teammate"] = []
+        Season_Template["worst teammate"] = []
         
         
         

@@ -8,7 +8,7 @@
 6. Other, such as find best pair <Done>
 7. Upgrade Team Calculator if necessary ? 
 8. Update Data with new info from previous match / tournament <Done>  
-9. Update with custom titles <SemiDone>
+9. Update with custom titles <Unresolved>
 10. Automatic finances <Done>
 
 
@@ -23,3 +23,4 @@
     -> Climb is not calculated properly <Resolved>
     -> MVP assists not working <Resolved>
 
+    *-> MMR should not be calculated if player's attendance is fewer then 4 <Unresolved>

@@ -23,7 +23,7 @@ SEASON = "season " + str(Players["season"])
 MVP_G = {"player":"", "count": 0}
 MVP_A = {"player":"", "count": 0}
 match_type = Previous[4]
-FEE = 1 # Standard attendance fee == 1 €
+FEE = 2 # Standard attendance fee == 2 €
 
 
 def phase_1():
@@ -98,7 +98,10 @@ def phase_1():
         Players[player]["winrate"] = Players[player]["wins"] / max(Players[player]["matches played"], 1)
         Players[player][SEASON]["winrate"] = Players[player][SEASON]["wins"] / max(Players[player][SEASON]["matches played"], 1)
         # -> Calclate MMR
-        Players[player]["MMR"] = MMR.MMR_calculator(Players[player]["winrate"], Players[player]["goal average"], Players[player]["assist average"], Players[player]["auto goal average"])
+        if Players[player]["matches played"] > 4:
+            Players[player]["MMR"] = MMR.MMR_calculator(Players[player]["winrate"], Players[player]["goal average"], Players[player]["assist average"], Players[player]["auto goal average"])
+        else: 
+            Players[player]["MMR"] = 1000
         ## Calculate SR
         # -> Winstreak / losing streak
         winstreak = 0
@@ -447,20 +450,20 @@ def phase_9():
         Players[player][SEASON]["climb"] = Climb[player]
 
 
-        # To the Moon!; player who climbed the most
-        lst = list(Climb.values())
-        keys = list(Climb.keys())
-        for e in lst:
-            if type(e) != int:
-                lst.remove(e)
-        if type(lst[-1]) != int:
-            lst.remove(lst[-1])
-        
-        m = max(lst)
-        pos = lst.index(m)
-        P = keys[pos]
-        if player == P:
-            Players[player][SEASON]["title"] += ["To the Moon!"]
+        # # To the Moon!; player who climbed the most
+        # lst = list(Climb.values())
+        # keys = list(Climb.keys())
+        # for e in lst:
+        #     if type(e) != int:
+        #         lst.remove(e)
+        # if type(lst[-1]) != int:
+        #     lst.remove(lst[-1])
+        # 
+        # m = max(lst)
+        # pos = lst.index(m)
+        # P = keys[pos]
+        # if player == P:
+        #     Players[player][SEASON]["title"] += ["To the Moon!"]
     
     Save.save(Players, True, DATE)
 
