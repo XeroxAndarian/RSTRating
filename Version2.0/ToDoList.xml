@@ -14,5 +14,4 @@
 
 
 ### List of Bugs:
-    -> if number of goals for one team is greater than 9 the calculation for results is wrong! <Unresolved>
     *-> MMR should not be calculated if player's attendance is fewer then 4 <Unresolved>

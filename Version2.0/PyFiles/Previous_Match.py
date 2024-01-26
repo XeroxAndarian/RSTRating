@@ -1,20 +1,30 @@
 import datetime as dt
 import os.path
 import Find
+import re
 
 
 
 def determine_winner(key, value):
+    splitter=value.find(":")
     team_1 = key[0]
     team_2 = key[2]
-    score_team_1 = value[0]
-    score_team_2 = value[2]
-    if score_team_1 > score_team_2:
+    i=0
+    score_team_1 = ""
+    score_team_2 = ""
+    while i < splitter:
+        score_team_1 += value[i]
+        i+=1
+    j=0
+    while j < len(value) - splitter - 1:
+        score_team_2 += value[splitter + 1 + j]
+        j+=1
+    if int(score_team_1) > int(score_team_2):
         team_1 = True
         team_2 = False
-    if score_team_1 == score_team_2:
+    if int(score_team_1) == int(score_team_2):
         team_1 = team_2 = None
-    if score_team_2 > score_team_1:
+    if int(score_team_2) > int(score_team_1):
         team_2 = True
         team_1 = False
     return team_1, team_2    
