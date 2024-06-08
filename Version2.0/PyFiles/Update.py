@@ -23,7 +23,7 @@ SEASON = "season " + str(Players["season"])
 MVP_G = {"player":"", "count": 0}
 MVP_A = {"player":"", "count": 0}
 match_type = Previous[4]
-FEE = 2 # Standard attendance fee == 2 €
+FEE = 2 # Standard attendance fee 
 
 
 def phase_1():

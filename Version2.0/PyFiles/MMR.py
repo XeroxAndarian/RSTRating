@@ -9,9 +9,9 @@ import Save
 
 def MMR_calculator(WR, G, A, AG):
     f = float(6* WR + 2 * G + A - AG)/6
-    sd   = 0.5
+    sd   = 1.5
     mean = 0
-    Itg = quad(lambda x: 1 / ( sd * ( 2 * pi ) ** 0.5 ) * 2 * exp( 2 * x ** 2 / (-2 * sd ** 2) ), 0, f**4)
+    Itg = quad(lambda x: 1 / ( sd * ( 2 * pi ) ** 0.5 ) * 5 / 2 * exp( -x ** 2 / (sd ** 2) ), 0, f)
     MMR = 250 * Itg[0] + 1000
     return MMR
 
