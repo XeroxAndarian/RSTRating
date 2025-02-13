@@ -148,7 +148,7 @@ def previous_match_stats():
         while Last[i].split(",")[0] != "*":
             Pl = True
             line = Last[i].split(",")
-            if line[0] == "+":
+            if line[0] == "None":
                 teams = team
                 break
             if line[4] == "":

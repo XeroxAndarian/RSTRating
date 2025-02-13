@@ -8,7 +8,7 @@ New_Season = Previous_Season + 1
 SEASON = "season " + str(New_Season)
 
 Season_Template = {}
-Season_Template["SR"] = 0
+Season_Template["SR"] = 1000
 Season_Template["rank SR"] = 0
 Season_Template["rank"] = "Unranked"
 Season_Template["goals"] = 0

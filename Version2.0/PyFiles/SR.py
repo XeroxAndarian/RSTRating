@@ -11,7 +11,7 @@ G = lambda x: 10*x + max(0, 2*(x - 2))   # 10 SR for 1st and second, after that,
 A = lambda x: 6*x + max(0, 2*(x - 2))    # 6 SR for 1st and second, after that, 8 per assist
 AG = lambda x: -2*x                     # -2 SR per auto goal
 W = lambda x: 20*x                      # 20 SR for victory, 0 for tie and -20 for defeat, but it's weighted
-WS = lambda x: max(0, 5*(x - 1))                # 5 for each winstreak: 5, 10, 15, 20 ...
+WS = lambda x: max(0, 3*(x - 1))                # 3 * winstreak SR
 H = lambda x,y: 1 + 10 * (x/y - 1)      # Weight (Heavy)
 
 

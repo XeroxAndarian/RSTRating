@@ -8,6 +8,7 @@ import MatchResult
 import Standings
 import Export
 import time
+import DIC
 
 
 
@@ -509,4 +510,4 @@ if Players["update"] != DATE:  # Safety Check, da slucajno ne more updatat 2x is
         phase_9()
 phase_10()
 
-
+DIC.DIC()
