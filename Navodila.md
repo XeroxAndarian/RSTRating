@@ -1,4 +1,4 @@
-### Navodila za uporabo - kreiranje ekip
+## Navodila za uporabo - kreiranje ekip
 
 1. Namestite si aplikacijo, ki lahko požene python datoteke. Če ne veste katero iščite po iskalniku kaj na sceno "python", "edit" ipd.
 
@@ -82,3 +82,48 @@ Standings Divergence:  4
 Iz seznamov preporsoto razberite igralce v posamezni ekipi. Barvo dresov lahko določite naknadno.
 
 Lahko se zgodi (redko), da bo dalo več možnosti. V tem primeru je našel dve ekvivalentni razporeditvi igralcev (z vidika MMR). V tem primeru priporočam, da vzamete možosti, ki ima manjši `Standings Divergence`.
+
+
+## Navodila za uporabo - beleženje statistike
+
+### Tekma
+
+1. Podvojite zavihek `Privzeto - tekma`
+2. Spremenite ime zavihka na datum termina v obliki `yyyy-mm-dd`
+3. Taisti datum vpišite v polje `A2`
+4. V stolpce player vpišite igralce v posamezni ekipi. Tu upoštevajte naslednje:
+   a) Začnete čisto na vrhu in ne spuščate vrstic med igralci\
+   b) Poskrbite, da so imena taka, da se igralce lahko natančno identificira. Najbolje je zapisati vzdevek - ta je gotovo specifičen na igralca. To storite predvsem pri igralcih, ki si delijo ime s kom drugim. Lahko si pomagate s statistikami iz prejšnjih tekem.\
+   c) Glejte, da bodo imena tudi slovnično pravilno zapisana
+5. Gol, asistence in avtogol se označuje s simbolom (do sedaj je bila praksa veliki i = "I"). Vsak gol, assitenca oz. avtogol je svoj simbol. \
+Primer:\
+`II` - dva gola,\
+`xyz` - tri assistence \
+`4` - en gol
+6. Stoplec za denar pustite prazen
+
+### Turnir
+
+1. Podvojite zavihek `Privzeto - turnir`
+2. Spremenite ime zavihka na datum termina v obliki `yyyy-mm-dd`
+3. Taisti datum vpišite v polje A2
+4. V stolpce player vpišite igralce v posamezni ekipi. Tu upoštevajte naslednje:
+   a) Začnete čisto na vrhu in ne spuščate vrstic med igralci\
+   b) Poskrbite, da so imena taka, da se igralce lahko natančno identificira. Najbolje je zapisati vzdevek - ta je gotovo specifičen na igralca. To storite predvsem pri igralcih, ki si delijo ime s kom drugim. Lahko si pomagate s statistikami iz prejšnjih tekem.\
+   c) Glejte, da bodo imena tudi slovnično pravilno zapisana
+5. Gol, asistence in avtogol se označuje s simbolom (do sedaj je bila praksa veliki i = "I"). Vsak gol, assitenca oz. avtogol je svoj simbol. \
+Primer:\
+`II` - dva gola,\
+`xyz` - tri assistence \
+`4` - en gol
+
+6. Stoplec za denar pustite prazen
+7. Številke pri ekipah, ki beležijo zmage (W), poraze (L) in izenačenja (T) so samo dekorativne. Lahko jih spremenite, da ob koncu lažje vidite tmagovalca turnirja. Prvi stolpec 
+
+#### 3x3
+
+8. Če je turnir 3x3 nadomestite polje `A18:B18` (Team4) z `None`.
+9. Izpolnite levo tabelo (Tournament 3x3). Vsaka izmed 6 tekem šteje za polčas. Na koncu v najbolj desni stolpec vpišite končni rezultat. **Bodite pozorni na to, katera ekipa je ekipa 1, katera ekipa 2 itd.**
+
+#### 4x4
+8. Izpolnite desno tabelo (Tournament 4x4). Vsaka izmed 6 tekem šteje za celotno tekmo. V stolpec vpišite končni rezultat. **Bodite pozorni na to, katera ekipa je ekipa 1, katera ekipa 2 itd.**
