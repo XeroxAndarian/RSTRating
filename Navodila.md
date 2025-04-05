@@ -106,7 +106,7 @@ Primer:\
 
 1. Podvojite zavihek `Privzeto - turnir`
 2. Spremenite ime zavihka na datum termina v obliki `yyyy-mm-dd`
-3. Taisti datum vpišite v polje A2
+3. Taisti datum vpišite v polje `A2`
 4. V stolpce player vpišite igralce v posamezni ekipi. Tu upoštevajte naslednje:
    a) Začnete čisto na vrhu in ne spuščate vrstic med igralci\
    b) Poskrbite, da so imena taka, da se igralce lahko natančno identificira. Najbolje je zapisati vzdevek - ta je gotovo specifičen na igralca. To storite predvsem pri igralcih, ki si delijo ime s kom drugim. Lahko si pomagate s statistikami iz prejšnjih tekem.\
