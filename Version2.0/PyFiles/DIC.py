@@ -27,15 +27,14 @@ def DIC(dic=Players):
             Content += '"'
             Content += Players[str(id)]["surname"]
             Content += " "
-            Content += Players[str(id)]["name"][0]
-            Content += "."
+            Content += Players[str(id)]["name"]
             Content += '"'
         else: 
             Content += '"'
             Content += Players[str(id)]["name"]
             Content += '"'
         Content += " : "
-        Content += str(round(Players[str(id)]["MMR"], 1))
+        Content += str(round(Players[str(id)]["MMR"], 2))
         Content += ","
 
     Content = Content[:-1]
