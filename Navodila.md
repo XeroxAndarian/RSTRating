@@ -86,6 +86,8 @@ Lahko se zgodi (redko), da bo dalo več možnosti. V tem primeru je našel dve e
 
 ## Navodila za uporabo - beleženje statistike
 
+[Tabela](https://docs.google.com/spreadsheets/d/1vkC97h4CXLo96XvU-as9QEFaJLYS9mvunBy6fx7QOWc/edit?gid=762821190#gid=762821190)
+
 ### Tekma
 
 1. Podvojite zavihek `Privzeto - tekma`
