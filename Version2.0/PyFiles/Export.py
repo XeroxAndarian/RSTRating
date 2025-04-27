@@ -102,7 +102,12 @@ def export_csv(dic=Players):
                 if type(dic[player][Season][stat]) == str:
                     player_report += dic[player][Season][stat] + ";"
                 if type(dic[player][Season][stat]) in [int, float]:
-                    player_report += str(dic[player][Season][stat]) + ";"
+                    if stat == "SR"  and dic[player][Season]['attendance'] == 0:
+                        player_report += "0;"
+                    elif stat == "rank SR"  and dic[player][Season]['attendance'] == 0:
+                        player_report += "100;"
+                    else:
+                        player_report += str(dic[player][Season][stat]) + ";"
                 if type(dic[player][Season][stat]) == list:
                     if len(dic[player][Season][stat]) != 0:
                         string = ""
