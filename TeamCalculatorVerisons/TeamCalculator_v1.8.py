@@ -16,12 +16,12 @@ DIC = {
  #   "Bogataj Erik" : 1119.49,
  #   "Fele Miha" : 1073.46,
  #   "Prednik Gal" : 1129.25,
- #   "Petrovič Gašper" : 1144.44,
+    "Petrovič Gašper" : 1144.44,
  #   "Šalamun Jan" : 1104.65,
  #   "Hribar Janez" : 1110.96,
  #   "Jerak Matej" : 1093.64,
  #   "Kokalj Jernej" : 1090.86,
-    "Štrumbelj Luka" : 1113.94,
+ #   "Štrumbelj Luka" : 1113.94,
     "Lajovic Maks" : 1115.97,
    "Šalamun Marko" : 1116.76,
  #   "Kokalj Matevž" : 1114.17,
@@ -297,6 +297,13 @@ def print_team(team, name):
     output += f"Average rating: {average_rating(DIC, team)}"
     print(output)
     return None
+
+def key_with_smallest_value(d):
+    """Return the key that has the smallest value in dictionary d."""
+    if not d:
+        return None  # or raise ValueError("Empty dictionary")
+    key = min(d, key=d.get)
+    return key, d[key]
     
 # ============================================================ PROGRAM ==================================
 
@@ -327,7 +334,25 @@ if len(DIC) == 11 or len(DIC) == 13:
         print("Standings Divergence: ", k)
         print("*" * 40)
         
-
+elif len(DIC) == 9:
+    sidro = key_with_smallest_value(DIC)
+    del DIC[sidro[0]]
+    global_pair = two_team_partitions(DIC)
+    partitions = len(global_pair[0]) 
+    DIC[sidro[0]] = sidro[1]
+    print("*" * 40)
+    for i in range(partitions):
+        strong = global_pair[0][i][1]
+        s = standings_koefficient(strong)
+        weak = global_pair[1][i][1]
+        weak.append(sidro[0])
+        w = standings_koefficient(weak)
+        k = abs(s - w)
+        print(f"Option {i + 1}:")
+        print_team(strong, "Team A")
+        print_team(weak, "Team B")
+        print("Standings Divergence: ", k)
+        print("*" * 40)
 
 elif len(DIC) < 15:
     global_pair = two_team_partitions(DIC)
