@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.stats import norm
+import pandas as pd
+import csv
 
 import Load
 players = []
@@ -43,7 +45,7 @@ players_sorted = sorted(players, key=lambda x: x["score"])
 n = len(players_sorted)
 
 # Step 3: convert rank to percentile and map to normal
-mu_target = 1000   # target mean for rating
+mu_target = 1500  # target mean for rating
 sigma_target = 50  # target standard deviation for rating
 
 for idx, player in enumerate(players_sorted, start=1):
@@ -56,3 +58,29 @@ for idx, player in enumerate(players_sorted, start=1):
 print("Player Ratings:")
 for player in sorted(players_sorted, key=lambda x: -x["rating"]):
     print(f"{player['id']}: {player['rating']} (score: {player['score']})")
+
+
+# STEP 5: export to CSV
+# We'll assume each player has a league field. If not, assign a default league for testing.
+for player in players_sorted:
+    if "league" not in player:
+        player["league"] = "DefaultLeague"  # or map your actual league info
+
+# Prepare data for CSV
+csv_rows = []
+for player in players_sorted:
+    csv_rows.append({
+        "league": player["league"],
+        "player": player["id"],  # or player['id'] if you prefer
+        "score": player["rating"]  # rating is now the combined and normalized score
+    })
+
+# Write CSV
+csv_file = "Version2.0\PyFiles\MMR 2.0\league_data.csv"
+with open(csv_file, "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["league", "player", "score"])
+    writer.writeheader()
+    writer.writerows(csv_rows)
+
+print(f"CSV exported: {csv_file}")
+
