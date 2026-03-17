@@ -31,33 +31,32 @@ def determine_winner(key, value):
 
 def tournament_winner():
     Points = {"1":0, "2":0, "3":0, "4":0}
-    Standings = {"1": [0, 0], "2": [0, 0], "3": [0, 0], "4": [0, 0] }
+    Standings = {"1": [None, float('-inf')], "2": [None, float('-inf')], "3": [None, float('-inf')], "4": [None, float('-inf')] }
     for team in previous_match_stats()[1]: 
         Points[team] += 3 * previous_match_stats()[3][team]["win"]
         Points[team] +=  previous_match_stats()[3][team]["tie"]
     
     for team in Points:
-        if Points[team] > Standings["1"][1]:
-            Standings["1"] = [team, Points[team]]
-        elif Points[team] == Standings["1"][1]:
-            Standings["1"] += [team, Points[team]]
-        elif Points[team] > Standings["2"][1]:
-            Standings["2"] = [team, Points[team]]
-        elif Points[team] == Standings["2"][1]:
-            Standings["2"] += [team, Points[team]]
-        elif Points[team] > Standings["3"][1]:
-            Standings["3"] = [team, Points[team]]
-        elif Points[team] == Standings["3"][1]:
-            Standings["3"] += [team, Points[team]]
-        else: 
-            Standings["4"] = [team, Points[team]]
+        if Points[team] > Standings["1"][1]: 
+            Standings["1"] = [team, Points[team]] 
+        elif Points[team] == Standings["1"][1]: 
+            Standings["1"] += [team, Points[team]] 
+        elif Points[team] > Standings["2"][1]:  
+            Standings["2"] = [team, Points[team]] 
+        elif Points[team] == Standings["2"][1]: 
+            Standings["2"] += [team, Points[team]]  
+        elif Points[team] > Standings["3"][1]: 
+            Standings["3"] = [team, Points[team]] 
+        elif Points[team] == Standings["3"][1]: 
+            Standings["3"] += [team, Points[team]] 
+        else:  
+            Standings["4"] = [team, Points[team]] 
     
     for standing in Standings:
-        for e in Standings[standing]:
-            if type(e) != str:
-                Standings[standing].remove(e)
+        # Remove all non-string elements except the first one (team name)
+        Standings[standing] = [e for e in Standings[standing] if isinstance(e, str)]
     
-    if len(Standings["1"]) == 1:
+    if len(Standings["1"]) == 1 and Standings["1"][0] is not None:
         return Standings["1"][0]
     else:
         return "" 
@@ -75,7 +74,7 @@ def previous_match_stats():
     k=0
     while exsists == False:
         date = dt.date.today() - dt.timedelta(days=k)
-        file_name = "Version2.0\Data\Match History\\" +  str(date) + ".csv"
+        file_name = "Version2.0\\Data\\Match History\\" +  str(date) + ".csv"
         exsists = os.path.exists(file_name)
         k+=1
         if k > 10000:
@@ -211,3 +210,4 @@ def previous_match_stats():
 
     return [PMI, Teams, str(date), Results, match_type]
 print(previous_match_stats())
+

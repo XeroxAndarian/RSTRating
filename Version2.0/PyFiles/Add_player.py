@@ -41,6 +41,7 @@ def new_player(name="",surname="", nick=[]):
         Players[str(i)]["name"] = name
         Players[str(i)]["surname"] = surname
         Players[str(i)]["nickname"] = nick
+        Players[str(i)]["role"] = "N"
         Players[str(i)]["attendance"] = 0
         Players[str(i)]["matches played"] = 0
         Players[str(i)]["goals"] = 0

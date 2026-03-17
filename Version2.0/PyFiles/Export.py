@@ -7,7 +7,7 @@ Players = Load.load()
 Previous = Previous_Match.previous_match_stats()
 Date = Previous[2]
 Season = "season " + str(Players["season"])
-File = "Version2.0\Data\Exports\CSVExport" + Date + ".csv"
+File = "Version2.0\\Data\\Exports\\CSVExport" + Date + ".csv"
 
 Ignore = ["nickname", "teammates plays", "teammates wins", "teammates losses", "teammates ties", "teammates winrate", "teammates lossrate"]
 Worst_Best = ["worst teammate", "best teammate"]
@@ -133,7 +133,7 @@ def export_csv(dic=Players):
 
 
 def update_player_stats(player, dic=Players):
-    file = "Version2.0\Data\Player Weekly Reports\Weekly_id_" + player + ".csv"
+    file = "Version2.0\\Data\\Player Weekly Reports\\Weekly_id_" + player + ".csv"
     exsists = os.path.exists(file)
     if exsists:
         with open(file, "r", encoding="utf-8") as f:

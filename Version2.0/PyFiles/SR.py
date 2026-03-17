@@ -16,12 +16,13 @@ H = lambda x,y: 1 + 10 * (x/y - 1)      # Weight (Heavy)
 
 
 
-def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own=[], opp=[], dic=Players):
+def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own=[], opp=[], dic=Players, match_type="Match"):
     # R = result from previous match [win = 1 | loss = -1 | tie = 0]
     # G/A/AG = goals/assists/autogoals from previoous match
     # WS = winstreak
     # MVPG/MVPA = [True | False] MVPs for Goals or Assists
     # own/opp = firendly team / opponent team
+    # Match_type = ["Match" | "Tournament"]
     SEASON = "season " + str(dic["season"])
 
     if own == []:
@@ -47,12 +48,16 @@ def SR_calculator(current, R, g, a, ag, ws, mvpg, mvpa, own=[], opp=[], dic=Play
     elif (mvpa | mvpg):
         k = 10
 
+    modifyer = 1
+    if match_type == "Tournament":
+        modifyer = 0.75
+
     if R == 1:
-        return current +  G(g) + A(a) + AG(ag) + W(R) * H(SR_opp_avg, SR_own_avg) + k + WS(ws)
+        return current +  (G(g) + A(a) + AG(ag) + W(R) * H(SR_opp_avg, SR_own_avg) + k + WS(ws)) * modifyer
     elif R == -1:
-        return current +  G(g) + A(a) + AG(ag) + W(R) * H(SR_own_avg, SR_opp_avg) + k + WS(ws)
+        return current +  (G(g) + A(a) + AG(ag) + W(R) * H(SR_own_avg, SR_opp_avg) + k + WS(ws)) * modifyer
     else:
-        return current +  G(g) + A(a) + AG(ag) + k + WS(ws)
+        return current +  (G(g) + A(a) + AG(ag) + k + WS(ws)) * modifyer
     
 def average(own, opp,dic=Players):
     SEASON = "season " + str(dic["season"])

@@ -149,8 +149,8 @@ def phase_1():
                             opp = match[2]
                         if team == match[2]:
                             opp = match[0]
-                        R = MatchResult.match_analysis(team, match, RESULTS["separate"][match])
-                        Players[player][SEASON]["SR"] = SR.SR_calculator(Players[player][SEASON]["SR"], R, 0, 0, 0, 0, False, False, PMT[team], PMT[opp], Players)
+                        R = MatchResult.match_analysis(team, match, RESULTS["separate"][match]) 
+                        Players[player][SEASON]["SR"] = SR.SR_calculator(Players[player][SEASON]["SR"], R, 0, 0, 0, 0, False, False, PMT[team], PMT[opp], Players, match_type)
                         for teammate in PMT[team]:
                             if player == teammate:
                                 continue 

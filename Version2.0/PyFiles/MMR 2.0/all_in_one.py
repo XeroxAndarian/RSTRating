@@ -60,7 +60,7 @@ for idx, player in enumerate(players_sorted, start=1):
 # -------------------------------
 # Step 2: export CSV for hierarchical model
 # -------------------------------
-csv_file = "Version2.0\PyFiles\MMR 2.0\league_data.csv"
+csv_file = "Version2.0\\PyFiles\MMR 2.0\league_data.csv"
 with open(csv_file, "w", newline="", encoding="utf-8") as f:
     writer = csv.DictWriter(f, fieldnames=["league", "player", "score"])
     writer.writeheader()

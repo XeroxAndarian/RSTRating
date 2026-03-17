@@ -7,7 +7,7 @@ Players = Load.load()
 Previous = Previous_Match.previous_match_stats()
 Date = Previous[2]
 Season = "season " + str(Players["season"])
-File = "Version2.0\Data\DIC\Players" + Date + ".txt"
+File = "Version2.0\\Data\\DIC\\Players" + Date + ".txt"
 
 Ignore = ["nickname", "teammates plays", "teammates wins", "teammates losses", "teammates ties", "teammates winrate", "teammates lossrate"]
 Worst_Best = ["worst teammate", "best teammate"]
@@ -38,6 +38,7 @@ def DIC(dic=Players):
         Content += ","
 
     Content = Content[:-1]
+    # print(Content)
     Content += "\n }"
 
     with open(File, "w", encoding = "utf-8") as f:
