@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSTRating Browser App</title>
+    <title>RSTRating Leagues</title>
     <style>
         :root {
-            --bg: #f4efe4;
-            --panel: rgba(255, 252, 246, 0.88);
-            --text: #1e2a24;
-            --muted: #53645b;
-            --accent: #c45c2e;
-            --accent-dark: #8f3e1c;
-            --line: rgba(30, 42, 36, 0.12);
-            --shadow: 0 20px 60px rgba(40, 24, 10, 0.14);
+            --bg: #f3ecde;
+            --panel: rgba(255, 251, 243, 0.92);
+            --panel-strong: rgba(255, 247, 235, 0.98);
+            --card: rgba(255, 255, 255, 0.66);
+            --text: #172018;
+            --muted: #5b685f;
+            --accent: #bf5b2b;
+            --accent-dark: #8d3f1a;
+            --line: rgba(23, 32, 24, 0.12);
+            --shadow: 0 24px 60px rgba(67, 34, 10, 0.14);
+            --success: #1f5f31;
+            --danger: #7f1d1d;
         }
 
         * {
@@ -26,27 +30,42 @@
             font-family: Georgia, "Times New Roman", serif;
             color: var(--text);
             background:
-                radial-gradient(circle at top left, rgba(196, 92, 46, 0.24), transparent 28%),
-                radial-gradient(circle at right center, rgba(72, 116, 95, 0.20), transparent 24%),
-                linear-gradient(135deg, #f3ebdc 0%, #efe6d5 46%, #e6dcc8 100%);
-            display: grid;
-            place-items: center;
+                radial-gradient(circle at 0% 0%, rgba(191, 91, 43, 0.18), transparent 24%),
+                radial-gradient(circle at 100% 20%, rgba(74, 111, 85, 0.16), transparent 22%),
+                linear-gradient(135deg, #f6efe1 0%, #efe5d4 45%, #e6dbc8 100%);
             padding: 24px;
         }
 
-        .card {
-            width: min(760px, 100%);
+        .shell {
+            width: min(1160px, 100%);
+            margin: 0 auto;
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: 28px;
             box-shadow: var(--shadow);
-            padding: 40px 32px;
             backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .hero {
+            padding: 40px 32px 28px;
+            background:
+                linear-gradient(135deg, rgba(255, 248, 240, 0.88), rgba(245, 234, 214, 0.72)),
+                linear-gradient(90deg, rgba(191, 91, 43, 0.06), transparent);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .hero-top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .eyebrow {
             margin: 0 0 12px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             letter-spacing: 0.18em;
             text-transform: uppercase;
             color: var(--accent-dark);
@@ -54,28 +73,118 @@
 
         h1 {
             margin: 0;
-            font-size: clamp(2.4rem, 7vw, 5rem);
-            line-height: 0.95;
+            font-size: clamp(2.6rem, 6vw, 4.7rem);
+            line-height: 0.94;
         }
 
-        p {
-            font-size: 1.1rem;
-            line-height: 1.7;
+        .hero-copy {
+            margin: 14px 0 0;
+            max-width: 64ch;
             color: var(--muted);
-            max-width: 58ch;
+            font-size: 1.08rem;
+            line-height: 1.7;
         }
 
-        .actions {
+        .actions,
+        .card-actions,
+        .section-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
-            margin: 28px 0 20px;
+            gap: 12px;
         }
 
-        .auth-shell {
-            margin-top: 20px;
-            border-top: 1px solid var(--line);
-            padding-top: 20px;
+        .button,
+        .ghost,
+        .danger {
+            appearance: none;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 13px 18px;
+            border-radius: 999px;
+            text-decoration: none;
+            font: inherit;
+            font-weight: 700;
+            transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+        }
+
+        .button {
+            background: var(--accent);
+            color: #fff8f2;
+            box-shadow: 0 12px 26px rgba(191, 91, 43, 0.24);
+        }
+
+        .ghost {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid var(--line);
+        }
+
+        .danger {
+            color: #fff4f4;
+            background: #9f3030;
+            box-shadow: 0 12px 26px rgba(159, 48, 48, 0.18);
+        }
+
+        .button:hover,
+        .ghost:hover,
+        .danger:hover {
+            transform: translateY(-1px);
+        }
+
+        .content {
+            padding: 32px;
+        }
+
+        .auth-shell,
+        .lobby-shell {
+            display: none;
+        }
+
+        .auth-shell.active,
+        .lobby-shell.active {
+            display: block;
+        }
+
+        .auth-grid,
+        .lobby-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .auth-grid {
+            grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+            align-items: start;
+        }
+
+        .lobby-grid {
+            grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.95fr);
+            align-items: start;
+        }
+
+        .panel-card,
+        .overview-card,
+        .league-card,
+        .empty-card,
+        .invite-preview-card,
+        .member-card,
+        .invite-card {
+            background: var(--panel-strong);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 22px;
+        }
+
+        .overview-card,
+        .league-card,
+        .empty-card,
+        .member-card,
+        .invite-card {
+            background: var(--card);
+            padding: 18px;
         }
 
         .auth-tabs {
@@ -85,11 +194,13 @@
         }
 
         .tab {
-            padding: 9px 14px;
-            border-radius: 999px;
+            appearance: none;
             border: 1px solid var(--line);
-            background: rgba(255, 255, 255, 0.5);
+            border-radius: 999px;
+            padding: 9px 14px;
+            background: rgba(255, 255, 255, 0.55);
             color: var(--text);
+            font: inherit;
             font-weight: 700;
             cursor: pointer;
         }
@@ -108,9 +219,18 @@
             display: block;
         }
 
-        .stack {
+        .stack,
+        .league-list,
+        .member-list,
+        .invite-list,
+        .aside-list,
+        .overview-grid {
             display: grid;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        .overview-grid {
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
         }
 
         label {
@@ -119,260 +239,395 @@
             color: var(--text);
         }
 
-        input {
+        input,
+        textarea,
+        select {
             width: 100%;
             padding: 11px 12px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.82);
             font: inherit;
-            background: rgba(255, 255, 255, 0.8);
+            color: var(--text);
         }
 
-        .hint {
-            margin-top: 10px;
-            font-size: 0.9rem;
-            color: var(--muted);
+        textarea {
+            min-height: 90px;
+            resize: vertical;
         }
 
         .status {
-            margin-top: 12px;
-            padding: 10px 12px;
-            border-radius: 10px;
-            font-size: 0.9rem;
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 12px;
             display: none;
+            font-size: 0.94rem;
         }
 
         .status.show {
             display: block;
         }
 
-        .status.error {
-            background: rgba(180, 33, 33, 0.1);
-            color: #771919;
-        }
-
         .status.ok {
-            background: rgba(39, 126, 64, 0.12);
-            color: #1f5f31;
+            background: rgba(31, 95, 49, 0.11);
+            color: var(--success);
         }
 
-        .dashboard {
-            display: none;
-            margin-top: 10px;
+        .status.error {
+            background: rgba(127, 29, 29, 0.1);
+            color: var(--danger);
         }
 
-        .dashboard.active {
-            display: block;
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 1.25rem;
         }
 
-        .muted-note {
-            margin-top: 16px;
-            font-size: 0.86rem;
+        .subtle,
+        .hint,
+        .footer-note {
+            margin: 0;
             color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
         }
 
-        .button,
-        .ghost {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 13px 18px;
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 700;
-            transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+        .hint {
+            margin-top: 10px;
+            font-size: 0.92rem;
         }
 
-        .button {
-            background: var(--accent);
-            color: #fff8f2;
-            box-shadow: 0 12px 24px rgba(196, 92, 46, 0.22);
+        .footer-note {
+            margin-top: 14px;
+            font-size: 0.88rem;
         }
 
-        .ghost {
-            color: var(--text);
+        .aside-item {
+            background: var(--card);
             border: 1px solid var(--line);
-            background: rgba(255, 255, 255, 0.45);
+            border-radius: 18px;
+            padding: 16px;
         }
 
-        .button:hover,
-        .ghost:hover {
-            transform: translateY(-1px);
+        .aside-item strong {
+            display: block;
+            margin-bottom: 6px;
         }
 
-        .meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 14px;
-            margin-top: 32px;
-        }
-
-        .meta-item {
+        .dev-tools {
+            margin-top: 18px;
             border-top: 1px solid var(--line);
             padding-top: 14px;
         }
 
+        .dev-tools summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .overview-label,
         .meta-label {
             display: block;
-            font-size: 0.76rem;
+            font-size: 0.78rem;
             letter-spacing: 0.14em;
             text-transform: uppercase;
             color: var(--muted);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
-        .meta-value {
-            font-size: 1rem;
+        .overview-value {
+            font-size: 1.4rem;
             font-weight: 700;
         }
 
+        .league-head,
+        .member-head,
+        .invite-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .league-name,
+        .invite-name,
+        .member-name {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(191, 91, 43, 0.08);
+            color: var(--accent-dark);
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .meta-block {
+            border-top: 1px solid var(--line);
+            padding-top: 10px;
+        }
+
+        .meta-value {
+            font-size: 0.96rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .league-detail {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+            display: none;
+        }
+
+        .league-detail.active {
+            display: block;
+        }
+
+        .invite-preview-card {
+            margin-bottom: 18px;
+        }
+
+        @media (max-width: 920px) {
+            .auth-grid,
+            .lobby-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 640px) {
-            .card {
-                padding: 28px 22px;
-                border-radius: 22px;
+            body {
+                padding: 14px;
             }
 
-            p {
-                font-size: 1rem;
+            .hero,
+            .content {
+                padding: 24px 20px;
+            }
+
+            h1 {
+                font-size: clamp(2.2rem, 11vw, 3.3rem);
             }
         }
     </style>
 </head>
 <body>
-    <main class="card">
-        <p class="eyebrow">RSTRating</p>
-        <h1>Browser App is live.</h1>
-        <p>
-            First login prototype is now running on the public page. New users can register and then sign in.
-            Session state is kept in the browser so this works on GitHub Pages without a server.
-        </p>
-        <div class="actions">
-            <a class="button" href="#" id="logoutButton" aria-disabled="true">Sign out</a>
-            <a class="ghost" href="/index.html">Reload page</a>
-        </div>
-
-        <section class="auth-shell" id="authShell">
-            <div class="stack" style="margin-bottom: 16px;">
-                <label for="apiBaseInput">Backend API URL</label>
-                <input id="apiBaseInput" type="text" placeholder="http://127.0.0.1:9000">
-                <button class="ghost" id="saveApiBaseButton" type="button">Save API URL</button>
-            </div>
-
-            <div class="auth-tabs">
-                <button class="tab active" id="loginTab" type="button">Log in</button>
-                <button class="tab" id="registerTab" type="button">Register</button>
-            </div>
-
-            <div class="panel active" id="loginPanel">
-                <form class="stack" id="loginForm">
-                    <label for="loginUsername">Username</label>
-                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
-                    <label for="loginPassword">Password</label>
-                    <input id="loginPassword" name="password" type="password" minlength="4" required>
-                    <button class="button" type="submit">Sign in</button>
-                </form>
-                <p class="hint">Use a username and password you created below.</p>
-            </div>
-
-            <div class="panel" id="registerPanel">
-                <form class="stack" id="registerForm">
-                    <label for="registerUsername">Username</label>
-                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
-                    <label for="registerName">Name</label>
-                    <input id="registerName" name="name" type="text" maxlength="100" required>
-                    <label for="registerSurname">Surname</label>
-                    <input id="registerSurname" name="surname" type="text" maxlength="100" required>
-                    <label for="registerNicknames">Nicknames (optional)</label>
-                    <input id="registerNicknames" name="nicknames" type="text" maxlength="500" placeholder="e.g., Andro, Andraz, Čefur">
-                    <label for="registerEmail">Email</label>
-                    <input id="registerEmail" name="email" type="email" maxlength="255" required>
-                    <label for="registerPassword">Password</label>
-                    <input id="registerPassword" name="password" type="password" minlength="4" required>
-                    <label for="registerPasswordRepeat">Repeat password</label>
-                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="4" required>
-                    <label for="registerDisplayName">Display name (optional)</label>
-                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100">
-                    <button class="button" type="submit">Create account</button>
-                </form>
-                <p class="hint">This now calls the backend API to create real accounts.</p>
-            </div>
-
-            <div id="statusBox" class="status" role="status" aria-live="polite"></div>
-
-            <div class="panel" id="resetPanel" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
-                <p style="margin: 0 0 14px 0; font-size: 0.9rem; color: var(--muted);">Forgot your password? Enter your email and we'll send you a reset link.</p>
-                <form class="stack" id="resetRequestForm" style="margin-bottom: 16px;">
-                    <label for="resetEmail">Email</label>
-                    <input id="resetEmail" name="email" type="email" required>
-                    <button class="ghost" type="submit">Send reset link</button>
-                </form>
-                <div id="resetTokenPanel" style="display: none;">
-                    <form class="stack" id="resetForm">
-                        <label for="resetToken">Reset token (from email)</label>
-                        <input id="resetToken" name="token" type="text" required>
-                        <label for="resetNewPassword">New password</label>
-                        <input id="resetNewPassword" name="newPassword" type="password" minlength="4" required>
-                        <label for="resetPasswordRepeat">Repeat new password</label>
-                        <input id="resetPasswordRepeat" name="passwordRepeat" type="password" minlength="4" required>
-                        <button class="button" type="submit">Reset password</button>
-                    </form>
+    <main class="shell">
+        <section class="hero">
+            <div class="hero-top">
+                <div>
+                    <p class="eyebrow">RSTRating</p>
+                    <h1>Build your pickup football leagues.</h1>
+                    <p class="hero-copy" id="heroCopy">Register once, join leagues by invitation, and manage casual sports groups from a single lobby.</p>
+                </div>
+                <div class="actions">
+                    <button class="danger" id="logoutButton" type="button" aria-disabled="true">Sign out</button>
+                    <a class="ghost" href="./">Reload</a>
                 </div>
             </div>
         </section>
 
-        <section class="dashboard" id="dashboard">
-            <h2 id="welcomeTitle">Welcome</h2>
-            <p>You are signed in. Next step is connecting this to a real backend and database.</p>
-            <div class="meta">
-                <div class="meta-item">
-                    <span class="meta-label">Account State</span>
-                    <span class="meta-value">Signed In</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Auth Type</span>
-                    <span class="meta-value">JWT Token</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Next Step</span>
-                    <span class="meta-value">Server API</span>
-                </div>
-            </div>
+        <section class="content">
+            <section class="auth-shell active" id="authShell">
+                <div class="auth-grid">
+                    <div class="stack">
+                        <section class="invite-preview-card" id="invitePreviewCard" style="display: none;">
+                            <h2 class="section-title">League invitation</h2>
+                            <p class="subtle" id="invitePreviewText"></p>
+                            <div class="meta-grid" id="invitePreviewMeta"></div>
+                            <div class="section-actions" style="margin-top: 14px;" id="invitePreviewActions"></div>
+                        </section>
 
-            <div class="backup-section" style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line);">
-                <h3 style="margin: 0 0 16px 0; font-size: 1.1rem;">Backup & Restore</h3>
-                <p style="margin: 0 0 14px 0; font-size: 0.95rem; color: var(--muted);">Download all account data to your computer. Restore from a backup file anytime.</p>
-                <div class="actions" style="gap: 10px; margin-bottom: 16px;">
-                    <button class="button" id="downloadBackupButton" type="button">Download Backup</button>
-                    <button class="ghost" id="restoreBackupButton" type="button">Restore from Backup</button>
+                        <section class="panel-card">
+                            <div class="auth-tabs">
+                                <button class="tab active" id="loginTab" type="button">Log in</button>
+                                <button class="tab" id="registerTab" type="button">Register</button>
+                            </div>
+
+                            <div class="panel active" id="loginPanel">
+                                <form class="stack" id="loginForm">
+                                    <label for="loginUsername">Username</label>
+                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                                    <label for="loginPassword">Password</label>
+                                    <input id="loginPassword" name="password" type="password" minlength="6" required>
+                                    <button class="button" type="submit">Enter Lobby</button>
+                                </form>
+                                <p class="hint">If you opened an invitation link, log in and accept it directly from this page.</p>
+                            </div>
+
+                            <div class="panel" id="registerPanel">
+                                <form class="stack" id="registerForm">
+                                    <label for="registerUsername">Username</label>
+                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                                    <label for="registerName">Name</label>
+                                    <input id="registerName" name="name" type="text" maxlength="100" required>
+                                    <label for="registerSurname">Surname</label>
+                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required>
+                                    <label for="registerNicknames">Nicknames</label>
+                                    <input id="registerNicknames" name="nicknames" type="text" maxlength="500" placeholder="Andro, Andraz, Cefu">
+                                    <label for="registerEmail">Email</label>
+                                    <input id="registerEmail" name="email" type="email" maxlength="255" required>
+                                    <label for="registerPassword">Password</label>
+                                    <input id="registerPassword" name="password" type="password" minlength="6" required>
+                                    <label for="registerPasswordRepeat">Repeat password</label>
+                                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required>
+                                    <label for="registerDisplayName">Display name</label>
+                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="Optional public name">
+                                    <button class="button" type="submit">Create account</button>
+                                </form>
+                                <p class="hint">Nicknames are stored as a list so they can feed straight into the player model.</p>
+                            </div>
+
+                            <div class="status" id="statusBox" role="status" aria-live="polite"></div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Password recovery</h2>
+                            <p class="subtle">Request a reset token with your email, then choose a new password.</p>
+                            <form class="stack" id="resetRequestForm" style="margin-top: 12px; margin-bottom: 14px;">
+                                <label for="resetEmail">Email</label>
+                                <input id="resetEmail" name="email" type="email" required>
+                                <button class="ghost" type="submit">Request reset token</button>
+                            </form>
+                            <div id="resetTokenPanel" style="display: none;">
+                                <form class="stack" id="resetForm">
+                                    <label for="resetToken">Reset token</label>
+                                    <input id="resetToken" name="token" type="text" required>
+                                    <label for="resetNewPassword">New password</label>
+                                    <input id="resetNewPassword" name="newPassword" type="password" minlength="6" required>
+                                    <label for="resetPasswordRepeat">Repeat new password</label>
+                                    <input id="resetPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required>
+                                    <button class="button" type="submit">Set new password</button>
+                                </form>
+                            </div>
+                        </section>
+
+                        <details class="dev-tools">
+                            <summary>Developer connection override</summary>
+                            <div class="stack" style="margin-top: 12px;">
+                                <label for="apiBaseInput">Backend API URL</label>
+                                <input id="apiBaseInput" type="text" placeholder="https://rstrating-accounts-api.onrender.com">
+                                <button class="ghost" id="saveApiBaseButton" type="button">Save override</button>
+                            </div>
+                        </details>
+                    </div>
+
+                    <aside class="panel-card">
+                        <h2 class="section-title">What this app does</h2>
+                        <p class="subtle">This is the league entry point for casual sports, with football as the default sport.</p>
+                        <div class="aside-list" style="margin-top: 18px;">
+                            <div class="aside-item">
+                                <strong>Proper invitation links</strong>
+                                Owners and admins share a direct invite URL. The player lands on the invitation page immediately.
+                            </div>
+                            <div class="aside-item">
+                                <strong>Multi-league accounts</strong>
+                                One account can belong to any number of leagues, and the lobby keeps them all together.
+                            </div>
+                            <div class="aside-item">
+                                <strong>League admin controls</strong>
+                                League owners can promote members to admin or return admins back to members.
+                            </div>
+                            <div class="aside-item">
+                                <strong>Full backup coverage</strong>
+                                Account backup now includes leagues, memberships, and invitation records too.
+                            </div>
+                        </div>
+                    </aside>
                 </div>
-                <input type="file" id="backupFileInput" style="display: none;" accept=".json" />
-            </div>
-        </section>
+            </section>
 
-        <p class="muted-note">
-            Security note: this is an MVP backend. Use HTTPS and a strong JWT secret in production.
-        </p>
+            <section class="lobby-shell" id="lobbyShell">
+                <div class="lobby-grid">
+                    <div class="stack">
+                        <section class="invite-preview-card" id="inviteLobbyCard" style="display: none;">
+                            <h2 class="section-title">Invitation ready</h2>
+                            <p class="subtle" id="inviteLobbyText"></p>
+                            <div class="meta-grid" id="inviteLobbyMeta"></div>
+                            <div class="section-actions" style="margin-top: 14px;" id="inviteLobbyActions"></div>
+                        </section>
 
-        <section class="meta">
-            <div class="meta-item">
-                <span class="meta-label">Stage</span>
-                <span class="meta-value">Auth Prototype</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-label">Hosting</span>
-                <span class="meta-value">GitHub Pages</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-label">Auth</span>
-                <span class="meta-value">Backend API</span>
-            </div>
+                        <section class="panel-card">
+                            <h2 class="section-title" id="welcomeTitle">Welcome</h2>
+                            <p class="subtle" id="welcomeSubtitle">Your league lobby is where you create groups, manage admins, and handle invitation links.</p>
+                            <div class="overview-grid">
+                                <div class="overview-card">
+                                    <span class="overview-label">Joined Leagues</span>
+                                    <span class="overview-value" id="leagueCountValue">0</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Manageable Leagues</span>
+                                    <span class="overview-value" id="managedLeagueCountValue">0</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Active Invites</span>
+                                    <span class="overview-value" id="inviteCountValue">0</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Primary Sport</span>
+                                    <span class="overview-value">Football</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Your leagues</h2>
+                            <p class="subtle">Open league details to inspect members, issue invites, and manage admins.</p>
+                            <div class="league-list" id="leagueList"></div>
+                        </section>
+                    </div>
+
+                    <div class="stack">
+                        <section class="panel-card">
+                            <h2 class="section-title">Create a league</h2>
+                            <p class="subtle">Start a new competition or casual group. You become the owner automatically.</p>
+                            <form class="stack" id="createLeagueForm" style="margin-top: 12px;">
+                                <label for="leagueName">League name</label>
+                                <input id="leagueName" name="name" type="text" minlength="3" maxlength="80" required>
+                                <label for="leagueSport">Sport</label>
+                                <input id="leagueSport" name="sport" type="text" maxlength="40" value="football" required>
+                                <label for="leagueDescription">Description</label>
+                                <textarea id="leagueDescription" name="description" maxlength="300" placeholder="Friday five-a-side, Sunday indoor, mixed casual training..."></textarea>
+                                <button class="button" type="submit">Create league</button>
+                            </form>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Backup all data</h2>
+                            <p class="subtle">This now includes accounts, leagues, memberships, and invite records.</p>
+                            <div class="actions" style="margin-top: 14px;">
+                                <button class="button" id="downloadBackupButton" type="button">Download backup</button>
+                                <button class="ghost" id="restoreBackupButton" type="button">Restore backup</button>
+                            </div>
+                            <input id="backupFileInput" type="file" accept=".json" hidden>
+                            <p class="footer-note">Because the free Render plan uses temporary storage, regular downloads are still the safe option.</p>
+                        </section>
+                    </div>
+                </div>
+            </section>
         </section>
     </main>
 
     <script>
         const TOKEN_KEY = "rs_access_token";
-        const API_BASE_KEY = "rs_api_base";
-        const DEFAULT_API_BASE = "http://127.0.0.1:9000";
+        const API_BASE_KEY = "rs_api_base_override";
+        const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
 
         const loginTab = document.getElementById("loginTab");
         const registerTab = document.getElementById("registerTab");
@@ -380,21 +635,50 @@
         const registerPanel = document.getElementById("registerPanel");
         const loginForm = document.getElementById("loginForm");
         const registerForm = document.getElementById("registerForm");
-        const statusBox = document.getElementById("statusBox");
-        const authShell = document.getElementById("authShell");
-        const dashboard = document.getElementById("dashboard");
-        const welcomeTitle = document.getElementById("welcomeTitle");
-        const logoutButton = document.getElementById("logoutButton");
-        const apiBaseInput = document.getElementById("apiBaseInput");
-        const saveApiBaseButton = document.getElementById("saveApiBaseButton");
-        const downloadBackupButton = document.getElementById("downloadBackupButton");
-        const restoreBackupButton = document.getElementById("restoreBackupButton");
-        const backupFileInput = document.getElementById("backupFileInput");
         const resetRequestForm = document.getElementById("resetRequestForm");
         const resetForm = document.getElementById("resetForm");
         const resetTokenPanel = document.getElementById("resetTokenPanel");
+        const statusBox = document.getElementById("statusBox");
+        const authShell = document.getElementById("authShell");
+        const lobbyShell = document.getElementById("lobbyShell");
+        const logoutButton = document.getElementById("logoutButton");
+        const heroCopy = document.getElementById("heroCopy");
+        const invitePreviewCard = document.getElementById("invitePreviewCard");
+        const invitePreviewText = document.getElementById("invitePreviewText");
+        const invitePreviewMeta = document.getElementById("invitePreviewMeta");
+        const invitePreviewActions = document.getElementById("invitePreviewActions");
+        const inviteLobbyCard = document.getElementById("inviteLobbyCard");
+        const inviteLobbyText = document.getElementById("inviteLobbyText");
+        const inviteLobbyMeta = document.getElementById("inviteLobbyMeta");
+        const inviteLobbyActions = document.getElementById("inviteLobbyActions");
+        const welcomeTitle = document.getElementById("welcomeTitle");
+        const welcomeSubtitle = document.getElementById("welcomeSubtitle");
+        const leagueCountValue = document.getElementById("leagueCountValue");
+        const managedLeagueCountValue = document.getElementById("managedLeagueCountValue");
+        const inviteCountValue = document.getElementById("inviteCountValue");
+        const leagueList = document.getElementById("leagueList");
+        const createLeagueForm = document.getElementById("createLeagueForm");
+        const downloadBackupButton = document.getElementById("downloadBackupButton");
+        const restoreBackupButton = document.getElementById("restoreBackupButton");
+        const backupFileInput = document.getElementById("backupFileInput");
+        const apiBaseInput = document.getElementById("apiBaseInput");
+        const saveApiBaseButton = document.getElementById("saveApiBaseButton");
+
+        const inviteTokenFromUrl = new URLSearchParams(window.location.search).get("invite") || "";
 
         let currentUser = null;
+        let lobbyState = { leagues: [], invites: [] };
+        let leagueDetails = {};
+        let pendingInvite = null;
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#39;");
+        }
 
         function getApiBase() {
             return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim();
@@ -414,6 +698,10 @@
 
         function clearToken() {
             localStorage.removeItem(TOKEN_KEY);
+        }
+
+        function splitNicknames(rawValue) {
+            return rawValue.split(",").map((part) => part.trim()).filter(Boolean);
         }
 
         function showStatus(message, type) {
@@ -436,15 +724,19 @@
         }
 
         async function apiFetch(path, options) {
-            const base = getApiBase();
-            const token = getToken();
             const headers = Object.assign({}, options && options.headers ? options.headers : {});
-
+            const token = getToken();
             if (token) {
                 headers.Authorization = "Bearer " + token;
             }
 
-            const response = await fetch(base + path, Object.assign({}, options || {}, { headers: headers }));
+            let response;
+            try {
+                response = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+            } catch {
+                throw new Error("Could not reach the backend yet. If Render is waking up, wait a few seconds and try again.");
+            }
+
             let body = null;
             try {
                 body = await response.json();
@@ -453,41 +745,275 @@
             }
 
             if (!response.ok) {
-                const detail = body && body.detail ? body.detail : "Request failed";
-                throw new Error(detail);
+                throw new Error(body && body.detail ? body.detail : "Request failed");
             }
 
             return body;
         }
 
-        async function refreshCurrentUser() {
+        async function refreshSession() {
             const token = getToken();
             if (!token) {
                 currentUser = null;
+                lobbyState = { leagues: [], invites: [] };
                 return;
             }
-
             try {
-                currentUser = await apiFetch("/auth/me", { method: "GET" });
+                const lobby = await apiFetch("/lobby", { method: "GET" });
+                currentUser = lobby.user;
+                lobbyState = { leagues: lobby.leagues || [], invites: lobby.invites || [] };
             } catch {
                 clearToken();
                 currentUser = null;
+                lobbyState = { leagues: [], invites: [] };
             }
         }
 
-        function renderAuthState() {
-            const signedIn = !!currentUser;
+        async function refreshInvitePreview() {
+            if (!inviteTokenFromUrl) {
+                pendingInvite = null;
+                return;
+            }
+            try {
+                pendingInvite = await apiFetch("/league-invites/" + encodeURIComponent(inviteTokenFromUrl), { method: "GET" });
+            } catch (error) {
+                pendingInvite = { error: error.message || "Invite could not be loaded." };
+            }
+        }
 
-            authShell.style.display = signedIn ? "none" : "block";
-            dashboard.classList.toggle("active", signedIn);
-            logoutButton.style.pointerEvents = signedIn ? "auto" : "none";
-            logoutButton.style.opacity = signedIn ? "1" : "0.5";
+        function inviteMetaHtml(invite) {
+            if (!invite || invite.error) {
+                return "";
+            }
+            return `
+                <div class="meta-block">
+                    <span class="meta-label">League</span>
+                    <span class="meta-value">${escapeHtml(invite.league_name)}</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Sport</span>
+                    <span class="meta-value">${escapeHtml(invite.sport)}</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Owner</span>
+                    <span class="meta-value">${escapeHtml(invite.owner_username)}</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Remaining Uses</span>
+                    <span class="meta-value">${escapeHtml(invite.remaining_uses)}</span>
+                </div>
+            `;
+        }
+
+        function renderInviteEntry() {
+            if (!inviteTokenFromUrl) {
+                invitePreviewCard.style.display = "none";
+                inviteLobbyCard.style.display = "none";
+                return;
+            }
+
+            const text = pendingInvite && !pendingInvite.error
+                ? `You were invited to join ${pendingInvite.league_name}. ${pendingInvite.description || ""}`
+                : (pendingInvite && pendingInvite.error ? pendingInvite.error : "Loading invitation...");
+
+            const actionHtml = pendingInvite && !pendingInvite.error
+                ? (currentUser
+                    ? '<button class="button" id="acceptInviteButton" type="button">Accept invitation</button>'
+                    : '<button class="ghost" id="promptLoginButton" type="button">Log in to accept</button>')
+                : "";
+
+            invitePreviewCard.style.display = currentUser ? "none" : "block";
+            inviteLobbyCard.style.display = currentUser ? "block" : "none";
+            invitePreviewText.textContent = text;
+            inviteLobbyText.textContent = text;
+            invitePreviewMeta.innerHTML = inviteMetaHtml(pendingInvite);
+            inviteLobbyMeta.innerHTML = inviteMetaHtml(pendingInvite);
+            invitePreviewActions.innerHTML = actionHtml;
+            inviteLobbyActions.innerHTML = actionHtml;
+        }
+
+        function renderLobbyOverview() {
+            const manageableCount = lobbyState.leagues.filter((league) => league.member_role === "owner" || league.member_role === "admin").length;
+            leagueCountValue.textContent = String(lobbyState.leagues.length);
+            managedLeagueCountValue.textContent = String(manageableCount);
+            inviteCountValue.textContent = String(lobbyState.invites.length);
+        }
+
+        function renderMembersHtml(league, detail) {
+            if (!detail) {
+                return '<div class="empty-card">League details not loaded yet.</div>';
+            }
+            if (!detail.members.length) {
+                return '<div class="empty-card">No members found.</div>';
+            }
+            return detail.members.map((member) => {
+                const canEdit = league.member_role === "owner" && member.role !== "owner";
+                const toggleRole = member.role === "member" ? "admin" : "member";
+                const buttonLabel = member.role === "member" ? "Promote to admin" : "Return to member";
+                return `
+                    <article class="member-card">
+                        <div class="member-head">
+                            <div>
+                                <h4 class="member-name">${escapeHtml(member.display_name || member.username)}</h4>
+                                <div class="subtle">@${escapeHtml(member.username)}</div>
+                            </div>
+                            <div class="pill">${escapeHtml(member.role)}</div>
+                        </div>
+                        <div class="meta-grid">
+                            <div class="meta-block">
+                                <span class="meta-label">Joined</span>
+                                <span class="meta-value">${escapeHtml(member.joined_at.slice(0, 10))}</span>
+                            </div>
+                        </div>
+                        ${canEdit ? `
+                            <div class="card-actions" style="margin-top: 12px;">
+                                <button class="ghost update-member-role-button" type="button" data-league-id="${league.id}" data-user-id="${member.user_id}" data-role="${toggleRole}">${buttonLabel}</button>
+                            </div>
+                        ` : ""}
+                    </article>
+                `;
+            }).join("");
+        }
+
+        function renderInviteListHtml(detail) {
+            if (!detail || !detail.invites.length) {
+                return '<div class="empty-card">No active invites for this league.</div>';
+            }
+            return detail.invites.map((invite) => `
+                <article class="invite-card">
+                    <div class="invite-head">
+                        <h4 class="invite-name">Invite link</h4>
+                        <div class="pill">${escapeHtml(invite.use_count)}/${escapeHtml(invite.max_uses)} used</div>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta-block">
+                            <span class="meta-label">URL</span>
+                            <span class="meta-value">${escapeHtml(invite.invite_url)}</span>
+                        </div>
+                        <div class="meta-block">
+                            <span class="meta-label">Expires</span>
+                            <span class="meta-value">${escapeHtml((invite.expires_at || "No expiry").slice(0, 10))}</span>
+                        </div>
+                    </div>
+                    <div class="card-actions" style="margin-top: 12px;">
+                        <button class="ghost copy-invite-button" type="button" data-value="${escapeHtml(invite.invite_url)}">Copy link</button>
+                    </div>
+                </article>
+            `).join("");
+        }
+
+        function renderLeagueList() {
+            if (!lobbyState.leagues.length) {
+                leagueList.innerHTML = '<div class="empty-card">You are not in any leagues yet. Create one or open an invitation link to join.</div>';
+                return;
+            }
+
+            leagueList.innerHTML = lobbyState.leagues.map((league) => {
+                const canManage = league.member_role === "owner" || league.member_role === "admin";
+                const detail = leagueDetails[league.id] || null;
+                const detailClass = detail ? "league-detail active" : "league-detail";
+                return `
+                    <article class="league-card">
+                        <div class="league-head">
+                            <div>
+                                <h3 class="league-name">${escapeHtml(league.name)}</h3>
+                                <div class="pill">${escapeHtml(league.sport)}</div>
+                            </div>
+                            <div class="pill">${escapeHtml(league.member_role)}</div>
+                        </div>
+                        <p class="subtle">${escapeHtml(league.description || "No description yet.")}</p>
+                        <div class="meta-grid">
+                            <div class="meta-block">
+                                <span class="meta-label">Owner</span>
+                                <span class="meta-value">${escapeHtml(league.owner_username)}</span>
+                            </div>
+                            <div class="meta-block">
+                                <span class="meta-label">Members</span>
+                                <span class="meta-value">${escapeHtml(league.member_count)}</span>
+                            </div>
+                            <div class="meta-block">
+                                <span class="meta-label">Created</span>
+                                <span class="meta-value">${escapeHtml(league.created_at.slice(0, 10))}</span>
+                            </div>
+                        </div>
+                        <div class="card-actions" style="margin-top: 14px;">
+                            <button class="ghost view-league-button" type="button" data-league-id="${league.id}">${detail ? "Refresh details" : "Open details"}</button>
+                            ${canManage ? `<button class="button create-invite-button" type="button" data-league-id="${league.id}">Create invite link</button>` : ""}
+                        </div>
+                        <div class="${detailClass}" id="league-detail-${league.id}">
+                            <div class="stack">
+                                <div>
+                                    <h4 class="section-title" style="font-size: 1.05rem;">Members</h4>
+                                    <div class="member-list">${renderMembersHtml(league, detail)}</div>
+                                </div>
+                                ${canManage ? `
+                                    <div>
+                                        <h4 class="section-title" style="font-size: 1.05rem;">Invitation links</h4>
+                                        <div class="invite-list">${renderInviteListHtml(detail)}</div>
+                                    </div>
+                                ` : ""}
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
+
+        function renderAppState() {
+            const signedIn = !!currentUser;
+            authShell.classList.toggle("active", !signedIn);
+            lobbyShell.classList.toggle("active", signedIn);
+            logoutButton.disabled = !signedIn;
+            logoutButton.style.opacity = signedIn ? "1" : "0.45";
             logoutButton.setAttribute("aria-disabled", signedIn ? "false" : "true");
 
-            if (signedIn) {
-                welcomeTitle.textContent = "Welcome, " + (currentUser.display_name || currentUser.username);
+            renderInviteEntry();
+
+            if (!signedIn) {
+                heroCopy.textContent = inviteTokenFromUrl
+                    ? "Invitation detected. Sign in or register, then accept it directly."
+                    : "Register once, join leagues by invitation, and manage casual sports groups from a single lobby.";
+                return;
             }
+
+            const displayName = currentUser.display_name || currentUser.name || currentUser.username;
+            welcomeTitle.textContent = "Welcome, " + displayName;
+            welcomeSubtitle.textContent = `${currentUser.name} ${currentUser.surname} can belong to any number of leagues. Owners can promote admins and share invite links.`;
+            heroCopy.textContent = "Signed in. Your lobby shows league membership, member management, full backup, and invitation links.";
+            renderLobbyOverview();
+            renderLeagueList();
         }
+
+        async function refreshAndRender() {
+            await refreshSession();
+            await refreshInvitePreview();
+            renderAppState();
+        }
+
+        async function loadLeagueDetail(leagueId) {
+            const detail = await apiFetch(`/leagues/${leagueId}`, { method: "GET" });
+            leagueDetails[leagueId] = detail;
+            renderLeagueList();
+        }
+
+        async function acceptPendingInvite() {
+            if (!inviteTokenFromUrl) {
+                return;
+            }
+            const league = await apiFetch("/league-invites/accept", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: inviteTokenFromUrl })
+            });
+            await refreshAndRender();
+            showStatus(`Joined ${league.name}.`, "ok");
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.delete("invite");
+            window.history.replaceState({}, "", nextUrl.toString());
+        }
+
+        loginTab.addEventListener("click", () => openTab("login"));
+        registerTab.addEventListener("click", () => openTab("register"));
 
         saveApiBaseButton.addEventListener("click", () => {
             const value = apiBaseInput.value.trim();
@@ -495,20 +1021,16 @@
                 showStatus("Enter a backend API URL first.", "error");
                 return;
             }
-
             setApiBase(value);
-            showStatus("API URL saved.", "ok");
+            showStatus("Backend override saved.", "ok");
         });
-
-        loginTab.addEventListener("click", () => openTab("login"));
-        registerTab.addEventListener("click", () => openTab("register"));
 
         registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = registerForm.username.value.trim();
             const name = registerForm.name.value.trim();
             const surname = registerForm.surname.value.trim();
-            const nicknames = registerForm.nicknames.value.trim();
+            const nicknames = splitNicknames(registerForm.nicknames.value.trim());
             const email = registerForm.email.value.trim();
             const password = registerForm.password.value;
             const passwordRepeat = registerForm.passwordRepeat.value;
@@ -518,32 +1040,22 @@
                 showStatus("Username must be 3-24 chars and use letters, numbers, or underscore.", "error");
                 return;
             }
-
             if (!name) {
                 showStatus("Name is required.", "error");
                 return;
             }
-
             if (!surname) {
                 showStatus("Surname is required.", "error");
                 return;
             }
-
-            if (!email) {
-                showStatus("Email is required.", "error");
-                return;
-            }
-
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
                 showStatus("Please enter a valid email address.", "error");
                 return;
             }
-
             if (password.length < 6) {
                 showStatus("Password must be at least 6 characters.", "error");
                 return;
             }
-
             if (password !== passwordRepeat) {
                 showStatus("Passwords do not match.", "error");
                 return;
@@ -552,16 +1064,14 @@
             try {
                 await apiFetch("/auth/register", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        username: username,
-                        password: password,
-                        email: email,
-                        name: name,
-                        surname: surname,
-                        nicknames: nicknames || null,
+                        username,
+                        password,
+                        email,
+                        name,
+                        surname,
+                        nicknames,
                         display_name: displayName || null
                     })
                 });
@@ -576,48 +1086,175 @@
 
         loginForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const username = loginForm.username.value.trim();
-            const password = loginForm.password.value;
-
             try {
                 const tokenData = await apiFetch("/auth/login", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ username: username, password: password })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        username: loginForm.username.value.trim(),
+                        password: loginForm.password.value
+                    })
                 });
-
                 setToken(tokenData.access_token);
-                await refreshCurrentUser();
-                clearStatus();
+                await refreshAndRender();
                 loginForm.reset();
-                renderAuthState();
+                clearStatus();
             } catch (error) {
                 showStatus(error.message || "Invalid username or password.", "error");
             }
         });
 
-        logoutButton.addEventListener("click", (event) => {
-            event.preventDefault();
+        logoutButton.addEventListener("click", () => {
             if (!currentUser) {
                 return;
             }
-
             clearToken();
             currentUser = null;
+            leagueDetails = {};
+            lobbyState = { leagues: [], invites: [] };
             openTab("login");
-            renderAuthState();
+            renderAppState();
             showStatus("You have been signed out.", "ok");
         });
 
-        downloadBackupButton.addEventListener("click", async (event) => {
+        resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
+                const response = await apiFetch("/auth/password-reset-request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: resetRequestForm.email.value.trim() })
+                });
+                resetTokenPanel.style.display = "block";
+                showStatus(response.detail || "Reset token requested.", "ok");
+            } catch (error) {
+                showStatus(error.message || "Failed to request password reset.", "error");
+            }
+        });
+
+        resetForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const email = resetRequestForm.email.value.trim();
+            const token = resetForm.token.value.trim();
+            const newPassword = resetForm.newPassword.value;
+            const passwordRepeat = resetForm.passwordRepeat.value;
+            if (!email) {
+                showStatus("Enter the email used for the reset request.", "error");
+                return;
+            }
+            if (newPassword.length < 6) {
+                showStatus("Password must be at least 6 characters.", "error");
+                return;
+            }
+            if (newPassword !== passwordRepeat) {
+                showStatus("Passwords do not match.", "error");
+                return;
+            }
+            try {
+                const response = await apiFetch("/auth/password-reset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, token, new_password: newPassword })
+                });
+                resetForm.reset();
+                resetTokenPanel.style.display = "none";
+                showStatus(response.detail || "Password reset successfully.", "ok");
+                openTab("login");
+            } catch (error) {
+                showStatus(error.message || "Failed to reset password.", "error");
+            }
+        });
+
+        createLeagueForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            try {
+                await apiFetch("/leagues", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: createLeagueForm.name.value.trim(),
+                        sport: createLeagueForm.sport.value.trim() || "football",
+                        description: createLeagueForm.description.value.trim() || null
+                    })
+                });
+                createLeagueForm.reset();
+                createLeagueForm.sport.value = "football";
+                await refreshAndRender();
+                showStatus("League created.", "ok");
+            } catch (error) {
+                showStatus(error.message || "Failed to create league.", "error");
+            }
+        });
+
+        leagueList.addEventListener("click", async (event) => {
+            const viewButton = event.target.closest(".view-league-button");
+            if (viewButton) {
+                try {
+                    await loadLeagueDetail(Number(viewButton.dataset.leagueId));
+                } catch (error) {
+                    showStatus(error.message || "Failed to load league details.", "error");
+                }
+                return;
+            }
+
+            const inviteButton = event.target.closest(".create-invite-button");
+            if (inviteButton) {
+                try {
+                    const invite = await apiFetch(`/leagues/${inviteButton.dataset.leagueId}/invites`, { method: "POST" });
+                    await loadLeagueDetail(Number(inviteButton.dataset.leagueId));
+                    await refreshAndRender();
+                    showStatus(`Invite created: ${invite.invite_url}`, "ok");
+                } catch (error) {
+                    showStatus(error.message || "Failed to create invite.", "error");
+                }
+                return;
+            }
+
+            const roleButton = event.target.closest(".update-member-role-button");
+            if (roleButton) {
+                try {
+                    await apiFetch(`/leagues/${roleButton.dataset.leagueId}/members/${roleButton.dataset.userId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ role: roleButton.dataset.role })
+                    });
+                    await loadLeagueDetail(Number(roleButton.dataset.leagueId));
+                    await refreshAndRender();
+                    showStatus("Member role updated.", "ok");
+                } catch (error) {
+                    showStatus(error.message || "Failed to update member role.", "error");
+                }
+                return;
+            }
+
+            const copyButton = event.target.closest(".copy-invite-button");
+            if (copyButton) {
+                try {
+                    await navigator.clipboard.writeText(copyButton.dataset.value);
+                    showStatus("Invite link copied to clipboard.", "ok");
+                } catch {
+                    showStatus("Could not copy automatically. Copy the link manually.", "error");
+                }
+            }
+        });
+
+        document.addEventListener("click", async (event) => {
+            const acceptButton = event.target.closest("#acceptInviteButton");
+            if (!acceptButton) {
+                return;
+            }
+            try {
+                await acceptPendingInvite();
+            } catch (error) {
+                showStatus(error.message || "Could not accept invite.", "error");
+            }
+        });
+
+        downloadBackupButton.addEventListener("click", async () => {
+            try {
                 const backup = await apiFetch("/backup/export", { method: "GET" });
-                const dataStr = JSON.stringify(backup, null, 2);
-                const dataBlob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(dataBlob);
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
                 link.download = `rstrating-backup-${new Date().toISOString().split("T")[0]}.json`;
@@ -631,103 +1268,39 @@
             }
         });
 
-        restoreBackupButton.addEventListener("click", (event) => {
-            event.preventDefault();
+        restoreBackupButton.addEventListener("click", () => {
             backupFileInput.click();
         });
 
         backupFileInput.addEventListener("change", async (event) => {
-            const file = event.target.files?.[0];
+            const file = event.target.files && event.target.files[0];
             if (!file) {
                 return;
             }
-
             try {
-                const fileContent = await file.text();
-                const backup = JSON.parse(fileContent);
-
+                const backup = JSON.parse(await file.text());
                 if (typeof backup.users !== "object" || Array.isArray(backup.users)) {
-                    throw new Error("Invalid backup file format. Expected backup.users to be an object.");
+                    throw new Error("Invalid backup file format.");
                 }
-
                 const response = await apiFetch("/backup/import", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ users: backup.users })
+                    body: JSON.stringify(backup)
                 });
-
+                await refreshAndRender();
                 showStatus(response.detail || "Backup restored successfully.", "ok");
-                backupFileInput.value = "";
             } catch (error) {
                 showStatus(error.message || "Failed to restore backup.", "error");
-                backupFileInput.value = "";
             }
-        });
-
-        resetRequestForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const email = resetRequestForm.email.value.trim();
-
-            try {
-                const response = await apiFetch("/auth/password-reset-request", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: email })
-                });
-
-                showStatus("Password reset token sent to your email. Enter the token below.", "ok");
-                resetTokenPanel.style.display = "block";
-                resetRequestForm.reset();
-            } catch (error) {
-                showStatus(error.message || "Failed to request password reset.", "error");
-            }
-        });
-
-        resetForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const email = resetRequestForm.email.value.trim();
-            const token = resetForm.token.value.trim();
-            const newPassword = resetForm.newPassword.value;
-            const passwordRepeat = resetForm.passwordRepeat.value;
-
-            if (newPassword.length < 6) {
-                showStatus("Password must be at least 6 characters.", "error");
-                return;
-            }
-
-            if (newPassword !== passwordRepeat) {
-                showStatus("Passwords do not match.", "error");
-                return;
-            }
-
-            try {
-                await apiFetch("/auth/password-reset", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        email: email,
-                        token: token,
-                        new_password: newPassword
-                    })
-                });
-
-                showStatus("Password reset successfully. You can now sign in with your new password.", "ok");
-                resetTokenPanel.style.display = "none";
-                resetRequestForm.reset();
-                resetForm.reset();
-                openTab("login");
-            } catch (error) {
-                showStatus(error.message || "Failed to reset password.", "error");
-            }
+            backupFileInput.value = "";
         });
 
         async function bootstrap() {
             apiBaseInput.value = getApiBase();
             openTab("login");
-            await refreshCurrentUser();
-            renderAuthState();
+            await refreshAndRender();
             if (!currentUser) {
-                showStatus("Connect backend and sign in.", "ok");
+                showStatus(inviteTokenFromUrl ? "Invitation detected. Sign in or register to accept it." : "Sign in or register to enter the league lobby.", "ok");
             }
         }
 
