@@ -252,6 +252,12 @@
         </div>
 
         <section class="auth-shell" id="authShell">
+            <div class="stack" style="margin-bottom: 16px;">
+                <label for="apiBaseInput">Backend API URL</label>
+                <input id="apiBaseInput" type="text" placeholder="http://127.0.0.1:9000">
+                <button class="ghost" id="saveApiBaseButton" type="button">Save API URL</button>
+            </div>
+
             <div class="auth-tabs">
                 <button class="tab active" id="loginTab" type="button">Log in</button>
                 <button class="tab" id="registerTab" type="button">Register</button>
@@ -276,9 +282,11 @@
                     <input id="registerPassword" name="password" type="password" minlength="4" required>
                     <label for="registerPasswordRepeat">Repeat password</label>
                     <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="4" required>
+                    <label for="registerDisplayName">Display name (optional)</label>
+                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100">
                     <button class="button" type="submit">Create account</button>
                 </form>
-                <p class="hint">This prototype stores accounts only in your current browser.</p>
+                <p class="hint">This now calls the backend API to create real accounts.</p>
             </div>
 
             <div id="statusBox" class="status" role="status" aria-live="polite"></div>
@@ -294,7 +302,7 @@
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Auth Type</span>
-                    <span class="meta-value">Browser Storage</span>
+                    <span class="meta-value">JWT Token</span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Next Step</span>
@@ -304,7 +312,7 @@
         </section>
 
         <p class="muted-note">
-            Security note: this is a prototype only. Browser storage login is not secure and is used here just to test UX flow.
+            Security note: this is an MVP backend. Use HTTPS and a strong JWT secret in production.
         </p>
 
         <section class="meta">
@@ -318,14 +326,15 @@
             </div>
             <div class="meta-item">
                 <span class="meta-label">Auth</span>
-                <span class="meta-value">Client Side</span>
+                <span class="meta-value">Backend API</span>
             </div>
         </section>
     </main>
 
     <script>
-        const USERS_KEY = "rs_users";
-        const SESSION_KEY = "rs_session_user";
+        const TOKEN_KEY = "rs_access_token";
+        const API_BASE_KEY = "rs_api_base";
+        const DEFAULT_API_BASE = "http://127.0.0.1:9000";
 
         const loginTab = document.getElementById("loginTab");
         const registerTab = document.getElementById("registerTab");
@@ -338,30 +347,29 @@
         const dashboard = document.getElementById("dashboard");
         const welcomeTitle = document.getElementById("welcomeTitle");
         const logoutButton = document.getElementById("logoutButton");
+        const apiBaseInput = document.getElementById("apiBaseInput");
+        const saveApiBaseButton = document.getElementById("saveApiBaseButton");
 
-        function getUsers() {
-            try {
-                const parsed = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
-                return typeof parsed === "object" && parsed ? parsed : {};
-            } catch {
-                return {};
-            }
+        let currentUser = null;
+
+        function getApiBase() {
+            return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim();
         }
 
-        function setUsers(users) {
-            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        function setApiBase(value) {
+            localStorage.setItem(API_BASE_KEY, value.trim());
         }
 
-        function setSession(username) {
-            localStorage.setItem(SESSION_KEY, username);
+        function getToken() {
+            return localStorage.getItem(TOKEN_KEY) || "";
         }
 
-        function getSession() {
-            return localStorage.getItem(SESSION_KEY) || "";
+        function setToken(token) {
+            localStorage.setItem(TOKEN_KEY, token);
         }
 
-        function clearSession() {
-            localStorage.removeItem(SESSION_KEY);
+        function clearToken() {
+            localStorage.removeItem(TOKEN_KEY);
         }
 
         function showStatus(message, type) {
@@ -383,9 +391,48 @@
             clearStatus();
         }
 
+        async function apiFetch(path, options) {
+            const base = getApiBase();
+            const token = getToken();
+            const headers = Object.assign({}, options && options.headers ? options.headers : {});
+
+            if (token) {
+                headers.Authorization = "Bearer " + token;
+            }
+
+            const response = await fetch(base + path, Object.assign({}, options || {}, { headers: headers }));
+            let body = null;
+            try {
+                body = await response.json();
+            } catch {
+                body = null;
+            }
+
+            if (!response.ok) {
+                const detail = body && body.detail ? body.detail : "Request failed";
+                throw new Error(detail);
+            }
+
+            return body;
+        }
+
+        async function refreshCurrentUser() {
+            const token = getToken();
+            if (!token) {
+                currentUser = null;
+                return;
+            }
+
+            try {
+                currentUser = await apiFetch("/auth/me", { method: "GET" });
+            } catch {
+                clearToken();
+                currentUser = null;
+            }
+        }
+
         function renderAuthState() {
-            const user = getSession();
-            const signedIn = !!user;
+            const signedIn = !!currentUser;
 
             authShell.style.display = signedIn ? "none" : "block";
             dashboard.classList.toggle("active", signedIn);
@@ -394,26 +441,38 @@
             logoutButton.setAttribute("aria-disabled", signedIn ? "false" : "true");
 
             if (signedIn) {
-                welcomeTitle.textContent = "Welcome, " + user;
+                welcomeTitle.textContent = "Welcome, " + (currentUser.display_name || currentUser.username);
             }
         }
+
+        saveApiBaseButton.addEventListener("click", () => {
+            const value = apiBaseInput.value.trim();
+            if (!value) {
+                showStatus("Enter a backend API URL first.", "error");
+                return;
+            }
+
+            setApiBase(value);
+            showStatus("API URL saved.", "ok");
+        });
 
         loginTab.addEventListener("click", () => openTab("login"));
         registerTab.addEventListener("click", () => openTab("register"));
 
-        registerForm.addEventListener("submit", (event) => {
+        registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = registerForm.username.value.trim();
             const password = registerForm.password.value;
             const passwordRepeat = registerForm.passwordRepeat.value;
+            const displayName = registerForm.displayName.value.trim();
 
             if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
                 showStatus("Username must be 3-24 chars and use letters, numbers, or underscore.", "error");
                 return;
             }
 
-            if (password.length < 4) {
-                showStatus("Password must be at least 4 characters.", "error");
+            if (password.length < 6) {
+                showStatus("Password must be at least 6 characters.", "error");
                 return;
             }
 
@@ -422,51 +481,75 @@
                 return;
             }
 
-            const users = getUsers();
-            if (users[username]) {
-                showStatus("Username already exists. Choose another one.", "error");
-                return;
+            try {
+                await apiFetch("/auth/register", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        display_name: displayName || null
+                    })
+                });
+                showStatus("Account created. You can sign in now.", "ok");
+                registerForm.reset();
+                openTab("login");
+                loginForm.username.value = username;
+            } catch (error) {
+                showStatus(error.message || "Registration failed.", "error");
             }
-
-            users[username] = { password: password };
-            setUsers(users);
-            showStatus("Account created. You can sign in now.", "ok");
-            registerForm.reset();
-            openTab("login");
-            loginForm.username.value = username;
         });
 
-        loginForm.addEventListener("submit", (event) => {
+        loginForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = loginForm.username.value.trim();
             const password = loginForm.password.value;
-            const users = getUsers();
 
-            if (!users[username] || users[username].password !== password) {
-                showStatus("Invalid username or password.", "error");
-                return;
+            try {
+                const tokenData = await apiFetch("/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+
+                setToken(tokenData.access_token);
+                await refreshCurrentUser();
+                clearStatus();
+                loginForm.reset();
+                renderAuthState();
+            } catch (error) {
+                showStatus(error.message || "Invalid username or password.", "error");
             }
-
-            setSession(username);
-            clearStatus();
-            loginForm.reset();
-            renderAuthState();
         });
 
         logoutButton.addEventListener("click", (event) => {
             event.preventDefault();
-            if (!getSession()) {
+            if (!currentUser) {
                 return;
             }
 
-            clearSession();
+            clearToken();
+            currentUser = null;
             openTab("login");
             renderAuthState();
             showStatus("You have been signed out.", "ok");
         });
 
-        openTab("login");
-        renderAuthState();
+        async function bootstrap() {
+            apiBaseInput.value = getApiBase();
+            openTab("login");
+            await refreshCurrentUser();
+            renderAuthState();
+            if (!currentUser) {
+                showStatus("Connect backend and sign in.", "ok");
+            }
+        }
+
+        bootstrap();
     </script>
 </body>
 </html>
