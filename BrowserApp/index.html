@@ -278,6 +278,14 @@
                 <form class="stack" id="registerForm">
                     <label for="registerUsername">Username</label>
                     <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                    <label for="registerName">Name (optional)</label>
+                    <input id="registerName" name="name" type="text" maxlength="100">
+                    <label for="registerSurname">Surname (optional)</label>
+                    <input id="registerSurname" name="surname" type="text" maxlength="100">
+                    <label for="registerNicknames">Nicknames (optional)</label>
+                    <input id="registerNicknames" name="nicknames" type="text" maxlength="500" placeholder="e.g., Andro, Andraz, Čefur">
+                    <label for="registerEmail">Email (optional)</label>
+                    <input id="registerEmail" name="email" type="email" maxlength="255">
                     <label for="registerPassword">Password</label>
                     <input id="registerPassword" name="password" type="password" minlength="4" required>
                     <label for="registerPasswordRepeat">Repeat password</label>
@@ -290,6 +298,26 @@
             </div>
 
             <div id="statusBox" class="status" role="status" aria-live="polite"></div>
+
+            <div class="panel" id="resetPanel" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+                <p style="margin: 0 0 14px 0; font-size: 0.9rem; color: var(--muted);">Forgot your password? Enter your email and we'll send you a reset link.</p>
+                <form class="stack" id="resetRequestForm" style="margin-bottom: 16px;">
+                    <label for="resetEmail">Email</label>
+                    <input id="resetEmail" name="email" type="email" required>
+                    <button class="ghost" type="submit">Send reset link</button>
+                </form>
+                <div id="resetTokenPanel" style="display: none;">
+                    <form class="stack" id="resetForm">
+                        <label for="resetToken">Reset token (from email)</label>
+                        <input id="resetToken" name="token" type="text" required>
+                        <label for="resetNewPassword">New password</label>
+                        <input id="resetNewPassword" name="newPassword" type="password" minlength="4" required>
+                        <label for="resetPasswordRepeat">Repeat new password</label>
+                        <input id="resetPasswordRepeat" name="passwordRepeat" type="password" minlength="4" required>
+                        <button class="button" type="submit">Reset password</button>
+                    </form>
+                </div>
+            </div>
         </section>
 
         <section class="dashboard" id="dashboard">
@@ -308,6 +336,16 @@
                     <span class="meta-label">Next Step</span>
                     <span class="meta-value">Server API</span>
                 </div>
+            </div>
+
+            <div class="backup-section" style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line);">
+                <h3 style="margin: 0 0 16px 0; font-size: 1.1rem;">Backup & Restore</h3>
+                <p style="margin: 0 0 14px 0; font-size: 0.95rem; color: var(--muted);">Download all account data to your computer. Restore from a backup file anytime.</p>
+                <div class="actions" style="gap: 10px; margin-bottom: 16px;">
+                    <button class="button" id="downloadBackupButton" type="button">Download Backup</button>
+                    <button class="ghost" id="restoreBackupButton" type="button">Restore from Backup</button>
+                </div>
+                <input type="file" id="backupFileInput" style="display: none;" accept=".json" />
             </div>
         </section>
 
@@ -349,6 +387,12 @@
         const logoutButton = document.getElementById("logoutButton");
         const apiBaseInput = document.getElementById("apiBaseInput");
         const saveApiBaseButton = document.getElementById("saveApiBaseButton");
+        const downloadBackupButton = document.getElementById("downloadBackupButton");
+        const restoreBackupButton = document.getElementById("restoreBackupButton");
+        const backupFileInput = document.getElementById("backupFileInput");
+        const resetRequestForm = document.getElementById("resetRequestForm");
+        const resetForm = document.getElementById("resetForm");
+        const resetTokenPanel = document.getElementById("resetTokenPanel");
 
         let currentUser = null;
 
@@ -462,6 +506,10 @@
         registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = registerForm.username.value.trim();
+            const name = registerForm.name.value.trim();
+            const surname = registerForm.surname.value.trim();
+            const nicknames = registerForm.nicknames.value.trim();
+            const email = registerForm.email.value.trim();
             const password = registerForm.password.value;
             const passwordRepeat = registerForm.passwordRepeat.value;
             const displayName = registerForm.displayName.value.trim();
@@ -490,6 +538,10 @@
                     body: JSON.stringify({
                         username: username,
                         password: password,
+                        email: email || null,
+                        name: name || null,
+                        surname: surname || null,
+                        nicknames: nicknames || null,
                         display_name: displayName || null
                     })
                 });
@@ -537,6 +589,116 @@
             openTab("login");
             renderAuthState();
             showStatus("You have been signed out.", "ok");
+        });
+
+        downloadBackupButton.addEventListener("click", async (event) => {
+            event.preventDefault();
+            try {
+                const backup = await apiFetch("/backup/export", { method: "GET" });
+                const dataStr = JSON.stringify(backup, null, 2);
+                const dataBlob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `rstrating-backup-${new Date().toISOString().split("T")[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                showStatus("Backup downloaded successfully.", "ok");
+            } catch (error) {
+                showStatus(error.message || "Failed to download backup.", "error");
+            }
+        });
+
+        restoreBackupButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            backupFileInput.click();
+        });
+
+        backupFileInput.addEventListener("change", async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+                return;
+            }
+
+            try {
+                const fileContent = await file.text();
+                const backup = JSON.parse(fileContent);
+
+                if (typeof backup.users !== "object" || Array.isArray(backup.users)) {
+                    throw new Error("Invalid backup file format. Expected backup.users to be an object.");
+                }
+
+                const response = await apiFetch("/backup/import", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ users: backup.users })
+                });
+
+                showStatus(response.detail || "Backup restored successfully.", "ok");
+                backupFileInput.value = "";
+            } catch (error) {
+                showStatus(error.message || "Failed to restore backup.", "error");
+                backupFileInput.value = "";
+            }
+        });
+
+        resetRequestForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const email = resetRequestForm.email.value.trim();
+
+            try {
+                const response = await apiFetch("/auth/password-reset-request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: email })
+                });
+
+                showStatus("Password reset token sent to your email. Enter the token below.", "ok");
+                resetTokenPanel.style.display = "block";
+                resetRequestForm.reset();
+            } catch (error) {
+                showStatus(error.message || "Failed to request password reset.", "error");
+            }
+        });
+
+        resetForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const email = resetRequestForm.email.value.trim();
+            const token = resetForm.token.value.trim();
+            const newPassword = resetForm.newPassword.value;
+            const passwordRepeat = resetForm.passwordRepeat.value;
+
+            if (newPassword.length < 6) {
+                showStatus("Password must be at least 6 characters.", "error");
+                return;
+            }
+
+            if (newPassword !== passwordRepeat) {
+                showStatus("Passwords do not match.", "error");
+                return;
+            }
+
+            try {
+                await apiFetch("/auth/password-reset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: email,
+                        token: token,
+                        new_password: newPassword
+                    })
+                });
+
+                showStatus("Password reset successfully. You can now sign in with your new password.", "ok");
+                resetTokenPanel.style.display = "none";
+                resetRequestForm.reset();
+                resetForm.reset();
+                openTab("login");
+            } catch (error) {
+                showStatus(error.message || "Failed to reset password.", "error");
+            }
         });
 
         async function bootstrap() {
