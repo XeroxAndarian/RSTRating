@@ -278,14 +278,14 @@
                 <form class="stack" id="registerForm">
                     <label for="registerUsername">Username</label>
                     <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
-                    <label for="registerName">Name (optional)</label>
-                    <input id="registerName" name="name" type="text" maxlength="100">
-                    <label for="registerSurname">Surname (optional)</label>
-                    <input id="registerSurname" name="surname" type="text" maxlength="100">
+                    <label for="registerName">Name</label>
+                    <input id="registerName" name="name" type="text" maxlength="100" required>
+                    <label for="registerSurname">Surname</label>
+                    <input id="registerSurname" name="surname" type="text" maxlength="100" required>
                     <label for="registerNicknames">Nicknames (optional)</label>
                     <input id="registerNicknames" name="nicknames" type="text" maxlength="500" placeholder="e.g., Andro, Andraz, Čefur">
-                    <label for="registerEmail">Email (optional)</label>
-                    <input id="registerEmail" name="email" type="email" maxlength="255">
+                    <label for="registerEmail">Email</label>
+                    <input id="registerEmail" name="email" type="email" maxlength="255" required>
                     <label for="registerPassword">Password</label>
                     <input id="registerPassword" name="password" type="password" minlength="4" required>
                     <label for="registerPasswordRepeat">Repeat password</label>
@@ -519,6 +519,26 @@
                 return;
             }
 
+            if (!name) {
+                showStatus("Name is required.", "error");
+                return;
+            }
+
+            if (!surname) {
+                showStatus("Surname is required.", "error");
+                return;
+            }
+
+            if (!email) {
+                showStatus("Email is required.", "error");
+                return;
+            }
+
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showStatus("Please enter a valid email address.", "error");
+                return;
+            }
+
             if (password.length < 6) {
                 showStatus("Password must be at least 6 characters.", "error");
                 return;
@@ -538,9 +558,9 @@
                     body: JSON.stringify({
                         username: username,
                         password: password,
-                        email: email || null,
-                        name: name || null,
-                        surname: surname || null,
+                        email: email,
+                        name: name,
+                        surname: surname,
                         nicknames: nicknames || null,
                         display_name: displayName || null
                     })

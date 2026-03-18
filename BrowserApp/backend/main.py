@@ -38,9 +38,9 @@ PBKDF2_ITERATIONS = 210000
 class RegisterPayload(BaseModel):
     username: str = Field(min_length=3, max_length=24, pattern=r"^[A-Za-z0-9_]+$")
     password: str = Field(min_length=6, max_length=200)
-    email: str | None = Field(default=None, max_length=255)
-    name: str | None = Field(default=None, max_length=100)
-    surname: str | None = Field(default=None, max_length=100)
+    email: str = Field(max_length=255)
+    name: str = Field(min_length=1, max_length=100)
+    surname: str = Field(min_length=1, max_length=100)
     nicknames: str | None = Field(default=None, max_length=500)
     display_name: str | None = Field(default=None, max_length=100)
 
