@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSTRating Browser App</title>
+    <style>
+        :root {
+            --bg: #f4efe4;
+            --panel: rgba(255, 252, 246, 0.88);
+            --text: #1e2a24;
+            --muted: #53645b;
+            --accent: #c45c2e;
+            --accent-dark: #8f3e1c;
+            --line: rgba(30, 42, 36, 0.12);
+            --shadow: 0 20px 60px rgba(40, 24, 10, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(196, 92, 46, 0.24), transparent 28%),
+                radial-gradient(circle at right center, rgba(72, 116, 95, 0.20), transparent 24%),
+                linear-gradient(135deg, #f3ebdc 0%, #efe6d5 46%, #e6dcc8 100%);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: min(760px, 100%);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            padding: 40px 32px;
+            backdrop-filter: blur(10px);
+        }
+
+        .eyebrow {
+            margin: 0 0 12px;
+            font-size: 0.85rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-dark);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2.4rem, 7vw, 5rem);
+            line-height: 0.95;
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: var(--muted);
+            max-width: 58ch;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin: 28px 0 20px;
+        }
+
+        .button,
+        .ghost {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 13px 18px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+        }
+
+        .button {
+            background: var(--accent);
+            color: #fff8f2;
+            box-shadow: 0 12px 24px rgba(196, 92, 46, 0.22);
+        }
+
+        .ghost {
+            color: var(--text);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .button:hover,
+        .ghost:hover {
+            transform: translateY(-1px);
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-top: 32px;
+        }
+
+        .meta-item {
+            border-top: 1px solid var(--line);
+            padding-top: 14px;
+        }
+
+        .meta-label {
+            display: block;
+            font-size: 0.76rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .meta-value {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        @media (max-width: 640px) {
+            .card {
+                padding: 28px 22px;
+                border-radius: 22px;
+            }
+
+            p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <p class="eyebrow">RSTRating</p>
+        <h1>Browser App is live.</h1>
+        <p>
+            This is the first public page for the new app. It is intentionally simple: a single HTML screen
+            served by Python and exposed through ngrok so people can open it from anywhere.
+        </p>
+        <div class="actions">
+            <a class="button" href="https://ngrok.com/" target="_blank" rel="noreferrer">Powered by ngrok</a>
+            <a class="ghost" href="/index.html">Reload page</a>
+        </div>
+        <section class="meta">
+            <div class="meta-item">
+                <span class="meta-label">Stage</span>
+                <span class="meta-value">Prototype</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Backend</span>
+                <span class="meta-value">Python HTTP Server</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Tunnel</span>
+                <span class="meta-value">ngrok</span>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
