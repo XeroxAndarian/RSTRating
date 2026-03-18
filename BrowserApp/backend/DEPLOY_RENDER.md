@@ -14,7 +14,7 @@ Environment variables to verify
 1. JWT_SECRET: generated automatically by render.yaml.
 2. FRONTEND_ORIGINS: must include your frontend origin.
    For GitHub Pages use https://xeroxandarian.github.io
-3. DB_PATH: /var/data/accounts.db
+3. DB_PATH: /tmp/accounts.db
 
 Connect frontend to backend
 
@@ -27,5 +27,6 @@ Connect frontend to backend
 Notes
 
 1. Render free web services sleep when idle. First request after idle can take time.
-2. The attached disk keeps accounts data between deploys and restarts.
+2. Free tier does not support persistent disks. Accounts in /tmp are ephemeral and can reset.
 3. If CORS errors appear, add exact frontend origin in FRONTEND_ORIGINS.
+4. For persistent accounts, move to a paid Render disk or an external database.

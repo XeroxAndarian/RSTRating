@@ -17,8 +17,4 @@ services:
       - key: FRONTEND_ORIGINS
         value: https://xeroxandarian.github.io
       - key: DB_PATH
-        value: /var/data/accounts.db
-    disk:
-      name: accounts-data
-      mountPath: /var/data
-      sizeGB: 1
+        value: /tmp/accounts.db
