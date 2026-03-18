@@ -72,6 +72,105 @@
             margin: 28px 0 20px;
         }
 
+        .auth-shell {
+            margin-top: 20px;
+            border-top: 1px solid var(--line);
+            padding-top: 20px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            padding: 9px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.5);
+            color: var(--text);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: #fff8f2;
+            border-color: transparent;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .stack {
+            display: grid;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        input {
+            width: 100%;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            font: inherit;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .status {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.error {
+            background: rgba(180, 33, 33, 0.1);
+            color: #771919;
+        }
+
+        .status.ok {
+            background: rgba(39, 126, 64, 0.12);
+            color: #1f5f31;
+        }
+
+        .dashboard {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .muted-note {
+            margin-top: 16px;
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
         .button,
         .ghost {
             display: inline-flex;
@@ -144,27 +243,230 @@
         <p class="eyebrow">RSTRating</p>
         <h1>Browser App is live.</h1>
         <p>
-            This is the first public page for the new app. It is intentionally simple: a single HTML screen
-            served by Python and exposed through ngrok so people can open it from anywhere.
+            First login prototype is now running on the public page. New users can register and then sign in.
+            Session state is kept in the browser so this works on GitHub Pages without a server.
         </p>
         <div class="actions">
-            <a class="button" href="https://ngrok.com/" target="_blank" rel="noreferrer">Powered by ngrok</a>
+            <a class="button" href="#" id="logoutButton" aria-disabled="true">Sign out</a>
             <a class="ghost" href="/index.html">Reload page</a>
         </div>
+
+        <section class="auth-shell" id="authShell">
+            <div class="auth-tabs">
+                <button class="tab active" id="loginTab" type="button">Log in</button>
+                <button class="tab" id="registerTab" type="button">Register</button>
+            </div>
+
+            <div class="panel active" id="loginPanel">
+                <form class="stack" id="loginForm">
+                    <label for="loginUsername">Username</label>
+                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                    <label for="loginPassword">Password</label>
+                    <input id="loginPassword" name="password" type="password" minlength="4" required>
+                    <button class="button" type="submit">Sign in</button>
+                </form>
+                <p class="hint">Use a username and password you created below.</p>
+            </div>
+
+            <div class="panel" id="registerPanel">
+                <form class="stack" id="registerForm">
+                    <label for="registerUsername">Username</label>
+                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                    <label for="registerPassword">Password</label>
+                    <input id="registerPassword" name="password" type="password" minlength="4" required>
+                    <label for="registerPasswordRepeat">Repeat password</label>
+                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="4" required>
+                    <button class="button" type="submit">Create account</button>
+                </form>
+                <p class="hint">This prototype stores accounts only in your current browser.</p>
+            </div>
+
+            <div id="statusBox" class="status" role="status" aria-live="polite"></div>
+        </section>
+
+        <section class="dashboard" id="dashboard">
+            <h2 id="welcomeTitle">Welcome</h2>
+            <p>You are signed in. Next step is connecting this to a real backend and database.</p>
+            <div class="meta">
+                <div class="meta-item">
+                    <span class="meta-label">Account State</span>
+                    <span class="meta-value">Signed In</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Auth Type</span>
+                    <span class="meta-value">Browser Storage</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Next Step</span>
+                    <span class="meta-value">Server API</span>
+                </div>
+            </div>
+        </section>
+
+        <p class="muted-note">
+            Security note: this is a prototype only. Browser storage login is not secure and is used here just to test UX flow.
+        </p>
+
         <section class="meta">
             <div class="meta-item">
                 <span class="meta-label">Stage</span>
-                <span class="meta-value">Prototype</span>
+                <span class="meta-value">Auth Prototype</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Backend</span>
-                <span class="meta-value">Python HTTP Server</span>
+                <span class="meta-label">Hosting</span>
+                <span class="meta-value">GitHub Pages</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Tunnel</span>
-                <span class="meta-value">ngrok</span>
+                <span class="meta-label">Auth</span>
+                <span class="meta-value">Client Side</span>
             </div>
         </section>
     </main>
+
+    <script>
+        const USERS_KEY = "rs_users";
+        const SESSION_KEY = "rs_session_user";
+
+        const loginTab = document.getElementById("loginTab");
+        const registerTab = document.getElementById("registerTab");
+        const loginPanel = document.getElementById("loginPanel");
+        const registerPanel = document.getElementById("registerPanel");
+        const loginForm = document.getElementById("loginForm");
+        const registerForm = document.getElementById("registerForm");
+        const statusBox = document.getElementById("statusBox");
+        const authShell = document.getElementById("authShell");
+        const dashboard = document.getElementById("dashboard");
+        const welcomeTitle = document.getElementById("welcomeTitle");
+        const logoutButton = document.getElementById("logoutButton");
+
+        function getUsers() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+                return typeof parsed === "object" && parsed ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+
+        function setUsers(users) {
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        function setSession(username) {
+            localStorage.setItem(SESSION_KEY, username);
+        }
+
+        function getSession() {
+            return localStorage.getItem(SESSION_KEY) || "";
+        }
+
+        function clearSession() {
+            localStorage.removeItem(SESSION_KEY);
+        }
+
+        function showStatus(message, type) {
+            statusBox.textContent = message;
+            statusBox.className = "status show " + type;
+        }
+
+        function clearStatus() {
+            statusBox.textContent = "";
+            statusBox.className = "status";
+        }
+
+        function openTab(name) {
+            const loginOpen = name === "login";
+            loginTab.classList.toggle("active", loginOpen);
+            registerTab.classList.toggle("active", !loginOpen);
+            loginPanel.classList.toggle("active", loginOpen);
+            registerPanel.classList.toggle("active", !loginOpen);
+            clearStatus();
+        }
+
+        function renderAuthState() {
+            const user = getSession();
+            const signedIn = !!user;
+
+            authShell.style.display = signedIn ? "none" : "block";
+            dashboard.classList.toggle("active", signedIn);
+            logoutButton.style.pointerEvents = signedIn ? "auto" : "none";
+            logoutButton.style.opacity = signedIn ? "1" : "0.5";
+            logoutButton.setAttribute("aria-disabled", signedIn ? "false" : "true");
+
+            if (signedIn) {
+                welcomeTitle.textContent = "Welcome, " + user;
+            }
+        }
+
+        loginTab.addEventListener("click", () => openTab("login"));
+        registerTab.addEventListener("click", () => openTab("register"));
+
+        registerForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const username = registerForm.username.value.trim();
+            const password = registerForm.password.value;
+            const passwordRepeat = registerForm.passwordRepeat.value;
+
+            if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+                showStatus("Username must be 3-24 chars and use letters, numbers, or underscore.", "error");
+                return;
+            }
+
+            if (password.length < 4) {
+                showStatus("Password must be at least 4 characters.", "error");
+                return;
+            }
+
+            if (password !== passwordRepeat) {
+                showStatus("Passwords do not match.", "error");
+                return;
+            }
+
+            const users = getUsers();
+            if (users[username]) {
+                showStatus("Username already exists. Choose another one.", "error");
+                return;
+            }
+
+            users[username] = { password: password };
+            setUsers(users);
+            showStatus("Account created. You can sign in now.", "ok");
+            registerForm.reset();
+            openTab("login");
+            loginForm.username.value = username;
+        });
+
+        loginForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const username = loginForm.username.value.trim();
+            const password = loginForm.password.value;
+            const users = getUsers();
+
+            if (!users[username] || users[username].password !== password) {
+                showStatus("Invalid username or password.", "error");
+                return;
+            }
+
+            setSession(username);
+            clearStatus();
+            loginForm.reset();
+            renderAuthState();
+        });
+
+        logoutButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            if (!getSession()) {
+                return;
+            }
+
+            clearSession();
+            openTab("login");
+            renderAuthState();
+            showStatus("You have been signed out.", "ok");
+        });
+
+        openTab("login");
+        renderAuthState();
+    </script>
 </body>
 </html>
