@@ -425,6 +425,362 @@
                 font-size: clamp(2.2rem, 11vw, 3.3rem);
             }
         }
+
+        /* ── Notification Bell ──────────────────────────────────── */
+        .notif-bell {
+            position: relative;
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            color: #fff;
+            border-radius: 8px;
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.15s;
+        }
+        .notif-bell:hover { background: rgba(255,255,255,0.1); }
+        .notif-badge {
+            position: absolute;
+            top: -5px; right: -5px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 700;
+            border-radius: 99px;
+            padding: 1px 5px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* ── Notification Drawer ──────────────────────────────────── */
+        .notif-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 80;
+        }
+        .notif-drawer {
+            position: fixed;
+            top: 0; right: 0;
+            width: min(400px, 100vw);
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 90;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+            overflow: hidden;
+        }
+        .notif-drawer.open { transform: translateX(0); }
+        .notif-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .notif-drawer-header h3 { margin: 0; font-size: 1.05rem; }
+        .notif-drawer-actions {
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .notif-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .notif-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .notif-item:hover { background: #eef2ff; }
+        .notif-item.unread { border-left: 3px solid var(--accent); }
+        .notif-item-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 3px; }
+        .notif-item-msg { font-size: 0.82rem; color: var(--muted); }
+        .notif-item-time { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+        .icon-button {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 1rem;
+            padding: 6px;
+            border-radius: 6px;
+            transition: background 0.12s, color 0.12s;
+        }
+        .icon-button:hover { background: var(--bg); color: var(--text); }
+
+        /* ── Modal ──────────────────────────────────── */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-card {
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 28px 32px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .modal-card h3 { margin: 0 0 6px; }
+
+        /* ── Match Overlay (full-page slide-up) ──────────────────── */
+        .match-overlay {
+            position: fixed; inset: 0;
+            background: var(--bg);
+            z-index: 70;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .match-overlay-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .match-overlay-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        .match-overlay-title-group h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #matchOverlayContent {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            max-width: 860px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* ── Match Creation form toggle ──────────────────── */
+        .collapsible-form {
+            margin-top: 14px;
+        }
+        .collapsible-toggle {
+            background: none;
+            border: 1.5px dashed var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            font-size: 0.9rem;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .collapsible-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Matches list in league card ──────────────────── */
+        .match-mini-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: var(--bg);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .match-mini-card:hover { background: #eef2ff; }
+        .match-mini-left { display: flex; flex-direction: column; gap: 2px; }
+        .match-mini-title { font-weight: 600; font-size: 0.9rem; }
+        .match-mini-meta { font-size: 0.78rem; color: var(--muted); }
+        .match-mini-pill { font-size: 0.75rem; }
+
+        /* ── Match Detail view ──────────────────── */
+        .match-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        @media (max-width: 640px) {
+            .match-detail-grid { grid-template-columns: 1fr; }
+        }
+        .reg-list { display: flex; flex-direction: column; gap: 6px; }
+        .reg-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.88rem;
+        }
+        .match-action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 22px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── Live Match view ──────────────────── */
+        .score-board {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            padding: 24px;
+            background: var(--surface);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        .score-team { text-align: center; }
+        .score-team-name { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+        .score-value { font-size: 3rem; font-weight: 800; line-height: 1; }
+        .score-divider { font-size: 2rem; color: var(--muted); font-weight: 300; }
+        .score-clock { text-align: center; font-size: 0.9rem; color: var(--muted); margin-top: 6px; }
+
+        .teams-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 560px) {
+            .teams-grid { grid-template-columns: 1fr; }
+        }
+        .team-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+        .team-col-title { font-weight: 700; font-size: 0.92rem; margin-bottom: 10px; }
+        .player-event-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 0.88rem;
+        }
+        .player-event-row:hover { background: var(--bg); }
+        .player-event-buttons { display: flex; gap: 6px; }
+        .event-btn {
+            font-size: 0.78rem;
+            padding: 4px 9px;
+            border-radius: 6px;
+            border: 1.5px solid var(--border);
+            cursor: pointer;
+            background: var(--bg);
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .event-btn.goal { border-color: #22c55e; color: #16a34a; }
+        .event-btn.goal:hover { background: #f0fdf4; }
+        .event-btn.assist { border-color: #3b82f6; color: #2563eb; }
+        .event-btn.assist:hover { background: #eff6ff; }
+
+        .events-timeline { margin-top: 16px; }
+        .event-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.87rem;
+        }
+        .event-line:last-child { border-bottom: none; }
+        .event-time { color: var(--muted); width: 38px; flex-shrink: 0; font-size: 0.8rem; }
+        .event-icon { width: 22px; text-align: center; }
+        .event-desc { flex: 1; }
+        .event-undo { margin-left: auto; }
+
+        /* ── Undo toast ──────────────────── */
+        .undo-toast {
+            position: fixed;
+            bottom: 28px; left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 99px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 200;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .undo-toast button { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+
+        /* ── Match Summary ──────────────────── */
+        .summary-player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.88rem;
+        }
+        .summary-stats { display: flex; gap: 16px; color: var(--muted); font-size: 0.82rem; }
+
+        /* ── Team display (pre-match) ──────────────────────────── */
+        .teams-preview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin: 16px 0;
+        }
+        @media (max-width: 500px) { .teams-preview { grid-template-columns: 1fr; } }
+        .team-preview-col {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+        }
+        .team-preview-col h4 { margin: 0 0 10px; font-size: 0.9rem; }
+        .team-player-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .team-player-chip:last-child { border-bottom: none; }
+        .player-rating-small { color: var(--muted); font-size: 0.78rem; }
+
+        /* ── Assist picker modal ──────────────────────────── */
+        #assistPickerModal .modal-card { max-width: 340px; }
+        .assist-player-list { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+        .assist-player-btn {
+            text-align: left;
+            padding: 9px 14px;
+            border-radius: 8px;
+            border: 1.5px solid var(--border);
+            background: var(--bg);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: border-color 0.12s;
+        }
+        .assist-player-btn:hover { border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -432,11 +788,14 @@
         <section class="hero">
             <div class="hero-top">
                 <div>
-                    <p class="eyebrow">RSTRating</p>
+                    <p class="eyebrow" id="eyebrowText" style="cursor:default;user-select:none;">RSTRating</p>
                     <h1>Build your pickup football leagues.</h1>
-                    <p class="hero-copy" id="heroCopy">Register once, join leagues by invitation, and manage casual sports groups from a single lobby.</p>
+                    <p class="hero-copy" id="heroCopy">Register once, join leagues by invitation, and manage casual football groups from a single lobby.</p>
                 </div>
                 <div class="actions">
+                    <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
+                        🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+                    </button>
                     <button class="danger" id="logoutButton" type="button" aria-disabled="true">Sign out</button>
                     <a class="ghost" href="./">Reload</a>
                 </div>
@@ -519,18 +878,14 @@
                         </section>
 
                         <details class="dev-tools">
-                            <summary>Developer connection override</summary>
-                            <div class="stack" style="margin-top: 12px;">
-                                <label for="apiBaseInput">Backend API URL</label>
-                                <input id="apiBaseInput" type="text" placeholder="https://rstrating-accounts-api.onrender.com">
-                                <button class="ghost" id="saveApiBaseButton" type="button">Save override</button>
-                            </div>
+                            <summary>Developer note</summary>
+                            <p class="hint">Server override controls are available only to signed-in admin users from the lobby panel.</p>
                         </details>
                     </div>
 
                     <aside class="panel-card">
                         <h2 class="section-title">What this app does</h2>
-                        <p class="subtle">This is the league entry point for casual sports, with football as the default sport.</p>
+                        <p class="subtle">This is the league entry point for casual football leagues with invite-only joining.</p>
                         <div class="aside-list" style="margin-top: 18px;">
                             <div class="aside-item">
                                 <strong>Proper invitation links</strong>
@@ -545,8 +900,8 @@
                                 League owners can promote members to admin or return admins back to members.
                             </div>
                             <div class="aside-item">
-                                <strong>Full backup coverage</strong>
-                                Account backup now includes leagues, memberships, and invitation records too.
+                                <strong>Admin-managed backups</strong>
+                                Full backup and restore is restricted to global admins for safety.
                             </div>
                         </div>
                     </aside>
@@ -580,10 +935,28 @@
                                     <span class="overview-value" id="inviteCountValue">0</span>
                                 </div>
                                 <div class="overview-card">
-                                    <span class="overview-label">Primary Sport</span>
-                                    <span class="overview-value">Football</span>
+                                    <span class="overview-label">Global Rating</span>
+                                    <span class="overview-value" id="globalRatingValue">1000</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Attendance</span>
+                                    <span class="overview-value" id="attendanceValue">0</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Wins</span>
+                                    <span class="overview-value" id="winsValue">0</span>
+                                </div>
+                                <div class="overview-card">
+                                    <span class="overview-label">Goals / Assists</span>
+                                    <span class="overview-value" id="gaValue">0 / 0</span>
                                 </div>
                             </div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">League-specific ratings</h2>
+                            <p class="subtle">Current player stats by league. Match timelines can be added in a later step.</p>
+                            <div class="league-list" id="leagueStatsList"></div>
                         </section>
 
                         <section class="panel-card">
@@ -600,17 +973,22 @@
                             <form class="stack" id="createLeagueForm" style="margin-top: 12px;">
                                 <label for="leagueName">League name</label>
                                 <input id="leagueName" name="name" type="text" minlength="3" maxlength="80" required>
-                                <label for="leagueSport">Sport</label>
-                                <input id="leagueSport" name="sport" type="text" maxlength="40" value="football" required>
+                                <label for="leagueFootballType">Football type</label>
+                                <select id="leagueFootballType" name="footballType" required>
+                                    <option value="outdoor" selected>Outdoor</option>
+                                    <option value="indoor">Indoor</option>
+                                </select>
+                                <label for="leagueGoalSize">Goal size</label>
+                                <input id="leagueGoalSize" name="goalSize" type="text" maxlength="40" value="7.32m x 2.44m" required>
                                 <label for="leagueDescription">Description</label>
                                 <textarea id="leagueDescription" name="description" maxlength="300" placeholder="Friday five-a-side, Sunday indoor, mixed casual training..."></textarea>
                                 <button class="button" type="submit">Create league</button>
                             </form>
                         </section>
 
-                        <section class="panel-card">
+                        <section class="panel-card" id="backupSection" style="display: none;">
                             <h2 class="section-title">Backup all data</h2>
-                            <p class="subtle">This now includes accounts, leagues, memberships, and invite records.</p>
+                            <p class="subtle">Admin only: includes accounts, leagues, memberships, invites, and league player stats.</p>
                             <div class="actions" style="margin-top: 14px;">
                                 <button class="button" id="downloadBackupButton" type="button">Download backup</button>
                                 <button class="ghost" id="restoreBackupButton" type="button">Restore backup</button>
@@ -618,14 +996,74 @@
                             <input id="backupFileInput" type="file" accept=".json" hidden>
                             <p class="footer-note">Because the free Render plan uses temporary storage, regular downloads are still the safe option.</p>
                         </section>
+
+                        <details class="dev-tools" id="devToolsSection" style="display: none;">
+                            <summary>Developer connection override</summary>
+                            <div class="stack" style="margin-top: 12px;">
+                                <label for="apiBaseInput">Backend API URL</label>
+                                <input id="apiBaseInput" type="text" placeholder="https://rstrating-accounts-api.onrender.com">
+                                <button class="ghost" id="saveApiBaseButton" type="button">Save override</button>
+                            </div>
+                        </details>
                     </div>
                 </div>
             </section>
         </section>
     </main>
 
+    <!-- Notification Drawer -->
+    <div class="notif-drawer" id="notifDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Notifications</h3>
+            <button class="icon-button" id="closeNotifButton" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="notif-drawer-actions">
+            <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>
+        </div>
+        <div class="notif-list" id="notifList"><p class="hint" style="padding:16px;">No notifications yet.</p></div>
+    </div>
+    <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
+
+    <!-- Match Overlay -->
+    <div class="match-overlay" id="matchOverlay" style="display:none;">
+        <div class="match-overlay-header">
+            <button class="icon-button" id="closeMatchOverlayButton" type="button" aria-label="Back">← Back</button>
+            <div class="match-overlay-title-group">
+                <h2 id="matchOverlayTitle">Match</h2>
+                <span class="pill" id="matchStatusBadge"></span>
+            </div>
+        </div>
+        <div id="matchOverlayContent">
+            <p class="hint" style="padding:24px;">Loading match details…</p>
+        </div>
+    </div>
+
+    <!-- Assist Picker Modal (shown over match overlay) -->
+    <div class="modal-backdrop" id="assistPickerModal" style="display:none;">
+        <div class="modal-card" id="assistPickerModalCard">
+            <h3>Who assisted?</h3>
+            <p class="subtle" id="assistPickerSubtitle">Select the player who assisted, or skip.</p>
+            <div class="assist-player-list" id="assistPlayerList"></div>
+            <button class="ghost" id="noAssistButton" type="button" style="margin-top:12px;width:100%;">No assist / skip</button>
+        </div>
+    </div>
+
+    <!-- Admin Backdoor Modal -->
+    <div class="modal-backdrop" id="backdoorBackdrop" style="display:none;">
+        <div class="modal-card">
+            <h3>Admin backdoor</h3>
+            <p class="subtle">Enter the admin PIN to authenticate as admin without using stored credentials.</p>
+            <input type="password" id="backdoorPinInput" placeholder="Admin PIN" maxlength="64" style="margin-top:14px;width:100%;box-sizing:border-box;">
+            <div class="actions" style="margin-top:14px;">
+                <button class="button" id="backdoorSubmitButton" type="button">Authenticate</button>
+                <button class="ghost" id="backdoorCancelButton" type="button">Cancel</button>
+            </div>
+            <div class="status" id="backdoorStatus" role="status" aria-live="polite" style="margin-top:10px;"></div>
+        </div>
+    </div>
+
     <script>
-        const TOKEN_KEY = "rs_access_token";
+
         const API_BASE_KEY = "rs_api_base_override";
         const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
 
@@ -656,20 +1094,42 @@
         const leagueCountValue = document.getElementById("leagueCountValue");
         const managedLeagueCountValue = document.getElementById("managedLeagueCountValue");
         const inviteCountValue = document.getElementById("inviteCountValue");
+        const globalRatingValue = document.getElementById("globalRatingValue");
+        const attendanceValue = document.getElementById("attendanceValue");
+        const winsValue = document.getElementById("winsValue");
+        const gaValue = document.getElementById("gaValue");
         const leagueList = document.getElementById("leagueList");
+        const leagueStatsList = document.getElementById("leagueStatsList");
         const createLeagueForm = document.getElementById("createLeagueForm");
+        const backupSection = document.getElementById("backupSection");
         const downloadBackupButton = document.getElementById("downloadBackupButton");
         const restoreBackupButton = document.getElementById("restoreBackupButton");
         const backupFileInput = document.getElementById("backupFileInput");
+        const devToolsSection = document.getElementById("devToolsSection");
         const apiBaseInput = document.getElementById("apiBaseInput");
         const saveApiBaseButton = document.getElementById("saveApiBaseButton");
 
         const inviteTokenFromUrl = new URLSearchParams(window.location.search).get("invite") || "";
 
         let currentUser = null;
-        let lobbyState = { leagues: [], invites: [] };
+        let lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
         let leagueDetails = {};
         let pendingInvite = null;
+
+        // Match & notification state
+        let currentMatchId = null;
+        let currentMatchDetail = null;
+        let matchCache = {};
+        let leagueMatchesCache = {};
+        let notifications = [];
+        let notifUnreadCount = 0;
+        let liveClockInterval = null;
+        let pendingGoalState = null;  // { matchId, scorerUserId, scorerUsername, team }
+        let notifPollInterval = null;
+        let backdoorClickCount = 0;
+        let backdoorClickTimer = null;
+
+        const TOKEN_KEY = "rs_access_token";
 
         function escapeHtml(value) {
             return String(value ?? "")
@@ -702,6 +1162,18 @@
 
         function splitNicknames(rawValue) {
             return rawValue.split(",").map((part) => part.trim()).filter(Boolean);
+        }
+
+        function isAdmin() {
+            return !!(currentUser && currentUser.role === "admin");
+        }
+
+        function formatRating(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) {
+                return "1000.0";
+            }
+            return number.toFixed(1);
         }
 
         function showStatus(message, type) {
@@ -755,17 +1227,22 @@
             const token = getToken();
             if (!token) {
                 currentUser = null;
-                lobbyState = { leagues: [], invites: [] };
+                lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
                 return;
             }
             try {
                 const lobby = await apiFetch("/lobby", { method: "GET" });
                 currentUser = lobby.user;
-                lobbyState = { leagues: lobby.leagues || [], invites: lobby.invites || [] };
+                lobbyState = {
+                    leagues: lobby.leagues || [],
+                    invites: lobby.invites || [],
+                    user_stats: lobby.user_stats || null,
+                    league_player_stats: lobby.league_player_stats || []
+                };
             } catch {
                 clearToken();
                 currentUser = null;
-                lobbyState = { leagues: [], invites: [] };
+                lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
             }
         }
 
@@ -791,8 +1268,12 @@
                     <span class="meta-value">${escapeHtml(invite.league_name)}</span>
                 </div>
                 <div class="meta-block">
-                    <span class="meta-label">Sport</span>
-                    <span class="meta-value">${escapeHtml(invite.sport)}</span>
+                    <span class="meta-label">Football Type</span>
+                    <span class="meta-value">${escapeHtml(invite.football_type)}</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Goal Size</span>
+                    <span class="meta-value">${escapeHtml(invite.goal_size)}</span>
                 </div>
                 <div class="meta-block">
                     <span class="meta-label">Owner</span>
@@ -837,6 +1318,45 @@
             leagueCountValue.textContent = String(lobbyState.leagues.length);
             managedLeagueCountValue.textContent = String(manageableCount);
             inviteCountValue.textContent = String(lobbyState.invites.length);
+            const stats = lobbyState.user_stats || { attendance: 0, wins: 0, goals: 0, assists: 0, global_rating: 1000 };
+            globalRatingValue.textContent = formatRating(stats.global_rating);
+            attendanceValue.textContent = String(stats.attendance || 0);
+            winsValue.textContent = String(stats.wins || 0);
+            gaValue.textContent = `${stats.goals || 0} / ${stats.assists || 0}`;
+        }
+
+        function renderLeagueStatsList() {
+            const stats = Array.isArray(lobbyState.league_player_stats) ? lobbyState.league_player_stats : [];
+            if (!stats.length) {
+                leagueStatsList.innerHTML = '<div class="empty-card">No league-specific player stats yet.</div>';
+                return;
+            }
+            leagueStatsList.innerHTML = stats.map((item) => `
+                <article class="league-card">
+                    <div class="league-head">
+                        <h3 class="league-name">${escapeHtml(item.league_name)}</h3>
+                        <div class="pill">Rating ${escapeHtml(formatRating(item.rating))}</div>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta-block">
+                            <span class="meta-label">Attendance</span>
+                            <span class="meta-value">${escapeHtml(item.attendance)}</span>
+                        </div>
+                        <div class="meta-block">
+                            <span class="meta-label">Wins</span>
+                            <span class="meta-value">${escapeHtml(item.wins)}</span>
+                        </div>
+                        <div class="meta-block">
+                            <span class="meta-label">Goals</span>
+                            <span class="meta-value">${escapeHtml(item.goals)}</span>
+                        </div>
+                        <div class="meta-block">
+                            <span class="meta-label">Assists</span>
+                            <span class="meta-value">${escapeHtml(item.assists)}</span>
+                        </div>
+                    </div>
+                </article>
+            `).join("");
         }
 
         function renderMembersHtml(league, detail) {
@@ -917,7 +1437,7 @@
                         <div class="league-head">
                             <div>
                                 <h3 class="league-name">${escapeHtml(league.name)}</h3>
-                                <div class="pill">${escapeHtml(league.sport)}</div>
+                                <div class="pill">${escapeHtml(league.football_type)} | ${escapeHtml(league.goal_size)}</div>
                             </div>
                             <div class="pill">${escapeHtml(league.member_role)}</div>
                         </div>
@@ -938,6 +1458,7 @@
                         </div>
                         <div class="card-actions" style="margin-top: 14px;">
                             <button class="ghost view-league-button" type="button" data-league-id="${league.id}">${detail ? "Refresh details" : "Open details"}</button>
+                            <button class="ghost load-matches-button" type="button" data-league-id="${league.id}">Matches</button>
                             ${canManage ? `<button class="button create-invite-button" type="button" data-league-id="${league.id}">Create invite link</button>` : ""}
                         </div>
                         <div class="${detailClass}" id="league-detail-${league.id}">
@@ -954,26 +1475,115 @@
                                 ` : ""}
                             </div>
                         </div>
+                        <div id="league-matches-section-${league.id}" style="display:none;margin-top:12px;">
+                            ${renderLeagueMatchesHtml(league.id, league)}
+                        </div>
                     </article>
                 `;
             }).join("");
+
+            // Attach create-match form submit listeners after render
+            lobbyState.leagues.forEach(league => {
+                const form = document.getElementById(`create-match-form-${league.id}`);
+                if (form && !form._listenerAttached) {
+                    form._listenerAttached = true;
+                    form.addEventListener("submit", async (e) => {
+                        e.preventDefault();
+                        const lid = Number(form.dataset.leagueId);
+                        const scheduledAt = form.scheduled_at.value;
+                        const regOpensAt = form.registration_opens_at.value;
+                        try {
+                            await apiFetch(`/leagues/${lid}/matches`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    title: form.title.value.trim(),
+                                    location: form.location.value.trim() || null,
+                                    scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+                                    registration_opens_at: regOpensAt ? new Date(regOpensAt).toISOString() : null,
+                                    max_participants: Number(form.max_participants.value) || 14,
+                                    notes: form.notes.value.trim() || null
+                                })
+                            });
+                            form.reset();
+                            form.style.display = "none";
+                            const matches = await loadLeagueMatches(lid);
+                            const section = document.getElementById(`league-matches-section-${lid}`);
+                            if (section) {
+                                const leagueObj = lobbyState.leagues.find(l => l.id === lid);
+                                section.innerHTML = renderLeagueMatchesHtml(lid, leagueObj);
+                                section.style.display = "block";
+                                attachMatchFormListeners(lid, leagueObj);
+                            }
+                            showStatus("Match scheduled.", "ok");
+                        } catch (error) {
+                            showStatus(error.message || "Failed to create match.", "error");
+                        }
+                    });
+                }
+            });
+        }
+
+        function attachMatchFormListeners(leagueId, league) {
+            const form = document.getElementById(`create-match-form-${leagueId}`);
+            if (form && !form._listenerAttached) {
+                form._listenerAttached = true;
+                form.addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const scheduledAt = form.scheduled_at.value;
+                    const regOpensAt = form.registration_opens_at.value;
+                    try {
+                        await apiFetch(`/leagues/${leagueId}/matches`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                title: form.title.value.trim(),
+                                location: form.location.value.trim() || null,
+                                scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+                                registration_opens_at: regOpensAt ? new Date(regOpensAt).toISOString() : null,
+                                max_participants: Number(form.max_participants.value) || 14,
+                                notes: form.notes.value.trim() || null
+                            })
+                        });
+                        form.reset(); form.style.display = "none";
+                        await loadLeagueMatches(leagueId);
+                        const section = document.getElementById(`league-matches-section-${leagueId}`);
+                        if (section) { section.innerHTML = renderLeagueMatchesHtml(leagueId, league); section.style.display = "block"; }
+                        showStatus("Match scheduled.", "ok");
+                    } catch (error) { showStatus(error.message || "Failed to create match.", "error"); }
+                });
+            }
         }
 
         function renderAppState() {
             const signedIn = !!currentUser;
             authShell.classList.toggle("active", !signedIn);
             lobbyShell.classList.toggle("active", signedIn);
+            const adminSignedIn = isAdmin();
+            backupSection.style.display = adminSignedIn ? "block" : "none";
+            devToolsSection.style.display = adminSignedIn ? "block" : "none";
             logoutButton.disabled = !signedIn;
             logoutButton.style.opacity = signedIn ? "1" : "0.45";
             logoutButton.setAttribute("aria-disabled", signedIn ? "false" : "true");
 
+            const bellButton = document.getElementById("notifBellButton");
+            if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
+
             renderInviteEntry();
 
             if (!signedIn) {
+                // clear notification poll
+                if (notifPollInterval) { clearInterval(notifPollInterval); notifPollInterval = null; }
                 heroCopy.textContent = inviteTokenFromUrl
                     ? "Invitation detected. Sign in or register, then accept it directly."
-                    : "Register once, join leagues by invitation, and manage casual sports groups from a single lobby.";
+                    : "Register once, join leagues by invitation, and manage casual football groups from a single lobby.";
                 return;
+            }
+
+            // Start notification polling
+            if (!notifPollInterval) {
+                loadNotifications();
+                notifPollInterval = setInterval(loadNotifications, 30000);
             }
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
@@ -981,6 +1591,7 @@
             welcomeSubtitle.textContent = `${currentUser.name} ${currentUser.surname} can belong to any number of leagues. Owners can promote admins and share invite links.`;
             heroCopy.textContent = "Signed in. Your lobby shows league membership, member management, full backup, and invitation links.";
             renderLobbyOverview();
+            renderLeagueStatsList();
             renderLeagueList();
         }
 
@@ -1016,6 +1627,10 @@
         registerTab.addEventListener("click", () => openTab("register"));
 
         saveApiBaseButton.addEventListener("click", () => {
+            if (!isAdmin()) {
+                showStatus("Only admin can change the API server.", "error");
+                return;
+            }
             const value = apiBaseInput.value.trim();
             if (!value) {
                 showStatus("Enter a backend API URL first.", "error");
@@ -1111,7 +1726,12 @@
             clearToken();
             currentUser = null;
             leagueDetails = {};
-            lobbyState = { leagues: [], invites: [] };
+            leagueMatchesCache = {};
+            notifications = [];
+            notifUnreadCount = 0;
+            if (notifPollInterval) { clearInterval(notifPollInterval); notifPollInterval = null; }
+            if (liveClockInterval) { clearInterval(liveClockInterval); liveClockInterval = null; }
+            lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
             openTab("login");
             renderAppState();
             showStatus("You have been signed out.", "ok");
@@ -1173,12 +1793,14 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         name: createLeagueForm.name.value.trim(),
-                        sport: createLeagueForm.sport.value.trim() || "football",
+                        football_type: createLeagueForm.footballType.value,
+                        goal_size: createLeagueForm.goalSize.value.trim(),
                         description: createLeagueForm.description.value.trim() || null
                     })
                 });
                 createLeagueForm.reset();
-                createLeagueForm.sport.value = "football";
+                createLeagueForm.footballType.value = "outdoor";
+                createLeagueForm.goalSize.value = "7.32m x 2.44m";
                 await refreshAndRender();
                 showStatus("League created.", "ok");
             } catch (error) {
@@ -1194,6 +1816,30 @@
                 } catch (error) {
                     showStatus(error.message || "Failed to load league details.", "error");
                 }
+                return;
+            }
+
+            const matchesButton = event.target.closest(".load-matches-button");
+            if (matchesButton) {
+                const lid = Number(matchesButton.dataset.leagueId);
+                try {
+                    await loadLeagueMatches(lid);
+                    const section = document.getElementById(`league-matches-section-${lid}`);
+                    const leagueObj = lobbyState.leagues.find(l => l.id === lid);
+                    if (section && leagueObj) {
+                        section.innerHTML = renderLeagueMatchesHtml(lid, leagueObj);
+                        section.style.display = section.style.display === "none" ? "block" : "none";
+                        if (section.style.display === "block") attachMatchFormListeners(lid, leagueObj);
+                    }
+                } catch (error) {
+                    showStatus(error.message || "Failed to load matches.", "error");
+                }
+                return;
+            }
+
+            const openMatchButton = event.target.closest(".open-match-button");
+            if (openMatchButton) {
+                await loadMatchDetail(Number(openMatchButton.dataset.matchId));
                 return;
             }
 
@@ -1251,6 +1897,10 @@
         });
 
         downloadBackupButton.addEventListener("click", async () => {
+            if (!isAdmin()) {
+                showStatus("Only admin can download backup data.", "error");
+                return;
+            }
             try {
                 const backup = await apiFetch("/backup/export", { method: "GET" });
                 const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
@@ -1269,6 +1919,10 @@
         });
 
         restoreBackupButton.addEventListener("click", () => {
+            if (!isAdmin()) {
+                showStatus("Only admin can restore backup data.", "error");
+                return;
+            }
             backupFileInput.click();
         });
 
@@ -1294,6 +1948,613 @@
             }
             backupFileInput.value = "";
         });
+
+        // ============================================================
+        // NOTIFICATION FUNCTIONS
+        // ============================================================
+
+        function openNotifDrawer() {
+            document.getElementById("notifDrawer").classList.add("open");
+            document.getElementById("notifBackdrop").style.display = "block";
+            loadNotifications();
+        }
+
+        function closeNotifDrawer() {
+            document.getElementById("notifDrawer").classList.remove("open");
+            document.getElementById("notifBackdrop").style.display = "none";
+        }
+
+        async function loadNotifications() {
+            if (!currentUser) return;
+            try {
+                notifications = await apiFetch("/notifications");
+                renderNotifList();
+                updateNotifBadge();
+            } catch (_) { /* best-effort */ }
+        }
+
+        function updateNotifBadge() {
+            const unread = notifications.filter(n => !n.read).length;
+            const badge = document.getElementById("notifBadge");
+            const bell = document.getElementById("notifBellButton");
+            if (!badge || !bell) return;
+            if (unread > 0) {
+                badge.textContent = unread > 99 ? "99+" : String(unread);
+                badge.style.display = "block";
+            } else {
+                badge.style.display = "none";
+            }
+        }
+
+        function renderNotifList() {
+            const notifList = document.getElementById("notifList");
+            if (!notifList) return;
+            if (!notifications.length) {
+                notifList.innerHTML = '<p class="hint" style="padding:16px;">No notifications yet.</p>';
+                return;
+            }
+            notifList.innerHTML = notifications.map(n => `
+                <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${n.id}" data-match-id="${n.data && n.data.match_id ? n.data.match_id : ""}">
+                    <div class="notif-item-title">${escapeHtml(n.title)}</div>
+                    <div class="notif-item-msg">${escapeHtml(n.message)}</div>
+                    <div class="notif-item-time">${formatRelativeTime(n.created_at)}</div>
+                </div>
+            `).join("");
+        }
+
+        function formatRelativeTime(isoStr) {
+            if (!isoStr) return "";
+            const d = new Date(isoStr.endsWith("Z") ? isoStr : isoStr + "Z");
+            const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diff < 60) return "Just now";
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return d.toLocaleDateString();
+        }
+
+        document.getElementById("closeNotifButton").addEventListener("click", closeNotifDrawer);
+        document.getElementById("notifBackdrop").addEventListener("click", closeNotifDrawer);
+        document.getElementById("notifBellButton").addEventListener("click", openNotifDrawer);
+        document.getElementById("markAllReadButton").addEventListener("click", async () => {
+            if (!currentUser) return;
+            try {
+                await apiFetch("/notifications/read-all", { method: "PATCH" });
+                notifications = notifications.map(n => ({ ...n, read: true }));
+                renderNotifList();
+                updateNotifBadge();
+            } catch (error) {
+                showStatus(error.message || "Failed to mark notifications as read.", "error");
+            }
+        });
+        document.getElementById("notifList").addEventListener("click", async (event) => {
+            const item = event.target.closest(".notif-item");
+            if (!item) return;
+            const matchId = item.dataset.matchId;
+            if (matchId) {
+                closeNotifDrawer();
+                await loadMatchDetail(Number(matchId));
+            }
+        });
+
+        // ============================================================
+        // BACKDOOR FUNCTIONS
+        // ============================================================
+
+        document.getElementById("eyebrowText").addEventListener("click", () => {
+            backdoorClickCount++;
+            clearTimeout(backdoorClickTimer);
+            backdoorClickTimer = setTimeout(() => { backdoorClickCount = 0; }, 2000);
+            if (backdoorClickCount >= 5) {
+                backdoorClickCount = 0;
+                document.getElementById("backdoorBackdrop").style.display = "flex";
+                document.getElementById("backdoorPinInput").value = "";
+                document.getElementById("backdoorStatus").textContent = "";
+                document.getElementById("backdoorPinInput").focus();
+            }
+        });
+
+        document.getElementById("backdoorCancelButton").addEventListener("click", () => {
+            document.getElementById("backdoorBackdrop").style.display = "none";
+        });
+
+        document.getElementById("backdoorSubmitButton").addEventListener("click", async () => {
+            const pin = document.getElementById("backdoorPinInput").value;
+            if (!pin) return;
+            const statusEl = document.getElementById("backdoorStatus");
+            try {
+                const tokenData = await apiFetch("/auth/backdoor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pin })
+                });
+                setToken(tokenData.access_token);
+                document.getElementById("backdoorBackdrop").style.display = "none";
+                await refreshAndRender();
+                showStatus("Admin authenticated via backdoor.", "ok");
+            } catch (error) {
+                statusEl.textContent = error.message || "Invalid PIN.";
+                statusEl.className = "status error";
+            }
+        });
+
+        document.getElementById("backdoorPinInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("backdoorSubmitButton").click();
+        });
+
+        // ============================================================
+        // MATCH LEAGUE LIST
+        // ============================================================
+
+        async function loadLeagueMatches(leagueId) {
+            if (!currentUser) return [];
+            try {
+                const matches = await apiFetch(`/leagues/${leagueId}/matches`);
+                leagueMatchesCache[leagueId] = matches;
+                return matches;
+            } catch (_) { return []; }
+        }
+
+        function renderLeagueMatchesHtml(leagueId, league) {
+            const matches = leagueMatchesCache[leagueId] || [];
+            const canManage = league.member_role === "owner" || league.member_role === "admin";
+            const upcoming = matches.filter(m => !["completed", "cancelled"].includes(m.status)).slice(0, 5);
+            const matchListHtml = upcoming.length
+                ? upcoming.map(m => `
+                    <div class="match-mini-card open-match-button" data-match-id="${m.id}">
+                        <div class="match-mini-left">
+                            <div class="match-mini-title">${escapeHtml(m.title)}</div>
+                            <div class="match-mini-meta">${escapeHtml(m.scheduled_at.slice(0, 16).replace("T", " "))}${m.location ? " · " + escapeHtml(m.location) : ""} · ${escapeHtml(m.registered_count)}/${escapeHtml(m.max_participants)} registered</div>
+                        </div>
+                        <span class="pill match-mini-pill">${statusLabel(m.status)}</span>
+                    </div>
+                `).join("")
+                : '<div class="empty-card" style="font-size:0.85rem;">No upcoming matches.</div>';
+
+            const createMatchHtml = canManage ? `
+                <div class="collapsible-form" id="create-match-form-wrap-${leagueId}">
+                    <button class="collapsible-toggle" data-league-id="${leagueId}" onclick="toggleMatchForm(${leagueId})">+ Schedule a match</button>
+                    <form class="stack" id="create-match-form-${leagueId}" style="display:none;margin-top:12px;" data-league-id="${leagueId}">
+                        <label>Match title</label>
+                        <input type="text" name="title" maxlength="100" required placeholder="e.g. Friday Game">
+                        <label>Location</label>
+                        <input type="text" name="location" maxlength="120" placeholder="e.g. Sports centre A">
+                        <label>Date &amp; time</label>
+                        <input type="datetime-local" name="scheduled_at" required>
+                        <label>Registration opens at</label>
+                        <input type="datetime-local" name="registration_opens_at">
+                        <label>Max participants</label>
+                        <input type="number" name="max_participants" min="2" max="100" value="14">
+                        <label>Notes</label>
+                        <textarea name="notes" maxlength="500" placeholder="Bring bibs, etc."></textarea>
+                        <div style="display:flex;gap:10px;">
+                            <button class="button" type="submit">Create match</button>
+                            <button class="ghost" type="button" onclick="toggleMatchForm(${leagueId})">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            ` : "";
+
+            return `
+                <div style="margin-top: 18px;">
+                    <h4 class="section-title" style="font-size: 1.05rem;">Upcoming matches</h4>
+                    <div id="league-matches-${leagueId}">${matchListHtml}</div>
+                    ${createMatchHtml}
+                </div>
+            `;
+        }
+
+        function statusLabel(status) {
+            const labels = {
+                upcoming: "Upcoming", registration_open: "Open", live: "Live",
+                finished: "Summary", completed: "Done", cancelled: "Cancelled"
+            };
+            return labels[status] || status;
+        }
+
+        function toggleMatchForm(leagueId) {
+            const form = document.getElementById(`create-match-form-${leagueId}`);
+            if (!form) return;
+            form.style.display = form.style.display === "none" ? "block" : "none";
+        }
+
+        // ============================================================
+        // MATCH OVERLAY
+        // ============================================================
+
+        async function loadMatchDetail(matchId) {
+            document.getElementById("matchOverlay").style.display = "flex";
+            document.getElementById("matchOverlayContent").innerHTML = '<p class="hint" style="padding:24px;">Loading…</p>';
+            document.getElementById("matchOverlayTitle").textContent = "Match";
+            document.getElementById("matchStatusBadge").textContent = "";
+            currentMatchId = matchId;
+            try {
+                const detail = await apiFetch(`/matches/${matchId}`);
+                currentMatchDetail = detail;
+                matchCache[matchId] = detail;
+                renderMatchOverlay();
+            } catch (error) {
+                document.getElementById("matchOverlayContent").innerHTML = `<p class="hint" style="padding:24px;color:#ef4444;">${escapeHtml(error.message || "Failed to load match.")}</p>`;
+            }
+        }
+
+        function closeMatchOverlay() {
+            document.getElementById("matchOverlay").style.display = "none";
+            if (liveClockInterval) { clearInterval(liveClockInterval); liveClockInterval = null; }
+            currentMatchId = null;
+            currentMatchDetail = null;
+        }
+
+        document.getElementById("closeMatchOverlayButton").addEventListener("click", closeMatchOverlay);
+
+        function renderMatchOverlay() {
+            const detail = currentMatchDetail;
+            if (!detail) return;
+            const match = detail.match;
+            document.getElementById("matchOverlayTitle").textContent = match.title;
+            document.getElementById("matchStatusBadge").textContent = statusLabel(match.status);
+
+            if (match.status === "live") {
+                renderLiveMatchView(detail);
+            } else if (match.status === "finished") {
+                renderMatchSummary(detail);
+            } else {
+                renderMatchDetailView(detail);
+            }
+        }
+
+        function renderMatchDetailView(detail) {
+            const match = detail.match;
+            const registrations = detail.registrations || [];
+            const myReg = match.my_registration_status;
+            const canManage = currentUser && (
+                lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"))
+            );
+            const teamAIds = match.team_a || [];
+            const teamBIds = match.team_b || [];
+            const hasTeams = teamAIds.length > 0 || teamBIds.length > 0;
+
+            const regHtml = registrations.length
+                ? registrations.map(r => `
+                    <div class="reg-item">
+                        <span>${escapeHtml(r.display_name || r.username)}</span>
+                        <span class="pill" style="font-size:0.75rem;">${escapeHtml(r.status)}</span>
+                    </div>`).join("")
+                : '<div class="empty-card" style="font-size:0.85rem;">No registrations yet.</div>';
+
+            const teamsHtml = hasTeams ? `
+                <div class="teams-preview">
+                    <div class="team-preview-col">
+                        <h4>Team A</h4>
+                        ${teamAIds.map(uid => {
+                            const reg = registrations.find(r => r.user_id === uid);
+                            const name = reg ? (reg.display_name || reg.username) : `#${uid}`;
+                            return `<div class="team-player-chip"><span>${escapeHtml(name)}</span></div>`;
+                        }).join("")}
+                    </div>
+                    <div class="team-preview-col">
+                        <h4>Team B</h4>
+                        ${teamBIds.map(uid => {
+                            const reg = registrations.find(r => r.user_id === uid);
+                            const name = reg ? (reg.display_name || reg.username) : `#${uid}`;
+                            return `<div class="team-player-chip"><span>${escapeHtml(name)}</span></div>`;
+                        }).join("")}
+                    </div>
+                </div>
+            ` : "";
+
+            let actionHtml = "";
+            if (match.status === "registration_open") {
+                if (!myReg || myReg === "cancelled") {
+                    actionHtml += `<button class="button" id="registerMatchButton">Register</button>`;
+                } else if (myReg === "registered") {
+                    const canCancel = new Date(match.scheduled_at + "Z") > new Date(Date.now() + 3600000);
+                    if (canCancel) actionHtml += `<button class="ghost" id="cancelRegMatchButton">Cancel registration</button>`;
+                } else if (myReg === "waitlisted" || myReg === "offered") {
+                    actionHtml += `<span class="pill">On waiting list</span>`;
+                    const canCancel = new Date(match.scheduled_at + "Z") > new Date(Date.now() + 3600000);
+                    if (canCancel) actionHtml += `<button class="ghost" id="cancelRegMatchButton">Leave waitlist</button>`;
+                }
+            }
+            if (canManage) {
+                if (match.status === "upcoming") {
+                    actionHtml += `<button class="button" id="openRegButton">Open registration</button>`;
+                }
+                if (match.status === "registration_open" || match.status === "upcoming") {
+                    actionHtml += `<button class="ghost" id="generateTeamsButton">Generate teams</button>`;
+                    actionHtml += `<button class="button" id="startMatchButton">Start match</button>`;
+                }
+                if (!["completed", "cancelled"].includes(match.status)) {
+                    actionHtml += `<button class="danger" id="cancelMatchButton">Cancel match</button>`;
+                }
+            }
+
+            document.getElementById("matchOverlayContent").innerHTML = `
+                <div class="panel-card" style="margin-bottom:16px;">
+                    <div class="meta-grid">
+                        <div class="meta-block"><span class="meta-label">Date</span><span class="meta-value">${escapeHtml(match.scheduled_at.slice(0, 16).replace("T", " "))}</span></div>
+                        ${match.location ? `<div class="meta-block"><span class="meta-label">Location</span><span class="meta-value">${escapeHtml(match.location)}</span></div>` : ""}
+                        <div class="meta-block"><span class="meta-label">Spots</span><span class="meta-value">${escapeHtml(match.registered_count)} / ${escapeHtml(match.max_participants)}</span></div>
+                        ${match.waitlisted_count > 0 ? `<div class="meta-block"><span class="meta-label">Waitlist</span><span class="meta-value">${escapeHtml(match.waitlisted_count)}</span></div>` : ""}
+                        ${match.notes ? `<div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Notes</span><span class="meta-value">${escapeHtml(match.notes)}</span></div>` : ""}
+                    </div>
+                    ${teamsHtml}
+                    <div class="match-action-bar" id="matchActionBar">${actionHtml}</div>
+                </div>
+                <div class="panel-card">
+                    <h4 class="section-title" style="font-size:1rem;margin-bottom:12px;">Registrations</h4>
+                    <div class="reg-list">${regHtml}</div>
+                </div>
+            `;
+
+            document.getElementById("registerMatchButton")?.addEventListener("click", () => matchAction("register"));
+            document.getElementById("cancelRegMatchButton")?.addEventListener("click", () => matchAction("cancel-reg"));
+            document.getElementById("openRegButton")?.addEventListener("click", () => matchAction("open-reg"));
+            document.getElementById("generateTeamsButton")?.addEventListener("click", () => matchAction("generate-teams"));
+            document.getElementById("startMatchButton")?.addEventListener("click", () => matchAction("start"));
+            document.getElementById("cancelMatchButton")?.addEventListener("click", () => { if (confirm("Cancel this match?")) matchAction("cancel"); });
+        }
+
+        function renderLiveMatchView(detail) {
+            const match = detail.match;
+            const registrations = detail.registrations || [];
+            const events = detail.events || [];
+            const teamAIds = match.team_a || [];
+            const teamBIds = match.team_b || [];
+            const canManage = currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
+
+            function playerName(uid) {
+                const r = registrations.find(r => r.user_id === uid);
+                return r ? (r.display_name || r.username) : `#${uid}`;
+            }
+
+            const teamHtml = (ids, teamLabel) => ids.map(uid => `
+                <div class="player-event-row">
+                    <span>${escapeHtml(playerName(uid))}</span>
+                    ${canManage ? `<div class="player-event-buttons">
+                        <button class="event-btn goal" data-uid="${uid}" data-team="${teamLabel}">⚽ Goal</button>
+                    </div>` : ""}
+                </div>`).join("");
+
+            const activeEvents = events.filter(e => !e.undone);
+            const timelineHtml = activeEvents.length
+                ? activeEvents.map(e => {
+                    const mins = Math.floor(e.event_seconds / 60);
+                    const icon = e.event_type === "goal" ? "⚽" : e.event_type === "assist" ? "🅰️" : "⏸️";
+                    const desc = e.event_type === "goal"
+                        ? `<strong>${escapeHtml(e.username || "?")} </strong> scored (Team ${e.team ? e.team.toUpperCase() : "?"})`
+                        : e.event_type === "assist"
+                        ? `<span style="color:var(--muted)">🅰️ ${escapeHtml(e.username || "?")} assisted (Team ${e.team ? e.team.toUpperCase() : "?"})</span>`
+                        : `${icon} ${e.event_type}`;
+                    const canUndo = canManage && (Date.now() - new Date(e.created_at.endsWith("Z") ? e.created_at : e.created_at + "Z").getTime()) < 30000;
+                    return `<div class="event-line">
+                        <span class="event-time">${mins}'</span>
+                        <span class="event-desc">${desc}</span>
+                        ${canUndo ? `<button class="icon-button event-undo" style="font-size:0.78rem;color:#ef4444;" data-event-id="${e.id}">Undo</button>` : ""}
+                    </div>`;
+                }).join("")
+                : '<div class="event-line" style="color:var(--muted);font-size:0.85rem;">No events yet.</div>';
+
+            document.getElementById("matchOverlayContent").innerHTML = `
+                <div class="score-board" id="scoreBoard">
+                    <div class="score-team">
+                        <div class="score-team-name">Team A</div>
+                        <div class="score-value" id="scoreA">${match.score_a}</div>
+                    </div>
+                    <div class="score-divider">–</div>
+                    <div class="score-team">
+                        <div class="score-team-name">Team B</div>
+                        <div class="score-value" id="scoreB">${match.score_b}</div>
+                    </div>
+                </div>
+                <div id="liveClock" class="score-clock"></div>
+                <div class="teams-grid">
+                    <div class="team-col">
+                        <div class="team-col-title">Team A</div>
+                        ${teamHtml(teamAIds, "a")}
+                    </div>
+                    <div class="team-col">
+                        <div class="team-col-title">Team B</div>
+                        ${teamHtml(teamBIds, "b")}
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <h4 class="section-title" style="font-size:1rem;margin-bottom:10px;">Match events</h4>
+                    <div class="events-timeline" id="eventsTimeline">${timelineHtml}</div>
+                </div>
+                ${canManage ? `
+                <div class="match-action-bar">
+                    <button class="button" id="endMatchButton">End match</button>
+                </div>` : ""}
+            `;
+
+            // Live clock
+            if (liveClockInterval) clearInterval(liveClockInterval);
+            const startedAt = match.started_at ? new Date((match.started_at.endsWith("Z") ? match.started_at : match.started_at + "Z")) : null;
+            if (startedAt) {
+                function updateClock() {
+                    const el = document.getElementById("liveClock");
+                    if (!el) { clearInterval(liveClockInterval); return; }
+                    const secs = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+                    const mins = Math.floor(secs / 60);
+                    const s = secs % 60;
+                    el.textContent = `${String(mins).padStart(2, "0")}:${String(s).padStart(2, "0")} elapsed`;
+                }
+                updateClock();
+                liveClockInterval = setInterval(updateClock, 1000);
+            }
+        }
+
+        // Single delegated live match handler (attached once to matchOverlay)
+        document.getElementById("matchOverlay").addEventListener("click", async (event) => {
+            if (!currentMatchDetail || currentMatchDetail.match.status !== "live") return;
+            const goalBtn = event.target.closest(".event-btn.goal");
+            if (goalBtn) {
+                const uid = Number(goalBtn.dataset.uid);
+                const team = goalBtn.dataset.team;
+                const reg = (currentMatchDetail.registrations || []).find(r => r.user_id === uid);
+                pendingGoalState = { matchId: currentMatchDetail.match.id, scorerUserId: uid, scorerUsername: reg?.username || `#${uid}`, team };
+                showAssistPicker(
+                    currentMatchDetail.registrations || [],
+                    currentMatchDetail.match.team_a || [],
+                    currentMatchDetail.match.team_b || [],
+                    team, uid
+                );
+                return;
+            }
+            const undoBtn = event.target.closest(".event-undo");
+            if (undoBtn) {
+                await matchAction("undo-event", Number(undoBtn.dataset.eventId));
+                return;
+            }
+            const endBtn = event.target.closest("#endMatchButton");
+            if (endBtn) { await matchAction("finish"); }
+        });
+
+        function showAssistPicker(registrations, teamAIds, teamBIds, scorerTeam, scorerUid) {
+            const allTeamIds = scorerTeam === "a" ? teamAIds : teamBIds;
+            const assistCandidates = allTeamIds.filter(uid => uid !== scorerUid);
+            const modal = document.getElementById("assistPickerModal");
+            const list = document.getElementById("assistPlayerList");
+            document.getElementById("assistPickerSubtitle").textContent =
+                `Goal by ${escapeHtml(pendingGoalState?.scorerUsername || "?")}. Who assisted?`;
+            list.innerHTML = assistCandidates.map(uid => {
+                const reg = registrations.find(r => r.user_id === uid);
+                const name = reg ? (reg.display_name || reg.username) : `#${uid}`;
+                return `<button class="assist-player-btn" data-uid="${uid}">${escapeHtml(name)}</button>`;
+            }).join("");
+            modal.style.display = "flex";
+        }
+
+        document.getElementById("assistPlayerList").addEventListener("click", async (e) => {
+            const btn = e.target.closest(".assist-player-btn");
+            if (!btn) return;
+            document.getElementById("assistPickerModal").style.display = "none";
+            if (!pendingGoalState) return;
+            await submitGoal(pendingGoalState.matchId, pendingGoalState.scorerUserId, Number(btn.dataset.uid), pendingGoalState.team);
+        });
+
+        document.getElementById("noAssistButton").addEventListener("click", async () => {
+            document.getElementById("assistPickerModal").style.display = "none";
+            if (!pendingGoalState) return;
+            await submitGoal(pendingGoalState.matchId, pendingGoalState.scorerUserId, null, pendingGoalState.team);
+        });
+
+        async function submitGoal(matchId, scorerUserId, assistUserId, team) {
+            try {
+                await apiFetch(`/matches/${matchId}/events`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scorer_user_id: scorerUserId, assist_user_id: assistUserId, team })
+                });
+                await loadMatchDetail(matchId);
+            } catch (error) {
+                showStatus(error.message || "Failed to record goal.", "error");
+            }
+        }
+
+        function renderMatchSummary(detail) {
+            const match = detail.match;
+            const registrations = detail.registrations || [];
+            const events = detail.events || [];
+            const allParticipantIds = [...(match.team_a || []), ...(match.team_b || [])];
+            const canManage = currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
+
+            function playerName(uid) {
+                const r = registrations.find(r2 => r2.user_id === uid);
+                return r ? (r.display_name || r.username) : `#${uid}`;
+            }
+
+            const goalsByPlayer = {};
+            const assistsByPlayer = {};
+            events.filter(e => !e.undone).forEach(e => {
+                if (e.event_type === "goal") goalsByPlayer[e.user_id] = (goalsByPlayer[e.user_id] || 0) + 1;
+                if (e.event_type === "assist") assistsByPlayer[e.user_id] = (assistsByPlayer[e.user_id] || 0) + 1;
+            });
+
+            const aWon = match.score_a > match.score_b;
+            const bWon = match.score_b > match.score_a;
+
+            function teamSummary(ids, label, won) {
+                return `
+                    <div class="panel-card">
+                        <h4 class="section-title" style="font-size:0.95rem;margin-bottom:10px;">Team ${label} ${won ? "🏆" : ""}</h4>
+                        ${ids.map(uid => `
+                            <div class="summary-player-row">
+                                <span>${escapeHtml(playerName(uid))}</span>
+                                <div class="summary-stats">
+                                    <span>⚽ ${goalsByPlayer[uid] || 0}</span>
+                                    <span>🅰️ ${assistsByPlayer[uid] || 0}</span>
+                                </div>
+                            </div>`).join("")}
+                    </div>`;
+            }
+
+            document.getElementById("matchOverlayContent").innerHTML = `
+                <div class="score-board" style="margin-bottom:20px;">
+                    <div class="score-team"><div class="score-team-name">Team A</div><div class="score-value">${match.score_a}</div></div>
+                    <div class="score-divider">–</div>
+                    <div class="score-team"><div class="score-team-name">Team B</div><div class="score-value">${match.score_b}</div></div>
+                </div>
+                ${teamSummary(match.team_a || [], "A", aWon)}
+                ${teamSummary(match.team_b || [], "B", bWon)}
+                ${canManage ? `
+                    <div class="match-action-bar">
+                        <button class="button" id="confirmMatchButton">Confirm &amp; update ratings</button>
+                    </div>` : ""}
+            `;
+
+            document.getElementById("confirmMatchButton")?.addEventListener("click", async () => {
+                if (!confirm("Confirm match result and update ratings for all participants?")) return;
+                await matchAction("confirm");
+            });
+        }
+
+        async function matchAction(action, extraId) {
+            if (!currentMatchId) return;
+            const mid = currentMatchId;
+            try {
+                switch (action) {
+                    case "register":
+                        await apiFetch(`/matches/${mid}/register`, { method: "POST" });
+                        break;
+                    case "cancel-reg":
+                        await apiFetch(`/matches/${mid}/register`, { method: "DELETE" });
+                        break;
+                    case "open-reg":
+                        await apiFetch(`/matches/${mid}/open-registration`, { method: "POST" });
+                        break;
+                    case "generate-teams":
+                        await apiFetch(`/matches/${mid}/generate-teams`, { method: "POST" });
+                        break;
+                    case "start":
+                        await apiFetch(`/matches/${mid}/start`, { method: "POST" });
+                        break;
+                    case "finish":
+                        if (!confirm("End the match and proceed to summary?")) return;
+                        await apiFetch(`/matches/${mid}/finish`, { method: "POST" });
+                        break;
+                    case "confirm":
+                        await apiFetch(`/matches/${mid}/confirm`, { method: "POST" });
+                        showStatus("Match confirmed. Ratings updated.", "ok");
+                        closeMatchOverlay();
+                        await refreshAndRender();
+                        return;
+                    case "cancel":
+                        await apiFetch(`/matches/${mid}/cancel`, { method: "POST" });
+                        closeMatchOverlay();
+                        await refreshAndRender();
+                        return;
+                    case "undo-event":
+                        await apiFetch(`/matches/${mid}/events/${extraId}`, { method: "DELETE" });
+                        break;
+                    default:
+                        return;
+                }
+                await loadMatchDetail(mid);
+            } catch (error) {
+                showStatus(error.message || "Action failed.", "error");
+            }
+        }
 
         async function bootstrap() {
             apiBaseInput.value = getApiBase();
