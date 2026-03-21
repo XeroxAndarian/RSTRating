@@ -200,8 +200,34 @@ class PasswordResetPayload(BaseModel):
 class LeagueCreatePayload(BaseModel):
     name: str = Field(min_length=3, max_length=80)
     football_type: str = Field(pattern=r"^(outdoor|indoor)$")
-    goal_size: str = Field(min_length=2, max_length=40)
+    goal_size: str = Field(pattern=r"^(small|medium|large)$")
+    region: str = Field(min_length=2, max_length=64)
     description: str | None = Field(default=None, max_length=300)
+
+
+class JoinLeagueByCodePayload(BaseModel):
+    invite_code: str = Field(min_length=4, max_length=16)
+
+
+class LeagueJoinRequestCreatePayload(BaseModel):
+    message: str | None = Field(default=None, max_length=300)
+
+
+class LeagueJoinRequestDecisionPayload(BaseModel):
+    decision: str = Field(pattern=r"^(accept|reject)$")
+
+
+class LeagueJoinRequestOut(BaseModel):
+    id: int
+    league_id: int
+    user_id: int
+    username: str
+    display_name: str | None
+    status: str
+    message: str | None
+    requested_at: str
+    decided_at: str | None
+    decided_by_user_id: int | None
 
 
 class InviteAcceptPayload(BaseModel):
@@ -217,6 +243,8 @@ class LeagueOut(BaseModel):
     name: str
     football_type: str
     goal_size: str
+    region: str
+    invite_code: str
     description: str | None
     owner_id: int
     owner_username: str
@@ -500,6 +528,8 @@ def init_db() -> None:
                 sport TEXT,
                 football_type TEXT NOT NULL DEFAULT 'outdoor',
                 goal_size TEXT NOT NULL DEFAULT '5x2',
+                region TEXT NOT NULL DEFAULT 'Unknown',
+                invite_code TEXT,
                 description TEXT,
                 owner_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -511,6 +541,8 @@ def init_db() -> None:
         ensure_column(conn, "leagues", "sport", "TEXT")
         ensure_column(conn, "leagues", "football_type", "TEXT NOT NULL DEFAULT 'outdoor'")
         ensure_column(conn, "leagues", "goal_size", "TEXT NOT NULL DEFAULT '5x2'")
+        ensure_column(conn, "leagues", "region", "TEXT NOT NULL DEFAULT 'Unknown'")
+        ensure_column(conn, "leagues", "invite_code", "TEXT")
 
         rows = conn.execute("SELECT id, sport, football_type FROM leagues").fetchall()
         for row in rows:
@@ -518,6 +550,34 @@ def init_db() -> None:
             if football_type not in {"outdoor", "indoor"}:
                 football_type = infer_football_type(row["sport"])
                 conn.execute("UPDATE leagues SET football_type = ? WHERE id = ?", (football_type, row["id"]))
+
+        # Normalize legacy goal_size values to presets.
+        legacy_goal_rows = conn.execute("SELECT id, goal_size FROM leagues").fetchall()
+        for row in legacy_goal_rows:
+            value = str(row["goal_size"] or "").strip().lower()
+            mapped = value
+            if value in {"5x2", "5m x 2m", "small"}:
+                mapped = "small"
+            elif value in {"7.32m x 2.44m", "large", "full"}:
+                mapped = "large"
+            elif value in {"medium", "mid"}:
+                mapped = "medium"
+            elif value not in {"small", "medium", "large"}:
+                mapped = "medium"
+            if mapped != value:
+                conn.execute("UPDATE leagues SET goal_size = ? WHERE id = ?", (mapped, int(row["id"])))
+
+        # Ensure each league has a permanent invite code.
+        leagues_without_codes = conn.execute(
+            "SELECT id FROM leagues WHERE invite_code IS NULL OR invite_code = ''"
+        ).fetchall()
+        for row in leagues_without_codes:
+            code = secrets.token_hex(3).upper()
+            while conn.execute("SELECT 1 FROM leagues WHERE invite_code = ?", (code,)).fetchone() is not None:
+                code = secrets.token_hex(3).upper()
+            conn.execute("UPDATE leagues SET invite_code = ? WHERE id = ?", (code, int(row["id"])))
+
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_leagues_invite_code ON leagues(invite_code)")
 
         conn.execute(
             """
@@ -548,6 +608,25 @@ def init_db() -> None:
                 revoked INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
                 FOREIGN KEY(created_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_join_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                message TEXT,
+                requested_at TEXT NOT NULL,
+                decided_at TEXT,
+                decided_by_user_id INTEGER,
+                UNIQUE(league_id, user_id),
+                FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(decided_by_user_id) REFERENCES users(id) ON DELETE SET NULL
             )
             """
         )
@@ -812,6 +891,8 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
         name=str(row["name"]),
         football_type=str(row["football_type"]),
         goal_size=str(row["goal_size"]),
+        region=str(row["region"] or "Unknown"),
+        invite_code=str(row["invite_code"] or ""),
         description=row["description"],
         owner_id=int(row["owner_id"]),
         owner_username=str(row["owner_username"]),
@@ -886,6 +967,8 @@ def fetch_league_for_user(conn: sqlite3.Connection, league_id: int, user_id: int
             l.name,
             l.football_type,
             l.goal_size,
+            l.region,
+            l.invite_code,
             l.description,
             l.owner_id,
             l.created_at,
@@ -913,6 +996,8 @@ def fetch_user_leagues(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.R
             l.name,
             l.football_type,
             l.goal_size,
+            l.region,
+            l.invite_code,
             l.description,
             l.owner_id,
             l.created_at,
@@ -1562,13 +1647,15 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
     with get_conn() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO leagues (name, football_type, goal_size, description, owner_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, owner_id, created_at, updated_at)
+            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.name.strip(),
                 payload.football_type,
-                payload.goal_size.strip(),
+                payload.goal_size,
+                payload.region.strip(),
+                secrets.token_hex(3).upper(),
                 payload.description.strip() if payload.description else None,
                 user_id,
                 created_at,
@@ -1750,6 +1837,230 @@ def backdoor_login(payload: BackdoorPayload) -> TokenOut:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Admin account not found")
     token = create_access_token(subject=f"user:{admin_user['id']}")
     return TokenOut(access_token=token, expires_in_minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+
+def _serialize_join_request(row: sqlite3.Row) -> LeagueJoinRequestOut:
+    return LeagueJoinRequestOut(
+        id=int(row["id"]),
+        league_id=int(row["league_id"]),
+        user_id=int(row["user_id"]),
+        username=str(row["username"]),
+        display_name=row["display_name"],
+        status=str(row["status"]),
+        message=row["message"],
+        requested_at=str(row["requested_at"]),
+        decided_at=row["decided_at"],
+        decided_by_user_id=row["decided_by_user_id"],
+    )
+
+
+@app.post("/leagues/join-by-code", response_model=LeagueOut)
+def join_league_by_code(payload: JoinLeagueByCodePayload, current_user: sqlite3.Row = Depends(resolve_current_user)) -> LeagueOut:
+    user_id = int(current_user["id"])
+    invite_code = payload.invite_code.strip().upper()
+    with get_conn() as conn:
+        league = conn.execute(
+            "SELECT id FROM leagues WHERE invite_code = ?",
+            (invite_code,),
+        ).fetchone()
+        if league is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite code not found")
+
+        league_id = int(league["id"])
+        existing_membership = conn.execute(
+            "SELECT id FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
+        if existing_membership is None:
+            conn.execute(
+                "INSERT INTO league_memberships (league_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)",
+                (league_id, user_id, utc_now_iso()),
+            )
+            existing_stats = conn.execute(
+                "SELECT id FROM league_player_stats WHERE league_id = ? AND user_id = ?",
+                (league_id, user_id),
+            ).fetchone()
+            if existing_stats is None:
+                conn.execute(
+                    "INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
+                    (league_id, user_id, float(current_user["global_rating"] or DEFAULT_GLOBAL_RATING)),
+                )
+        conn.execute(
+            "DELETE FROM league_join_requests WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        )
+        conn.commit()
+        league_row = fetch_league_for_user(conn, league_id, user_id)
+    if league_row is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not load league")
+    return serialize_league(league_row)
+
+
+@app.get("/leagues/discover")
+def discover_leagues(
+    region: str | None = None,
+    q: str | None = None,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> list[dict]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        params: list = [user_id]
+        where_clauses = [
+            "l.id NOT IN (SELECT league_id FROM league_memberships WHERE user_id = ?)",
+        ]
+        if region and region.strip():
+            where_clauses.append("LOWER(l.region) = LOWER(?)")
+            params.append(region.strip())
+        if q and q.strip():
+            where_clauses.append("(LOWER(l.name) LIKE LOWER(?) OR LOWER(COALESCE(l.description, '')) LIKE LOWER(?))")
+            like_q = f"%{q.strip()}%"
+            params.extend([like_q, like_q])
+
+        query = f"""
+            SELECT
+                l.id,
+                l.name,
+                l.football_type,
+                l.goal_size,
+                l.region,
+                l.description,
+                owner.username AS owner_username,
+                (
+                    SELECT COUNT(*)
+                    FROM league_memberships AS lm
+                    WHERE lm.league_id = l.id
+                ) AS member_count,
+                (
+                    SELECT status
+                    FROM league_join_requests AS ljr
+                    WHERE ljr.league_id = l.id AND ljr.user_id = ?
+                ) AS my_request_status
+            FROM leagues AS l
+            JOIN users AS owner ON owner.id = l.owner_id
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY l.created_at DESC
+            LIMIT 100
+        """
+        # first placeholder is used in subquery my_request_status
+        rows = conn.execute(query, [user_id] + params).fetchall()
+    return [
+        {
+            "id": int(row["id"]),
+            "name": str(row["name"]),
+            "football_type": str(row["football_type"]),
+            "goal_size": str(row["goal_size"]),
+            "region": str(row["region"] or "Unknown"),
+            "description": row["description"],
+            "owner_username": str(row["owner_username"]),
+            "member_count": int(row["member_count"]),
+            "my_request_status": row["my_request_status"],
+        }
+        for row in rows
+    ]
+
+
+@app.post("/leagues/{league_id}/join-requests", response_model=MessageOut)
+def create_join_request(
+    league_id: int,
+    payload: LeagueJoinRequestCreatePayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        league_exists = conn.execute("SELECT id FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        if league_exists is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        existing_member = conn.execute(
+            "SELECT id FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
+        if existing_member is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You are already a league member")
+
+        existing = conn.execute(
+            "SELECT id, status FROM league_join_requests WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO league_join_requests (league_id, user_id, status, message, requested_at) VALUES (?, ?, 'pending', ?, ?)",
+                (league_id, user_id, payload.message.strip() if payload.message else None, utc_now_iso()),
+            )
+        else:
+            conn.execute(
+                "UPDATE league_join_requests SET status = 'pending', message = ?, requested_at = ?, decided_at = NULL, decided_by_user_id = NULL WHERE id = ?",
+                (payload.message.strip() if payload.message else None, utc_now_iso(), int(existing["id"])),
+            )
+        conn.commit()
+    return MessageOut(detail="Join request submitted.")
+
+
+@app.get("/leagues/{league_id}/join-requests", response_model=list[LeagueJoinRequestOut])
+def list_join_requests(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeagueJoinRequestOut]:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        rows = conn.execute(
+            """
+            SELECT ljr.*, u.username, u.display_name
+            FROM league_join_requests AS ljr
+            JOIN users AS u ON u.id = ljr.user_id
+            WHERE ljr.league_id = ? AND ljr.status = 'pending'
+            ORDER BY ljr.requested_at ASC
+            """,
+            (league_id,),
+        ).fetchall()
+    return [_serialize_join_request(row) for row in rows]
+
+
+@app.patch("/leagues/{league_id}/join-requests/{request_id}", response_model=MessageOut)
+def decide_join_request(
+    league_id: int,
+    request_id: int,
+    payload: LeagueJoinRequestDecisionPayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    manager_id = int(current_user["id"])
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, manager_id)
+        req = conn.execute(
+            "SELECT id, user_id, status FROM league_join_requests WHERE id = ? AND league_id = ?",
+            (request_id, league_id),
+        ).fetchone()
+        if req is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Join request not found")
+        if str(req["status"]) != "pending":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Join request already processed")
+
+        decision_status = "accepted" if payload.decision == "accept" else "rejected"
+        conn.execute(
+            "UPDATE league_join_requests SET status = ?, decided_at = ?, decided_by_user_id = ? WHERE id = ?",
+            (decision_status, utc_now_iso(), manager_id, request_id),
+        )
+
+        if payload.decision == "accept":
+            target_user_id = int(req["user_id"])
+            member = conn.execute(
+                "SELECT id FROM league_memberships WHERE league_id = ? AND user_id = ?",
+                (league_id, target_user_id),
+            ).fetchone()
+            if member is None:
+                conn.execute(
+                    "INSERT INTO league_memberships (league_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)",
+                    (league_id, target_user_id, utc_now_iso()),
+                )
+                lps = conn.execute(
+                    "SELECT id FROM league_player_stats WHERE league_id = ? AND user_id = ?",
+                    (league_id, target_user_id),
+                ).fetchone()
+                if lps is None:
+                    user_row = conn.execute("SELECT global_rating FROM users WHERE id = ?", (target_user_id,)).fetchone()
+                    base_rating = float(user_row["global_rating"] if user_row is not None else DEFAULT_GLOBAL_RATING)
+                    conn.execute(
+                        "INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
+                        (league_id, target_user_id, base_rating),
+                    )
+        conn.commit()
+    return MessageOut(detail=("Join request accepted." if payload.decision == "accept" else "Join request rejected."))
 
 
 # ============================================================

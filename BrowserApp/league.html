@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>League | RSTRating</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#fff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); }
+    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,#f3fbf6,#def0e6); color:var(--text); }
+    .wrap { max-width:1080px; margin:24px auto; padding:0 16px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
+    .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
+    @media (max-width:900px){ .grid { grid-template-columns:1fr; } }
+    h1,h2,h3 { margin:0; }
+    .muted { color:var(--muted); }
+    .btn { border:none; border-radius:9px; padding:9px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.confirm { background:var(--success); color:#fff; }
+    .btn.danger { background:var(--danger); color:#fff; }
+    .btn.ghost { border:1px solid var(--line); background:#f5f9ff; color:var(--text); }
+    .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:#ecf3ff; border:1px solid var(--line); font-size:.82rem; }
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .item { border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff; }
+    .status { min-height:20px; color:var(--muted); margin-top:8px; }
+    .status.error { color:var(--danger); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+      <div>
+        <h1 id="title">League</h1>
+        <div class="muted" id="subtitle">Loading...</div>
+      </div>
+      <div class="row">
+        <a class="btn ghost" href="./index.html">Back to lobby</a>
+        <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Add match</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2 style="margin-bottom:10px;">Matches</h2>
+          <div id="matches" class="list"></div>
+        </div>
+
+        <div class="card">
+          <h2 style="margin-bottom:10px;">Members</h2>
+          <div id="members" class="list"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3 style="margin-bottom:8px;">League info</h3>
+          <div id="meta" class="muted">Loading...</div>
+        </div>
+        <div class="card" id="inviteCard" style="display:none;">
+          <h3 style="margin-bottom:8px;">Invites</h3>
+          <div class="row" style="margin-bottom:10px;">
+            <button class="btn confirm" id="newInviteBtn" type="button">Create invite</button>
+          </div>
+          <div id="invites" class="list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const leagueId = Number(params.get("id") || 0);
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+
+    const statusEl = document.getElementById("status");
+    const titleEl = document.getElementById("title");
+    const subtitleEl = document.getElementById("subtitle");
+    const membersEl = document.getElementById("members");
+    const matchesEl = document.getElementById("matches");
+    const metaEl = document.getElementById("meta");
+    const inviteCardEl = document.getElementById("inviteCard");
+    const invitesEl = document.getElementById("invites");
+    const addMatchBtn = document.getElementById("addMatchBtn");
+
+    let detail = null;
+    let matches = [];
+    let joinRequests = [];
+
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function show(msg, kind){ statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+
+    async function apiFetch(path, options){
+      const headers = Object.assign({}, options?.headers || {});
+      const token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if (!res.ok) throw new Error(body?.detail || "Request failed");
+      return body;
+    }
+
+    function formatIso(iso){
+      if (!iso) return "-";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleString();
+    }
+
+    function canManage(){
+      const role = detail?.league?.member_role;
+      return role === "owner" || role === "admin";
+    }
+    function canOwner(){ return detail?.league?.member_role === "owner"; }
+
+    function render(){
+      if (!detail) return;
+      const lg = detail.league;
+      titleEl.textContent = lg.name;
+      subtitleEl.textContent = `${lg.football_type} · ${lg.goal_size} · Your role: ${lg.member_role}`;
+      metaEl.innerHTML = `
+        <div><strong>Owner:</strong> ${esc(lg.owner_username)}</div>
+        <div><strong>Region:</strong> ${esc(lg.region || "Unknown")}</div>
+        <div><strong>Invite code:</strong> <span class="mono">${esc(lg.invite_code || "-")}</span></div>
+        <div><strong>Members:</strong> ${esc(lg.member_count)}</div>
+        <div><strong>Created:</strong> ${esc(lg.created_at.slice(0,10))}</div>
+        <div><strong>Description:</strong> ${esc(lg.description || "-")}</div>
+      `;
+
+      addMatchBtn.style.display = canManage() ? "inline-flex" : "none";
+      addMatchBtn.href = `./create_match.html?league_id=${lg.id}`;
+
+      membersEl.innerHTML = detail.members.length ? detail.members.map(m => {
+        const roleControls = canOwner() && m.role !== "owner"
+          ? `<div class="row" style="margin-top:8px;"><button class="btn ghost roleBtn" data-user="${m.user_id}" data-role="${m.role === "member" ? "admin" : "member"}">${m.role === "member" ? "Promote to admin" : "Return to member"}</button></div>`
+          : "";
+        return `<div class="item">
+          <div class="row" style="justify-content:space-between;"><strong>${esc(m.display_name || m.username)}</strong><span class="pill">${esc(m.role)}</span></div>
+          <div class="muted">@${esc(m.username)} · Rating ${esc(m.rating)}</div>
+          <div class="muted">A:${esc(m.attendance)} W:${esc(m.wins)} G:${esc(m.goals)} A:${esc(m.assists)}</div>
+          ${roleControls}
+        </div>`;
+      }).join("") : '<div class="item muted">No members.</div>';
+
+      matchesEl.innerHTML = matches.length ? matches.map(mt => {
+        const previewHref = `./preview.html?token=${encodeURIComponent(mt.preview_token)}`;
+        return `<div class="item">
+          <div class="row" style="justify-content:space-between;">
+            <strong>${esc(mt.title)}</strong><span class="pill">${esc(mt.status)}</span>
+          </div>
+          <div class="muted">${esc(formatIso(mt.scheduled_at))} ${mt.location ? "· " + esc(mt.location) : ""}</div>
+          <div class="muted">Score ${esc(mt.score_a)} - ${esc(mt.score_b)} · Registered ${esc(mt.registered_count)}/${esc(mt.max_participants)}</div>
+          <div class="row" style="margin-top:8px;">
+            <a class="btn ghost" href="./match.html?id=${mt.id}">Open match page</a>
+            <a class="btn ghost" href="${previewHref}">Open preview</a>
+          </div>
+        </div>`;
+      }).join("") : '<div class="item muted">No matches yet.</div>';
+
+      if (canManage()) {
+        inviteCardEl.style.display = "block";
+        invitesEl.innerHTML = (detail.invites || []).length ? detail.invites.map(inv => `
+          <div class="item">
+            <div class="muted">Created ${esc(formatIso(inv.created_at))}</div>
+            <div class="mono">${esc(inv.invite_url)}</div>
+            <div class="row" style="margin-top:8px;"><button class="btn ghost copyInvite" data-url="${esc(inv.invite_url)}">Copy link</button></div>
+          </div>
+        `).join("") : '<div class="item muted">No invites yet.</div>';
+      } else {
+        inviteCardEl.style.display = "none";
+      }
+
+      if (canManage()) {
+        const existing = document.getElementById("joinReqCard");
+        if (!existing) {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.id = "joinReqCard";
+          card.innerHTML = `<h3 style="margin-bottom:8px;">Join Requests</h3><div id="joinReqList" class="list"></div>`;
+          inviteCardEl.parentElement.appendChild(card);
+        }
+        const reqList = document.getElementById("joinReqList");
+        reqList.innerHTML = joinRequests.length ? joinRequests.map(r => `
+          <div class="item">
+            <div class="row" style="justify-content:space-between;"><strong>${esc(r.display_name || r.username)}</strong><span class="pill">pending</span></div>
+            <div class="muted">@${esc(r.username)} · requested ${esc(new Date(r.requested_at).toLocaleString())}</div>
+            ${r.message ? `<div class="muted">Message: ${esc(r.message)}</div>` : ""}
+            <div class="row" style="margin-top:8px;">
+              <button class="btn confirm joinReqDecision" data-id="${r.id}" data-decision="accept">Accept</button>
+              <button class="btn danger joinReqDecision" data-id="${r.id}" data-decision="reject">Reject</button>
+            </div>
+          </div>
+        `).join("") : '<div class="item muted">No pending requests.</div>';
+      }
+    }
+
+    async function load(){
+      if (!leagueId) { show("Missing league id.", "error"); return; }
+      if (!getToken()) { show("Please log in from lobby first.", "error"); return; }
+      try {
+        const tasks = [
+          apiFetch(`/leagues/${leagueId}`, { method: "GET" }),
+          apiFetch(`/leagues/${leagueId}/matches`, { method: "GET" }),
+        ];
+        if (getToken()) {
+          tasks.push(apiFetch(`/leagues/${leagueId}/join-requests`, { method: "GET" }).catch(() => []));
+        }
+        const result = await Promise.all(tasks);
+        detail = result[0];
+        matches = result[1];
+        joinRequests = Array.isArray(result[2]) ? result[2] : [];
+        render();
+      } catch (err) {
+        show(err.message || "Failed loading league.", "error");
+      }
+    }
+
+    document.getElementById("newInviteBtn").addEventListener("click", async () => {
+      try {
+        await apiFetch(`/leagues/${leagueId}/invites`, { method: "POST" });
+        await load();
+        show("Invite created.");
+      } catch (err) {
+        show(err.message || "Failed to create invite.", "error");
+      }
+    });
+
+    document.body.addEventListener("click", async (e) => {
+      const copyBtn = e.target.closest(".copyInvite");
+      if (copyBtn) {
+        try { await navigator.clipboard.writeText(copyBtn.dataset.url); show("Invite copied."); }
+        catch { show("Copy failed. Copy manually.", "error"); }
+      }
+      const roleBtn = e.target.closest(".roleBtn");
+      if (roleBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/members/${roleBtn.dataset.user}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: roleBtn.dataset.role }),
+          });
+          await load();
+          show("Member role updated.");
+        } catch (err) {
+          show(err.message || "Failed to update role.", "error");
+        }
+      }
+      const reqBtn = e.target.closest(".joinReqDecision");
+      if (reqBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/join-requests/${Number(reqBtn.dataset.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision: reqBtn.dataset.decision }),
+          });
+          await load();
+          show(`Join request ${reqBtn.dataset.decision}ed.`);
+        } catch (err) {
+          show(err.message || "Failed to process request.", "error");
+        }
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

@@ -6,18 +6,20 @@
     <title>RSTRating Leagues</title>
     <style>
         :root {
-            --bg: #f3ecde;
-            --panel: rgba(255, 251, 243, 0.92);
-            --panel-strong: rgba(255, 247, 235, 0.98);
-            --card: rgba(255, 255, 255, 0.66);
-            --text: #172018;
-            --muted: #5b685f;
-            --accent: #bf5b2b;
-            --accent-dark: #8d3f1a;
-            --line: rgba(23, 32, 24, 0.12);
-            --shadow: 0 24px 60px rgba(67, 34, 10, 0.14);
-            --success: #1f5f31;
-            --danger: #7f1d1d;
+            --bg: #e9f7ef;
+            --panel: rgba(247, 253, 249, 0.95);
+            --panel-strong: rgba(239, 249, 243, 0.98);
+            --card: rgba(255, 255, 255, 0.75);
+            --text: #0e2c1d;
+            --muted: #4d6f60;
+            --accent: #1f8a4c;
+            --accent-dark: #166337;
+            --line: rgba(14, 44, 29, 0.15);
+            --surface: #ffffff;
+            --border: rgba(14, 44, 29, 0.18);
+            --shadow: 0 24px 60px rgba(18, 72, 44, 0.16);
+            --success: #15803d;
+            --danger: #b42318;
         }
 
         * {
@@ -30,9 +32,9 @@
             font-family: Georgia, "Times New Roman", serif;
             color: var(--text);
             background:
-                radial-gradient(circle at 0% 0%, rgba(191, 91, 43, 0.18), transparent 24%),
-                radial-gradient(circle at 100% 20%, rgba(74, 111, 85, 0.16), transparent 22%),
-                linear-gradient(135deg, #f6efe1 0%, #efe5d4 45%, #e6dbc8 100%);
+                radial-gradient(circle at 0% 0%, rgba(31, 138, 76, 0.18), transparent 24%),
+                radial-gradient(circle at 100% 20%, rgba(34, 197, 94, 0.14), transparent 22%),
+                linear-gradient(135deg, #f3fbf6 0%, #e8f5ed 45%, #def0e6 100%);
             padding: 24px;
         }
 
@@ -50,8 +52,8 @@
         .hero {
             padding: 40px 32px 28px;
             background:
-                linear-gradient(135deg, rgba(255, 248, 240, 0.88), rgba(245, 234, 214, 0.72)),
-                linear-gradient(90deg, rgba(191, 91, 43, 0.06), transparent);
+                linear-gradient(135deg, rgba(246, 252, 248, 0.92), rgba(230, 245, 236, 0.8)),
+                linear-gradient(90deg, rgba(31, 138, 76, 0.07), transparent);
             border-bottom: 1px solid var(--line);
         }
 
@@ -104,7 +106,7 @@
             justify-content: center;
             gap: 8px;
             padding: 13px 18px;
-            border-radius: 999px;
+            border-radius: 10px;
             text-decoration: none;
             font: inherit;
             font-weight: 700;
@@ -113,8 +115,14 @@
 
         .button {
             background: var(--accent);
-            color: #fff8f2;
-            box-shadow: 0 12px 26px rgba(191, 91, 43, 0.24);
+            color: #f7fbff;
+            box-shadow: 0 12px 26px rgba(31, 138, 76, 0.24);
+        }
+
+        .button.confirm {
+            background: var(--success);
+            color: #f4fff6;
+            box-shadow: 0 12px 26px rgba(21, 128, 61, 0.22);
         }
 
         .ghost {
@@ -125,8 +133,8 @@
 
         .danger {
             color: #fff4f4;
-            background: #9f3030;
-            box-shadow: 0 12px 26px rgba(159, 48, 48, 0.18);
+            background: #d92d20;
+            box-shadow: 0 12px 26px rgba(185, 28, 28, 0.2);
         }
 
         .button:hover,
@@ -463,7 +471,7 @@
             top: 0; right: 0;
             width: min(400px, 100vw);
             height: 100vh;
-            background: var(--surface);
+            background: #ffffff;
             border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -495,7 +503,7 @@
             cursor: pointer;
             transition: background 0.12s;
         }
-        .notif-item:hover { background: #eef2ff; }
+        .notif-item:hover { background: #eefaf2; }
         .notif-item.unread { border-left: 3px solid var(--accent); }
         .notif-item-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 3px; }
         .notif-item-msg { font-size: 0.82rem; color: var(--muted); }
@@ -968,21 +976,21 @@
 
                     <div class="stack">
                         <section class="panel-card">
-                            <h2 class="section-title">Create a league</h2>
-                            <p class="subtle">Start a new competition or casual group. You become the owner automatically.</p>
-                            <form class="stack" id="createLeagueForm" style="margin-top: 12px;">
-                                <label for="leagueName">League name</label>
-                                <input id="leagueName" name="name" type="text" minlength="3" maxlength="80" required>
-                                <label for="leagueFootballType">Football type</label>
-                                <select id="leagueFootballType" name="footballType" required>
-                                    <option value="outdoor" selected>Outdoor</option>
-                                    <option value="indoor">Indoor</option>
-                                </select>
-                                <label for="leagueGoalSize">Goal size</label>
-                                <input id="leagueGoalSize" name="goalSize" type="text" maxlength="40" value="7.32m x 2.44m" required>
-                                <label for="leagueDescription">Description</label>
-                                <textarea id="leagueDescription" name="description" maxlength="300" placeholder="Friday five-a-side, Sunday indoor, mixed casual training..."></textarea>
-                                <button class="button" type="submit">Create league</button>
+                            <h2 class="section-title">Add League</h2>
+                            <p class="subtle">Create league on a dedicated page.</p>
+                            <div class="actions" style="margin-top: 12px;">
+                                <a class="button" id="openCreateLeaguePageButton" href="./create_league.html">+ Add league</a>
+                                <a class="ghost" href="./discover.html">Find nearby leagues</a>
+                            </div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Join by Invite Code</h2>
+                            <p class="subtle">Use a permanent invite code from league admins.</p>
+                            <form class="stack" id="joinByCodeForm" style="margin-top: 12px;">
+                                <label for="inviteCodeInput">Invite code</label>
+                                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="e.g. A1B2C3" required>
+                                <button class="button" type="submit">Join league</button>
                             </form>
                         </section>
 
@@ -1101,6 +1109,7 @@
         const leagueList = document.getElementById("leagueList");
         const leagueStatsList = document.getElementById("leagueStatsList");
         const createLeagueForm = document.getElementById("createLeagueForm");
+        const joinByCodeForm = document.getElementById("joinByCodeForm");
         const backupSection = document.getElementById("backupSection");
         const downloadBackupButton = document.getElementById("downloadBackupButton");
         const restoreBackupButton = document.getElementById("restoreBackupButton");
@@ -1110,6 +1119,7 @@
         const saveApiBaseButton = document.getElementById("saveApiBaseButton");
 
         const inviteTokenFromUrl = new URLSearchParams(window.location.search).get("invite") || "";
+        const previewTokenFromUrl = new URLSearchParams(window.location.search).get("preview") || "";
 
         let currentUser = null;
         let lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
@@ -1128,6 +1138,8 @@
         let notifPollInterval = null;
         let backdoorClickCount = 0;
         let backdoorClickTimer = null;
+        let previewMode = false;
+        let previewPollInterval = null;
 
         const TOKEN_KEY = "rs_access_token";
 
@@ -1205,6 +1217,28 @@
             let response;
             try {
                 response = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+            } catch {
+                throw new Error("Could not reach the backend yet. If Render is waking up, wait a few seconds and try again.");
+            }
+
+            let body = null;
+            try {
+                body = await response.json();
+            } catch {
+                body = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(body && body.detail ? body.detail : "Request failed");
+            }
+
+            return body;
+        }
+
+        async function publicApiFetch(path, options) {
+            let response;
+            try {
+                response = await fetch(getApiBase() + path, Object.assign({}, options || {}));
             } catch {
                 throw new Error("Could not reach the backend yet. If Render is waking up, wait a few seconds and try again.");
             }
@@ -1430,8 +1464,6 @@
 
             leagueList.innerHTML = lobbyState.leagues.map((league) => {
                 const canManage = league.member_role === "owner" || league.member_role === "admin";
-                const detail = leagueDetails[league.id] || null;
-                const detailClass = detail ? "league-detail active" : "league-detail";
                 return `
                     <article class="league-card">
                         <div class="league-head">
@@ -1457,71 +1489,12 @@
                             </div>
                         </div>
                         <div class="card-actions" style="margin-top: 14px;">
-                            <button class="ghost view-league-button" type="button" data-league-id="${league.id}">${detail ? "Refresh details" : "Open details"}</button>
-                            <button class="ghost load-matches-button" type="button" data-league-id="${league.id}">Matches</button>
-                            ${canManage ? `<button class="button create-invite-button" type="button" data-league-id="${league.id}">Create invite link</button>` : ""}
-                        </div>
-                        <div class="${detailClass}" id="league-detail-${league.id}">
-                            <div class="stack">
-                                <div>
-                                    <h4 class="section-title" style="font-size: 1.05rem;">Members</h4>
-                                    <div class="member-list">${renderMembersHtml(league, detail)}</div>
-                                </div>
-                                ${canManage ? `
-                                    <div>
-                                        <h4 class="section-title" style="font-size: 1.05rem;">Invitation links</h4>
-                                        <div class="invite-list">${renderInviteListHtml(detail)}</div>
-                                    </div>
-                                ` : ""}
-                            </div>
-                        </div>
-                        <div id="league-matches-section-${league.id}" style="display:none;margin-top:12px;">
-                            ${renderLeagueMatchesHtml(league.id, league)}
+                            <a class="ghost" href="./league.html?id=${league.id}">Open league page</a>
+                            ${canManage ? `<a class="button" href="./create_match.html?league_id=${league.id}">+ Add match</a>` : ""}
                         </div>
                     </article>
                 `;
             }).join("");
-
-            // Attach create-match form submit listeners after render
-            lobbyState.leagues.forEach(league => {
-                const form = document.getElementById(`create-match-form-${league.id}`);
-                if (form && !form._listenerAttached) {
-                    form._listenerAttached = true;
-                    form.addEventListener("submit", async (e) => {
-                        e.preventDefault();
-                        const lid = Number(form.dataset.leagueId);
-                        const scheduledAt = form.scheduled_at.value;
-                        const regOpensAt = form.registration_opens_at.value;
-                        try {
-                            await apiFetch(`/leagues/${lid}/matches`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    title: form.title.value.trim(),
-                                    location: form.location.value.trim() || null,
-                                    scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-                                    registration_opens_at: regOpensAt ? new Date(regOpensAt).toISOString() : null,
-                                    max_participants: Number(form.max_participants.value) || 14,
-                                    notes: form.notes.value.trim() || null
-                                })
-                            });
-                            form.reset();
-                            form.style.display = "none";
-                            const matches = await loadLeagueMatches(lid);
-                            const section = document.getElementById(`league-matches-section-${lid}`);
-                            if (section) {
-                                const leagueObj = lobbyState.leagues.find(l => l.id === lid);
-                                section.innerHTML = renderLeagueMatchesHtml(lid, leagueObj);
-                                section.style.display = "block";
-                                attachMatchFormListeners(lid, leagueObj);
-                            }
-                            showStatus("Match scheduled.", "ok");
-                        } catch (error) {
-                            showStatus(error.message || "Failed to create match.", "error");
-                        }
-                    });
-                }
-            });
         }
 
         function attachMatchFormListeners(leagueId, league) {
@@ -1556,6 +1529,18 @@
         }
 
         function renderAppState() {
+            if (previewMode) {
+                authShell.classList.remove("active");
+                lobbyShell.classList.remove("active");
+                const bellButton = document.getElementById("notifBellButton");
+                if (bellButton) bellButton.style.display = "none";
+                logoutButton.disabled = true;
+                logoutButton.style.opacity = "0.45";
+                logoutButton.setAttribute("aria-disabled", "true");
+                heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
+                return;
+            }
+
             const signedIn = !!currentUser;
             authShell.classList.toggle("active", !signedIn);
             lobbyShell.classList.toggle("active", signedIn);
@@ -1596,6 +1581,9 @@
         }
 
         async function refreshAndRender() {
+            if (previewMode) {
+                return;
+            }
             await refreshSession();
             await refreshInvitePreview();
             renderAppState();
@@ -1785,102 +1773,65 @@
             }
         });
 
-        createLeagueForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            try {
-                await apiFetch("/leagues", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        name: createLeagueForm.name.value.trim(),
-                        football_type: createLeagueForm.footballType.value,
-                        goal_size: createLeagueForm.goalSize.value.trim(),
-                        description: createLeagueForm.description.value.trim() || null
-                    })
-                });
-                createLeagueForm.reset();
-                createLeagueForm.footballType.value = "outdoor";
-                createLeagueForm.goalSize.value = "7.32m x 2.44m";
-                await refreshAndRender();
-                showStatus("League created.", "ok");
-            } catch (error) {
-                showStatus(error.message || "Failed to create league.", "error");
-            }
-        });
+        if (createLeagueForm) {
+            createLeagueForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                try {
+                    await apiFetch("/leagues", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            name: createLeagueForm.name.value.trim(),
+                            football_type: createLeagueForm.footballType.value,
+                            goal_size: createLeagueForm.goalSize.value.trim(),
+                            description: createLeagueForm.description.value.trim() || null
+                        })
+                    });
+                    await refreshAndRender();
+                    showStatus("League created.", "ok");
+                } catch (error) {
+                    showStatus(error.message || "Failed to create league.", "error");
+                }
+            });
+        }
+
+        if (joinByCodeForm) {
+            joinByCodeForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                if (!currentUser) {
+                    showStatus("Please log in first.", "error");
+                    return;
+                }
+                const code = joinByCodeForm.inviteCode.value.trim().toUpperCase();
+                if (!code) {
+                    showStatus("Enter an invite code.", "error");
+                    return;
+                }
+                try {
+                    const league = await apiFetch("/leagues/join-by-code", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ invite_code: code })
+                    });
+                    showStatus(`Joined ${league.name}. Redirecting...`, "ok");
+                    window.location.href = `./league.html?id=${league.id}`;
+                } catch (error) {
+                    showStatus(error.message || "Could not join with invite code.", "error");
+                }
+            });
+        }
 
         leagueList.addEventListener("click", async (event) => {
             const viewButton = event.target.closest(".view-league-button");
             if (viewButton) {
-                try {
-                    await loadLeagueDetail(Number(viewButton.dataset.leagueId));
-                } catch (error) {
-                    showStatus(error.message || "Failed to load league details.", "error");
-                }
+                window.location.href = `./league.html?id=${Number(viewButton.dataset.leagueId)}`;
                 return;
             }
 
             const matchesButton = event.target.closest(".load-matches-button");
             if (matchesButton) {
-                const lid = Number(matchesButton.dataset.leagueId);
-                try {
-                    await loadLeagueMatches(lid);
-                    const section = document.getElementById(`league-matches-section-${lid}`);
-                    const leagueObj = lobbyState.leagues.find(l => l.id === lid);
-                    if (section && leagueObj) {
-                        section.innerHTML = renderLeagueMatchesHtml(lid, leagueObj);
-                        section.style.display = section.style.display === "none" ? "block" : "none";
-                        if (section.style.display === "block") attachMatchFormListeners(lid, leagueObj);
-                    }
-                } catch (error) {
-                    showStatus(error.message || "Failed to load matches.", "error");
-                }
+                window.location.href = `./league.html?id=${Number(matchesButton.dataset.leagueId)}`;
                 return;
-            }
-
-            const openMatchButton = event.target.closest(".open-match-button");
-            if (openMatchButton) {
-                await loadMatchDetail(Number(openMatchButton.dataset.matchId));
-                return;
-            }
-
-            const inviteButton = event.target.closest(".create-invite-button");
-            if (inviteButton) {
-                try {
-                    const invite = await apiFetch(`/leagues/${inviteButton.dataset.leagueId}/invites`, { method: "POST" });
-                    await loadLeagueDetail(Number(inviteButton.dataset.leagueId));
-                    await refreshAndRender();
-                    showStatus(`Invite created: ${invite.invite_url}`, "ok");
-                } catch (error) {
-                    showStatus(error.message || "Failed to create invite.", "error");
-                }
-                return;
-            }
-
-            const roleButton = event.target.closest(".update-member-role-button");
-            if (roleButton) {
-                try {
-                    await apiFetch(`/leagues/${roleButton.dataset.leagueId}/members/${roleButton.dataset.userId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ role: roleButton.dataset.role })
-                    });
-                    await loadLeagueDetail(Number(roleButton.dataset.leagueId));
-                    await refreshAndRender();
-                    showStatus("Member role updated.", "ok");
-                } catch (error) {
-                    showStatus(error.message || "Failed to update member role.", "error");
-                }
-                return;
-            }
-
-            const copyButton = event.target.closest(".copy-invite-button");
-            if (copyButton) {
-                try {
-                    await navigator.clipboard.writeText(copyButton.dataset.value);
-                    showStatus("Invite link copied to clipboard.", "ok");
-                } catch {
-                    showStatus("Could not copy automatically. Copy the link manually.", "error");
-                }
             }
         });
 
@@ -2180,6 +2131,9 @@
         function closeMatchOverlay() {
             document.getElementById("matchOverlay").style.display = "none";
             if (liveClockInterval) { clearInterval(liveClockInterval); liveClockInterval = null; }
+            if (previewMode) {
+                return;
+            }
             currentMatchId = null;
             currentMatchDetail = null;
         }
@@ -2206,7 +2160,7 @@
             const match = detail.match;
             const registrations = detail.registrations || [];
             const myReg = match.my_registration_status;
-            const canManage = currentUser && (
+            const canManage = !previewMode && currentUser && (
                 lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"))
             );
             const teamAIds = match.team_a || [];
@@ -2243,7 +2197,7 @@
             ` : "";
 
             let actionHtml = "";
-            if (match.status === "registration_open") {
+            if (!previewMode && match.status === "registration_open") {
                 if (!myReg || myReg === "cancelled") {
                     actionHtml += `<button class="button" id="registerMatchButton">Register</button>`;
                 } else if (myReg === "registered") {
@@ -2275,6 +2229,7 @@
                         ${match.location ? `<div class="meta-block"><span class="meta-label">Location</span><span class="meta-value">${escapeHtml(match.location)}</span></div>` : ""}
                         <div class="meta-block"><span class="meta-label">Spots</span><span class="meta-value">${escapeHtml(match.registered_count)} / ${escapeHtml(match.max_participants)}</span></div>
                         ${match.waitlisted_count > 0 ? `<div class="meta-block"><span class="meta-label">Waitlist</span><span class="meta-value">${escapeHtml(match.waitlisted_count)}</span></div>` : ""}
+                        <div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Preview link</span><span class="meta-value"><a href="./preview.html?token=${encodeURIComponent(match.preview_token)}">${escapeHtml(window.location.origin + window.location.pathname.replace(/index\.html?$/, "") + "preview.html?token=" + match.preview_token)}</a></span></div>
                         ${match.notes ? `<div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Notes</span><span class="meta-value">${escapeHtml(match.notes)}</span></div>` : ""}
                     </div>
                     ${teamsHtml}
@@ -2300,7 +2255,7 @@
             const events = detail.events || [];
             const teamAIds = match.team_a || [];
             const teamBIds = match.team_b || [];
-            const canManage = currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
+            const canManage = !previewMode && currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
 
             function playerName(uid) {
                 const r = registrations.find(r => r.user_id === uid);
@@ -2457,7 +2412,7 @@
             const registrations = detail.registrations || [];
             const events = detail.events || [];
             const allParticipantIds = [...(match.team_a || []), ...(match.team_b || [])];
-            const canManage = currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
+            const canManage = !previewMode && currentUser && lobbyState.leagues.find(l => l.id === match.league_id && (l.member_role === "owner" || l.member_role === "admin"));
 
             function playerName(uid) {
                 const r = registrations.find(r2 => r2.user_id === uid);
@@ -2499,7 +2454,7 @@
                 ${teamSummary(match.team_b || [], "B", bWon)}
                 ${canManage ? `
                     <div class="match-action-bar">
-                        <button class="button" id="confirmMatchButton">Confirm &amp; update ratings</button>
+                        <button class="button confirm" id="confirmMatchButton">Confirm &amp; update ratings</button>
                     </div>` : ""}
             `;
 
@@ -2510,6 +2465,10 @@
         }
 
         async function matchAction(action, extraId) {
+            if (previewMode) {
+                showStatus("Preview mode is read-only.", "error");
+                return;
+            }
             if (!currentMatchId) return;
             const mid = currentMatchId;
             try {
@@ -2558,6 +2517,37 @@
 
         async function bootstrap() {
             apiBaseInput.value = getApiBase();
+
+            if (previewTokenFromUrl) {
+                previewMode = true;
+                try {
+                    const detail = await publicApiFetch(`/preview/matches/${encodeURIComponent(previewTokenFromUrl)}`, { method: "GET" });
+                    currentMatchDetail = detail;
+                    currentMatchId = detail.match.id;
+                    document.getElementById("matchOverlay").style.display = "flex";
+                    document.getElementById("matchOverlayTitle").textContent = detail.match.title + " (Preview)";
+                    renderMatchOverlay();
+
+                    if (!previewPollInterval) {
+                        previewPollInterval = setInterval(async () => {
+                            try {
+                                const next = await publicApiFetch(`/preview/matches/${encodeURIComponent(previewTokenFromUrl)}`, { method: "GET" });
+                                currentMatchDetail = next;
+                                if (document.getElementById("matchOverlay").style.display !== "none") {
+                                    renderMatchOverlay();
+                                }
+                            } catch {
+                                // Keep previous state visible if a refresh fails temporarily.
+                            }
+                        }, 5000);
+                    }
+                } catch (error) {
+                    showStatus(error.message || "Preview link is invalid.", "error");
+                }
+                renderAppState();
+                return;
+            }
+
             openTab("login");
             await refreshAndRender();
             if (!currentUser) {

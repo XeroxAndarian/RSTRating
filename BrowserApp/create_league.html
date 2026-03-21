@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create League | RSTRating</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#ffffff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); }
+    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,#f3fbf6,#def0e6); color:var(--text); }
+    .wrap { max-width:720px; margin:32px auto; padding:0 16px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; }
+    h1 { margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 20px; }
+    label { display:block; font-weight:700; margin:12px 0 6px; }
+    input, select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+    textarea { min-height:90px; resize:vertical; }
+    .row { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+    .btn { border:none; border-radius:9px; padding:11px 16px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { background:#f5f9ff; color:var(--text); border:1px solid var(--line); }
+    .status { margin-top:14px; min-height:20px; color:var(--muted); }
+    .status.error { color:var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Create League</h1>
+      <p class="sub">Set up a new league. You become owner automatically.</p>
+      <form id="form">
+        <label for="name">League name</label>
+        <input id="name" name="name" minlength="3" maxlength="80" required>
+
+        <label for="football_type">Football type</label>
+        <select id="football_type" name="football_type" required>
+          <option value="outdoor" selected>Outdoor</option>
+          <option value="indoor">Indoor</option>
+        </select>
+
+        <label for="goal_size">Goal size</label>
+        <select id="goal_size" name="goal_size" required>
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+
+        <label for="region">Region</label>
+        <input id="region" name="region" maxlength="64" placeholder="e.g. Ljubljana" required>
+
+        <label for="description">Description</label>
+        <textarea id="description" name="description" maxlength="300" placeholder="Friday five-a-side..."></textarea>
+
+        <div class="row">
+          <button class="btn primary" type="submit">Create</button>
+          <a class="btn ghost" href="./index.html">Back to lobby</a>
+        </div>
+      </form>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+    const statusEl = document.getElementById("status");
+
+    function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+
+    async function apiFetch(path, options) {
+      const headers = Object.assign({}, options?.headers || {});
+      const token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+      let body = null;
+      try { body = await res.json(); } catch {}
+      if (!res.ok) throw new Error(body?.detail || "Request failed");
+      return body;
+    }
+
+    if (!getToken()) {
+      show("Please log in from lobby first.", "error");
+    }
+
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      try {
+        const league = await apiFetch("/leagues", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name.value.trim(),
+            football_type: form.football_type.value,
+            goal_size: form.goal_size.value,
+            region: form.region.value.trim(),
+            description: form.description.value.trim() || null,
+          }),
+        });
+        show("League created. Redirecting...", "");
+        window.location.href = `./league.html?id=${league.id}`;
+      } catch (err) {
+        show(err.message || "Failed to create league.", "error");
+      }
+    });
+  </script>
+</body>
+</html>
