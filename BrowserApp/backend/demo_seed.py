@@ -2,9 +2,14 @@ import json
 import random
 import secrets
 import sqlite3
+import argparse
 from datetime import datetime, timedelta, timezone
 
 from main import DB_PATH, DEFAULT_GLOBAL_RATING, hash_password, init_db
+
+
+DEFAULT_DEMO_USERS = 10
+DEFAULT_DEMO_LEAGUES = 3
 
 
 def now_iso() -> str:
@@ -42,7 +47,7 @@ def ensure_user(conn: sqlite3.Connection, idx: int) -> int:
     return int(conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()["id"])
 
 
-def ensure_league(conn: sqlite3.Connection, li: int, owner_id: int, owner_username: str) -> int:
+def ensure_league(conn: sqlite3.Connection, li: int, owner_id: int) -> int:
     name = f"Demo League {chr(64 + li)}"
     row = conn.execute("SELECT id FROM leagues WHERE name = ?", (name,)).fetchone()
     ts = now_iso()
@@ -86,6 +91,31 @@ def ensure_league(conn: sqlite3.Connection, li: int, owner_id: int, owner_userna
             (league_id, owner_id, ts),
         )
     return league_id
+
+
+def reset_existing_demo_data(conn: sqlite3.Connection) -> None:
+    demo_user_ids = [
+        int(row["id"])
+        for row in conn.execute("SELECT id FROM users WHERE username LIKE 'demo__'")
+    ]
+    demo_league_ids = [
+        int(row["id"])
+        for row in conn.execute("SELECT id FROM leagues WHERE name LIKE 'Demo League %'")
+    ]
+
+    if demo_league_ids:
+        placeholders = ",".join("?" for _ in demo_league_ids)
+        conn.execute(f"DELETE FROM match_events WHERE match_id IN (SELECT id FROM matches WHERE league_id IN ({placeholders}))", demo_league_ids)
+        conn.execute(f"DELETE FROM match_registrations WHERE match_id IN (SELECT id FROM matches WHERE league_id IN ({placeholders}))", demo_league_ids)
+        conn.execute(f"DELETE FROM matches WHERE league_id IN ({placeholders})", demo_league_ids)
+        conn.execute(f"DELETE FROM league_player_stats WHERE league_id IN ({placeholders})", demo_league_ids)
+        conn.execute(f"DELETE FROM league_memberships WHERE league_id IN ({placeholders})", demo_league_ids)
+        conn.execute(f"DELETE FROM leagues WHERE id IN ({placeholders})", demo_league_ids)
+
+    if demo_user_ids:
+        placeholders = ",".join("?" for _ in demo_user_ids)
+        conn.execute(f"DELETE FROM notifications WHERE user_id IN ({placeholders})", demo_user_ids)
+        conn.execute(f"DELETE FROM users WHERE id IN ({placeholders})", demo_user_ids)
 
 
 def ensure_league_player_stats(conn: sqlite3.Connection, league_id: int, user_id: int) -> None:
@@ -217,28 +247,46 @@ def ensure_match_bundle(conn: sqlite3.Connection, league_id: int, created_by: in
             )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Seed demo users, leagues, and matches.")
+    parser.add_argument("--users", type=int, default=DEFAULT_DEMO_USERS, help="Number of demo users to ensure (default: 10)")
+    parser.add_argument("--leagues", type=int, default=DEFAULT_DEMO_LEAGUES, help="Number of demo leagues to ensure (default: 3)")
+    parser.add_argument("--reset", action="store_true", help="Delete existing demo users/leagues before seeding.")
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
+    if args.users < 10:
+        raise SystemExit("--users must be at least 10 so seeded matches can be fully populated.")
+    if args.leagues < 1:
+        raise SystemExit("--leagues must be at least 1.")
+
     random.seed(42)
     init_db()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        user_ids = [ensure_user(conn, i) for i in range(1, 21)]
+        if args.reset:
+            reset_existing_demo_data(conn)
+            conn.commit()
+
+        user_ids = [ensure_user(conn, i) for i in range(1, args.users + 1)]
         username_by_id = {
             int(row["id"]): str(row["username"])
             for row in conn.execute("SELECT id, username FROM users WHERE username LIKE 'demo__'")
         }
 
-        for li in range(1, 6):
+        for li in range(1, args.leagues + 1):
             owner_id = user_ids[li - 1]
-            league_id = ensure_league(conn, li, owner_id, username_by_id.get(owner_id, ""))
+            league_id = ensure_league(conn, li, owner_id)
 
-            # deterministic pool per league
-            start = (li - 1) * 4
-            pool = user_ids[start:start + 12]
+            # Deterministic rotating pool so each league has enough players even with smaller demo user sets.
+            start = (li - 1) * 3
+            rotated = user_ids[start:] + user_ids[:start]
+            pool = rotated[: min(12, len(user_ids))]
             if owner_id not in pool:
-                pool = [owner_id] + pool[:11]
-            pool = pool[:12]
+                pool = [owner_id] + pool[: max(0, min(11, len(user_ids) - 1))]
 
             for idx, uid in enumerate(pool):
                 role = "owner" if uid == owner_id else ("admin" if idx in (1, 2) else "member")
@@ -260,7 +308,8 @@ def main() -> None:
 
         conn.commit()
         print(f"Seed done. DB: {DB_PATH}")
-        print("Users demo01..demo20 / password demo1234")
+        print(f"Users demo01..demo{args.users:02d} / password demo1234")
+        print(f"Leagues seeded: {args.leagues}")
     finally:
         conn.close()
 
