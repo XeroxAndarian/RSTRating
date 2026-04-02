@@ -885,6 +885,19 @@
                             </div>
                         </section>
 
+                        <section class="panel-card">
+                            <h2 class="section-title">Backend Connection</h2>
+                            <p class="subtle">Choose API server before login (use local backend for demo accounts).</p>
+                            <div class="stack" style="margin-top:12px;">
+                                <label for="authApiBaseInput">Backend API URL</label>
+                                <input id="authApiBaseInput" type="text" placeholder="http://127.0.0.1:8000">
+                                <div class="actions">
+                                    <button class="ghost" id="saveAuthApiBaseButton" type="button">Save API URL</button>
+                                    <button class="ghost" id="resetAuthApiBaseButton" type="button">Reset to default</button>
+                                </div>
+                            </div>
+                        </section>
+
                         <details class="dev-tools">
                             <summary>Developer note</summary>
                             <p class="hint">Server override controls are available only to signed-in admin users from the lobby panel.</p>
@@ -1073,7 +1086,13 @@
     <script>
 
         const API_BASE_KEY = "rs_api_base_override";
-        const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+        const DEFAULT_API_BASE = (
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1" ||
+            window.location.protocol === "file:"
+        )
+            ? "http://127.0.0.1:8000"
+            : "https://rstrating-accounts-api.onrender.com";
 
         const loginTab = document.getElementById("loginTab");
         const registerTab = document.getElementById("registerTab");
@@ -1117,6 +1136,9 @@
         const devToolsSection = document.getElementById("devToolsSection");
         const apiBaseInput = document.getElementById("apiBaseInput");
         const saveApiBaseButton = document.getElementById("saveApiBaseButton");
+        const authApiBaseInput = document.getElementById("authApiBaseInput");
+        const saveAuthApiBaseButton = document.getElementById("saveAuthApiBaseButton");
+        const resetAuthApiBaseButton = document.getElementById("resetAuthApiBaseButton");
 
         const inviteTokenFromUrl = new URLSearchParams(window.location.search).get("invite") || "";
         const previewTokenFromUrl = new URLSearchParams(window.location.search).get("preview") || "";
@@ -1615,18 +1637,38 @@
         registerTab.addEventListener("click", () => openTab("register"));
 
         saveApiBaseButton.addEventListener("click", () => {
-            if (!isAdmin()) {
-                showStatus("Only admin can change the API server.", "error");
-                return;
-            }
             const value = apiBaseInput.value.trim();
             if (!value) {
                 showStatus("Enter a backend API URL first.", "error");
                 return;
             }
             setApiBase(value);
+            if (authApiBaseInput) authApiBaseInput.value = value;
             showStatus("Backend override saved.", "ok");
         });
+
+        if (saveAuthApiBaseButton) {
+            saveAuthApiBaseButton.addEventListener("click", () => {
+                const value = authApiBaseInput.value.trim();
+                if (!value) {
+                    showStatus("Enter a backend API URL first.", "error");
+                    return;
+                }
+                setApiBase(value);
+                apiBaseInput.value = value;
+                showStatus("Backend API URL saved.", "ok");
+            });
+        }
+
+        if (resetAuthApiBaseButton) {
+            resetAuthApiBaseButton.addEventListener("click", () => {
+                localStorage.removeItem(API_BASE_KEY);
+                const reset = getApiBase();
+                authApiBaseInput.value = reset;
+                apiBaseInput.value = reset;
+                showStatus("Backend API URL reset to default.", "ok");
+            });
+        }
 
         registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -2517,6 +2559,7 @@
 
         async function bootstrap() {
             apiBaseInput.value = getApiBase();
+            if (authApiBaseInput) authApiBaseInput.value = getApiBase();
 
             if (previewTokenFromUrl) {
                 previewMode = true;
