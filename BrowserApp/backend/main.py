@@ -1188,6 +1188,16 @@ def health() -> dict[str, str]:
     return {"status": "ok", "time": utc_now_iso()}
 
 
+@app.get("/public/stats")
+def public_stats() -> dict[str, int]:
+    """No-auth endpoint returning aggregate platform counts for the login page."""
+    with get_conn() as conn:
+        users = int(conn.execute("SELECT COUNT(*) FROM users").fetchone()[0])
+        leagues = int(conn.execute("SELECT COUNT(*) FROM leagues").fetchone()[0])
+        matches = int(conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0])
+    return {"users": users, "leagues": leagues, "matches": matches}
+
+
 @app.post("/auth/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterPayload) -> UserOut:
     if find_user_by_username(payload.username) is not None:

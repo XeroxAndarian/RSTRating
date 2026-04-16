@@ -334,6 +334,24 @@
             color: var(--muted);
         }
 
+        .dev-toggle-row {
+            margin: 6px 0 0;
+            text-align: right;
+        }
+
+        .dev-toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--line);
+            font-size: 0.85rem;
+            padding: 2px 4px;
+            opacity: 0.4;
+            transition: opacity 0.15s;
+        }
+
+        .dev-toggle-btn:hover { opacity: 1; }
+
         .overview-label,
         .meta-label {
             display: block;
@@ -864,13 +882,13 @@
                             <div class="status" id="statusBox" role="status" aria-live="polite"></div>
                         </section>
 
-                        <section class="panel-card">
-                            <h2 class="section-title">Password recovery</h2>
-                            <p class="subtle">Request a reset token with your email, then choose a new password.</p>
+                        <section class="panel-card" id="resetSection" style="display:none;">
+                            <h2 class="section-title">Forgot your password?</h2>
+                            <p class="subtle">Enter the email linked to your account to receive a reset token.</p>
                             <form class="stack" id="resetRequestForm" style="margin-top: 12px; margin-bottom: 14px;">
                                 <label for="resetEmail">Email</label>
                                 <input id="resetEmail" name="email" type="email" required>
-                                <button class="ghost" type="submit">Request reset token</button>
+                                <button class="ghost" type="submit">Send reset token</button>
                             </form>
                             <div id="resetTokenPanel" style="display: none;">
                                 <form class="stack" id="resetForm">
@@ -885,46 +903,39 @@
                             </div>
                         </section>
 
-                        <section class="panel-card">
-                            <h2 class="section-title">Backend Connection</h2>
-                            <p class="subtle">Choose API server before login (use local backend for demo accounts).</p>
+                        <p class="dev-toggle-row"><button class="dev-toggle-btn" id="devToggleBtn" type="button" title="Advanced connection settings">⚙</button></p>
+                        <section class="panel-card dev-tools-panel" id="devToolsPanel" style="display:none;">
+                            <h2 class="section-title">Backend connection</h2>
+                            <p class="subtle">Override the API server URL (advanced).</p>
                             <div class="stack" style="margin-top:12px;">
                                 <label for="authApiBaseInput">Backend API URL</label>
                                 <input id="authApiBaseInput" type="text" placeholder="http://127.0.0.1:8000">
                                 <div class="actions">
-                                    <button class="ghost" id="saveAuthApiBaseButton" type="button">Save API URL</button>
-                                    <button class="ghost" id="resetAuthApiBaseButton" type="button">Reset to default</button>
+                                    <button class="ghost" id="saveAuthApiBaseButton" type="button">Save</button>
+                                    <button class="ghost" id="resetAuthApiBaseButton" type="button">Reset</button>
                                 </div>
                             </div>
                         </section>
-
-                        <details class="dev-tools">
-                            <summary>Developer note</summary>
-                            <p class="hint">Server override controls are available only to signed-in admin users from the lobby panel.</p>
-                        </details>
                     </div>
 
                     <aside class="panel-card">
-                        <h2 class="section-title">What this app does</h2>
-                        <p class="subtle">This is the league entry point for casual football leagues with invite-only joining.</p>
-                        <div class="aside-list" style="margin-top: 18px;">
-                            <div class="aside-item">
-                                <strong>Proper invitation links</strong>
-                                Owners and admins share a direct invite URL. The player lands on the invitation page immediately.
+                        <h2 class="section-title">Platform at a glance</h2>
+                        <p class="subtle" id="statsSubtitle">Live numbers from the server.</p>
+                        <div class="overview-grid" id="publicStatsGrid" style="margin-top:18px;">
+                            <div class="overview-card">
+                                <span class="overview-label">Registered players</span>
+                                <span class="overview-value" id="statUsers">—</span>
                             </div>
-                            <div class="aside-item">
-                                <strong>Multi-league accounts</strong>
-                                One account can belong to any number of leagues, and the lobby keeps them all together.
+                            <div class="overview-card">
+                                <span class="overview-label">Active leagues</span>
+                                <span class="overview-value" id="statLeagues">—</span>
                             </div>
-                            <div class="aside-item">
-                                <strong>League admin controls</strong>
-                                League owners can promote members to admin or return admins back to members.
-                            </div>
-                            <div class="aside-item">
-                                <strong>Admin-managed backups</strong>
-                                Full backup and restore is restricted to global admins for safety.
+                            <div class="overview-card">
+                                <span class="overview-label">Matches played</span>
+                                <span class="overview-value" id="statMatches">—</span>
                             </div>
                         </div>
+                        <p class="hint" style="margin-top:20px;">Create or join a league with invite code or a direct invitation link. One account works across all leagues.</p>
                     </aside>
                 </div>
             </section>
@@ -1670,6 +1681,29 @@
             });
         }
 
+        // Gear toggle for advanced connection settings
+        const devToggleBtn = document.getElementById("devToggleBtn");
+        const devToolsPanel = document.getElementById("devToolsPanel");
+        if (devToggleBtn && devToolsPanel) {
+            devToggleBtn.addEventListener("click", () => {
+                const open = devToolsPanel.style.display !== "none" && devToolsPanel.style.display !== "";
+                devToolsPanel.style.display = open ? "none" : "";
+            });
+        }
+
+        // Fetch and display public platform stats on the login page
+        (async () => {
+            try {
+                const s = await apiFetch("/public/stats");
+                const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+                el("statUsers", s.users);
+                el("statLeagues", s.leagues);
+                el("statMatches", s.matches);
+                const sub = document.getElementById("statsSubtitle");
+                if (sub) sub.textContent = "Live numbers updated in real time.";
+            } catch (_) { /* silently ignore if API not reachable */ }
+        })();
+
         registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = registerForm.username.value.trim();
@@ -1746,6 +1780,9 @@
                 clearStatus();
             } catch (error) {
                 showStatus(error.message || "Invalid username or password.", "error");
+                // Reveal password reset option after a failed login
+                const resetSection = document.getElementById("resetSection");
+                if (resetSection) resetSection.style.display = "";
             }
         });
 
