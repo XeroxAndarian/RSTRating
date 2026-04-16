@@ -1752,7 +1752,13 @@ def update_league_member_role(
 
 
 @app.post("/leagues/{league_id}/invites", response_model=LeagueInviteOut, status_code=status.HTTP_201_CREATED)
-def create_league_invite(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> LeagueInviteOut:
+def create_league_invite(
+    league_id: int,
+    max_uses: int = 1,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> LeagueInviteOut:
+    if max_uses < 1 or max_uses > 200:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="max_uses must be between 1 and 200")
     created_at = utc_now_iso()
     expires_at = (utc_now() + timedelta(days=LEAGUE_INVITE_EXPIRY_DAYS)).isoformat()
     token = secrets.token_urlsafe(18)
@@ -1761,9 +1767,9 @@ def create_league_invite(league_id: int, current_user: sqlite3.Row = Depends(res
         cursor = conn.execute(
             """
             INSERT INTO league_invites (league_id, token, created_by_user_id, created_at, expires_at, max_uses, use_count, revoked)
-            VALUES (?, ?, ?, ?, ?, 1, 0, 0)
+            VALUES (?, ?, ?, ?, ?, ?, 0, 0)
             """,
-            (league_id, token, int(current_user["id"]), created_at, expires_at),
+            (league_id, token, int(current_user["id"]), created_at, expires_at, max_uses),
         )
         invite_id = cursor.lastrowid
         conn.commit()
@@ -1776,7 +1782,7 @@ def create_league_invite(league_id: int, current_user: sqlite3.Row = Depends(res
         token=token,
         created_at=created_at,
         expires_at=expires_at,
-        max_uses=1,
+        max_uses=max_uses,
         use_count=0,
         revoked=0,
         invite_url=build_invite_url(token),
