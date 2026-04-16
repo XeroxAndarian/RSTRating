@@ -5,26 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>League | RSTRating</title>
   <style>
-    :root { --bg:#e9f7ef; --panel:#fff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); }
-    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,#f3fbf6,#def0e6); color:var(--text); }
+    :root {
+      --bg:#d6ece0; --panel:#fff; --card:rgba(248,255,251,.92);
+      --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --accent-dark:#166337;
+      --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16);
+      --surface:#ffffff; --border:rgba(14,44,29,.18);
+    }
+    [data-theme="dark"] {
+      --bg:#0f1f16; --panel:#1a2e22; --card:rgba(30,48,37,.92);
+      --text:#d4edda; --muted:#7faa8e; --accent:#2ab561; --accent-dark:#1d8748;
+      --success:#22c55e; --danger:#f87171; --line:rgba(180,220,195,.14);
+      --surface:#1a2e22; --border:rgba(180,220,195,.18);
+    }
+    body { margin:0; font-family:Georgia,"Times New Roman",serif; background:var(--bg); color:var(--text); min-height:100vh; }
     .wrap { max-width:1080px; margin:24px auto; padding:0 16px; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
     .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
     @media (max-width:900px){ .grid { grid-template-columns:1fr; } }
     h1,h2,h3 { margin:0; }
     .muted { color:var(--muted); }
-    .btn { border:none; border-radius:9px; padding:9px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn { border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:.88rem; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:opacity .12s; }
+    .btn:hover { opacity:.85; }
     .btn.primary { background:var(--accent); color:#fff; }
     .btn.confirm { background:var(--success); color:#fff; }
     .btn.danger { background:var(--danger); color:#fff; }
-    .btn.ghost { border:1px solid var(--line); background:#f5f9ff; color:var(--text); }
-    .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:#ecf3ff; border:1px solid var(--line); font-size:.82rem; }
-    .list { display:flex; flex-direction:column; gap:8px; }
-    .item { border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff; }
-    .status { min-height:20px; color:var(--muted); margin-top:8px; }
+    .btn.ghost { border:1px solid var(--line); background:var(--card); color:var(--text); }
+    .btn.sm { padding:5px 9px; font-size:.78rem; }
+    .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:rgba(31,138,76,.1); border:1px solid var(--line); font-size:.8rem; color:var(--accent-dark); font-weight:700; }
+    .role-badge {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:22px; height:22px; border-radius:6px; font-size:.75rem; font-weight:800;
+      background:var(--accent); color:#fff; flex-shrink:0;
+    }
+    .role-badge.admin { background:#0369a1; }
+    .role-badge.member { background:#64748b; }
+    .list { display:flex; flex-direction:column; gap:6px; }
+    .item { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--card); }
+    /* Compact member row */
+    .member-row {
+      display:flex; align-items:center; gap:10px;
+      border:1px solid var(--line); border-radius:9px; padding:8px 10px;
+      background:var(--card); font-size:.9rem;
+    }
+    .member-row .member-name { font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .member-row .member-stats { color:var(--muted); font-size:.78rem; white-space:nowrap; }
+    .member-row .member-actions { display:flex; gap:5px; flex-shrink:0; }
+    .status { min-height:20px; color:var(--muted); margin-top:8px; font-size:.9rem; }
     .status.error { color:var(--danger); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.85rem; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.82rem; }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { background:var(--surface); border-radius:14px; padding:24px 28px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,.28); color:var(--text); }
+    .modal-card h3 { margin:0 0 10px; }
+    .modal-card label { font-size:.85rem; font-weight:700; display:block; margin-top:10px; }
+    .modal-card input, .modal-card textarea, .modal-card select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); margin-top:3px; box-sizing:border-box; }
+    .settings-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+    .settings-row label { margin:0; flex:1; }
   </style>
 </head>
 <body>
@@ -35,7 +72,8 @@
         <div class="muted" id="subtitle">Loading...</div>
       </div>
       <div class="row">
-        <a class="btn ghost" href="./index.html">Back to lobby</a>
+        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">🌙</button>
+        <a class="btn ghost" href="./index.html">← Lobby</a>
         <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Add match</a>
       </div>
     </div>
@@ -48,7 +86,10 @@
         </div>
 
         <div class="card">
-          <h2 style="margin-bottom:10px;">Members</h2>
+          <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+            <h2>Members</h2>
+            <span id="memberCount" class="muted" style="font-size:.85rem;"></span>
+          </div>
           <div id="members" class="list"></div>
         </div>
       </div>
@@ -56,8 +97,29 @@
       <div>
         <div class="card">
           <h3 style="margin-bottom:8px;">League info</h3>
-          <div id="meta" class="muted">Loading...</div>
+          <div id="meta" class="muted"></div>
         </div>
+
+        <!-- Settings panel (admin/owner only) -->
+        <div class="card" id="settingsCard" style="display:none;">
+          <h3 style="margin-bottom:10px;">⚙ League Settings</h3>
+          <div class="list" style="gap:10px;">
+            <div>
+              <label style="font-size:.85rem;font-weight:700;" for="settingName">Name</label>
+              <input id="settingName" type="text" maxlength="80" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);margin-top:3px;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:.85rem;font-weight:700;" for="settingDesc">Description</label>
+              <textarea id="settingDesc" maxlength="300" rows="3" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);margin-top:3px;box-sizing:border-box;resize:vertical;"></textarea>
+            </div>
+            <div class="settings-row">
+              <label for="settingAutoAccept" style="font-size:.85rem;font-weight:700;flex:1;margin:0;">Auto-accept new members</label>
+              <input id="settingAutoAccept" type="checkbox" style="width:auto;margin:0;">
+            </div>
+            <button class="btn primary" id="saveSettingsBtn" type="button">Save settings</button>
+          </div>
+        </div>
+
         <div class="card" id="inviteCard" style="display:none;">
           <h3 style="margin-bottom:8px;">Invites</h3>
           <div class="row" style="margin-bottom:10px;">
@@ -65,13 +127,66 @@
           </div>
           <div id="invites" class="list"></div>
         </div>
+
+        <!-- Ban list (owner/admin) -->
+        <div class="card" id="banListCard" style="display:none;">
+          <h3 style="margin-bottom:8px;">🚫 Banned players</h3>
+          <div id="banList" class="list"></div>
+        </div>
       </div>
     </div>
 
     <div id="status" class="status"></div>
   </div>
 
+  <!-- Ban Modal -->
+  <div class="modal-backdrop" id="banModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Ban player</h3>
+      <p class="muted" id="banModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <label for="banReasonInput">Reason (optional)</label>
+      <input id="banReasonInput" type="text" maxlength="300" placeholder="e.g. repeated no-show">
+      <div class="row" style="margin-top:16px;">
+        <button class="btn danger" id="banConfirmBtn" type="button">Ban &amp; kick</button>
+        <button class="btn ghost" id="banCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Penalty Modal -->
+  <div class="modal-backdrop" id="penaltyModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Apply penalty</h3>
+      <p class="muted" id="penaltyModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <label for="penaltyUntilInput">Penalty expires on</label>
+      <input id="penaltyUntilInput" type="datetime-local">
+      <label for="penaltyReasonInput" style="margin-top:8px;">Reason (optional)</label>
+      <input id="penaltyReasonInput" type="text" maxlength="300" placeholder="e.g. late cancellation">
+      <div class="row" style="margin-top:16px;">
+        <button class="btn confirm" id="penaltyConfirmBtn" type="button">Apply penalty</button>
+        <button class="btn ghost" id="penaltyCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // Dark mode
+    (function(){
+      const s = localStorage.getItem("rs_theme");
+      if (s === "dark") document.documentElement.setAttribute("data-theme","dark");
+    })();
+    document.addEventListener("DOMContentLoaded", function(){
+      const btn = document.getElementById("darkModeToggle");
+      function upd(){ btn.textContent = document.documentElement.getAttribute("data-theme")==="dark"?"☀️":"🌙"; }
+      upd();
+      btn.addEventListener("click", function(){
+        const d = document.documentElement.getAttribute("data-theme")==="dark";
+        if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+        else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+        upd();
+      });
+    });
+
     const params = new URLSearchParams(window.location.search);
     const leagueId = Number(params.get("id") || 0);
     const TOKEN_KEY = "rs_access_token";
@@ -82,15 +197,24 @@
     const titleEl = document.getElementById("title");
     const subtitleEl = document.getElementById("subtitle");
     const membersEl = document.getElementById("members");
+    const memberCountEl = document.getElementById("memberCount");
     const matchesEl = document.getElementById("matches");
     const metaEl = document.getElementById("meta");
     const inviteCardEl = document.getElementById("inviteCard");
     const invitesEl = document.getElementById("invites");
     const addMatchBtn = document.getElementById("addMatchBtn");
+    const settingsCard = document.getElementById("settingsCard");
+    const banListCard = document.getElementById("banListCard");
+    const banListEl = document.getElementById("banList");
 
     let detail = null;
     let matches = [];
     let joinRequests = [];
+    let bans = [];
+
+    // pending modal action
+    let pendingBanUserId = null;
+    let pendingPenaltyUserId = null;
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -120,35 +244,68 @@
     }
     function canOwner(){ return detail?.league?.member_role === "owner"; }
 
+    function getRoleBadgeClass(role){
+      if (role === "owner") return "role-badge";
+      if (role === "admin") return "role-badge admin";
+      return "role-badge member";
+    }
+    function getRoleLetter(role){
+      if (role === "owner") return "C";
+      if (role === "admin") return "A";
+      return "M";
+    }
+
     function render(){
       if (!detail) return;
       const lg = detail.league;
       titleEl.textContent = lg.name;
       subtitleEl.textContent = `${lg.football_type} · ${lg.goal_size} · Your role: ${lg.member_role}`;
+      memberCountEl.textContent = `${detail.members.length} member${detail.members.length !== 1 ? "s" : ""}`;
+
       metaEl.innerHTML = `
         <div><strong>Owner:</strong> ${esc(lg.owner_username)}</div>
         <div><strong>Region:</strong> ${esc(lg.region || "Unknown")}</div>
         <div><strong>Invite code:</strong> <span class="mono">${esc(lg.invite_code || "-")}</span></div>
         <div><strong>Members:</strong> ${esc(lg.member_count)}</div>
-        <div><strong>Created:</strong> ${esc(lg.created_at.slice(0,10))}</div>
+        <div><strong>Created:</strong> ${esc((lg.created_at||"").slice(0,10))}</div>
         <div><strong>Description:</strong> ${esc(lg.description || "-")}</div>
+        <div><strong>Join mode:</strong> ${lg.auto_accept_members ? "Auto-accept" : "Request only"}</div>
       `;
 
       addMatchBtn.style.display = canManage() ? "inline-flex" : "none";
       addMatchBtn.href = `./create_match.html?league_id=${lg.id}`;
 
+      // Settings card
+      if (canManage()) {
+        settingsCard.style.display = "block";
+        document.getElementById("settingName").value = lg.name || "";
+        document.getElementById("settingDesc").value = lg.description || "";
+        document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
+      } else {
+        settingsCard.style.display = "none";
+      }
+
+      // Members (compact rows)
       membersEl.innerHTML = detail.members.length ? detail.members.map(m => {
-        const roleControls = canOwner() && m.role !== "owner"
-          ? `<div class="row" style="margin-top:8px;"><button class="btn ghost roleBtn" data-user="${m.user_id}" data-role="${m.role === "member" ? "admin" : "member"}">${m.role === "member" ? "Promote to admin" : "Return to member"}</button></div>`
-          : "";
-        return `<div class="item">
-          <div class="row" style="justify-content:space-between;"><strong>${esc(m.display_name || m.username)}</strong><span class="pill">${esc(m.role)}</span></div>
-          <div class="muted">@${esc(m.username)} · Rating ${esc(m.rating)}</div>
-          <div class="muted">A:${esc(m.attendance)} W:${esc(m.wins)} G:${esc(m.goals)} A:${esc(m.assists)}</div>
-          ${roleControls}
+        const badgeClass = getRoleBadgeClass(m.role);
+        const badgeLetter = getRoleLetter(m.role);
+        let actionBtns = "";
+        if (canManage() && m.role !== "owner") {
+          const promoteLabel = m.role === "member" ? "→ Admin" : "→ Member";
+          const promoteRole = m.role === "member" ? "admin" : "member";
+          actionBtns += `<button class="btn ghost sm roleBtn" title="${promoteLabel}" data-user="${m.user_id}" data-role="${promoteRole}">${promoteLabel}</button>`;
+          actionBtns += `<button class="btn ghost sm penaltyTriggerBtn" title="Penalty" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}">⏱ Penalty</button>`;
+          actionBtns += `<button class="btn danger sm banTriggerBtn" title="Ban" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}">🚫 Ban</button>`;
+        }
+        return `<div class="member-row">
+          <span class="${badgeClass}" title="${esc(m.role)}">${badgeLetter}</span>
+          <span class="member-name" title="@${esc(m.username)}">${esc(m.display_name || m.username)}</span>
+          <span class="member-stats">⭐${esc(m.rating)} · A:${esc(m.attendance)} W:${esc(m.wins)} G:${esc(m.goals)} As:${esc(m.assists)}</span>
+          <div class="member-actions">${actionBtns}</div>
         </div>`;
       }).join("") : '<div class="item muted">No members.</div>';
 
+      // Matches
       matchesEl.innerHTML = matches.length ? matches.map(mt => {
         const previewHref = `./preview.html?token=${encodeURIComponent(mt.preview_token)}`;
         return `<div class="item">
@@ -156,48 +313,66 @@
             <strong>${esc(mt.title)}</strong><span class="pill">${esc(mt.status)}</span>
           </div>
           <div class="muted">${esc(formatIso(mt.scheduled_at))} ${mt.location ? "· " + esc(mt.location) : ""}</div>
-          <div class="muted">Score ${esc(mt.score_a)} - ${esc(mt.score_b)} · Registered ${esc(mt.registered_count)}/${esc(mt.max_participants)}</div>
+          <div class="muted">Score ${esc(mt.score_a)} - ${esc(mt.score_b)} · Reg ${esc(mt.registered_count)}/${esc(mt.max_participants)}</div>
           <div class="row" style="margin-top:8px;">
-            <a class="btn ghost" href="./match.html?id=${mt.id}">Open match page</a>
-            <a class="btn ghost" href="${previewHref}">Open preview</a>
+            <a class="btn ghost sm" href="./match.html?id=${mt.id}">Match page</a>
+            <a class="btn ghost sm" href="${previewHref}">Preview</a>
           </div>
         </div>`;
       }).join("") : '<div class="item muted">No matches yet.</div>';
 
+      // Invites
       if (canManage()) {
         inviteCardEl.style.display = "block";
         invitesEl.innerHTML = (detail.invites || []).length ? detail.invites.map(inv => `
           <div class="item">
-            <div class="muted">Created ${esc(formatIso(inv.created_at))}</div>
+            <div class="muted" style="font-size:.8rem;">Created ${esc(formatIso(inv.created_at))} · uses ${esc(inv.use_count)}/${esc(inv.max_uses)}</div>
             <div class="mono">${esc(inv.invite_url)}</div>
-            <div class="row" style="margin-top:8px;"><button class="btn ghost copyInvite" data-url="${esc(inv.invite_url)}">Copy link</button></div>
+            <div class="row" style="margin-top:8px;"><button class="btn ghost sm copyInvite" data-url="${esc(inv.invite_url)}">Copy link</button></div>
           </div>
         `).join("") : '<div class="item muted">No invites yet.</div>';
       } else {
         inviteCardEl.style.display = "none";
       }
 
+      // Join Requests
       if (canManage()) {
-        const existing = document.getElementById("joinReqCard");
-        if (!existing) {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.id = "joinReqCard";
-          card.innerHTML = `<h3 style="margin-bottom:8px;">Join Requests</h3><div id="joinReqList" class="list"></div>`;
-          inviteCardEl.parentElement.appendChild(card);
+        let reqCard = document.getElementById("joinReqCard");
+        if (!reqCard) {
+          reqCard = document.createElement("div");
+          reqCard.className = "card";
+          reqCard.id = "joinReqCard";
+          reqCard.innerHTML = `<h3 style="margin-bottom:8px;">Join Requests</h3><div id="joinReqList" class="list"></div>`;
+          inviteCardEl.parentElement.appendChild(reqCard);
         }
         const reqList = document.getElementById("joinReqList");
         reqList.innerHTML = joinRequests.length ? joinRequests.map(r => `
           <div class="item">
             <div class="row" style="justify-content:space-between;"><strong>${esc(r.display_name || r.username)}</strong><span class="pill">pending</span></div>
-            <div class="muted">@${esc(r.username)} · requested ${esc(new Date(r.requested_at).toLocaleString())}</div>
-            ${r.message ? `<div class="muted">Message: ${esc(r.message)}</div>` : ""}
+            <div class="muted">@${esc(r.username)} · ${esc(new Date(r.requested_at).toLocaleString())}</div>
+            ${r.message ? `<div class="muted">${esc(r.message)}</div>` : ""}
             <div class="row" style="margin-top:8px;">
-              <button class="btn confirm joinReqDecision" data-id="${r.id}" data-decision="accept">Accept</button>
-              <button class="btn danger joinReqDecision" data-id="${r.id}" data-decision="reject">Reject</button>
+              <button class="btn confirm sm joinReqDecision" data-id="${r.id}" data-decision="accept">Accept</button>
+              <button class="btn danger sm joinReqDecision" data-id="${r.id}" data-decision="reject">Reject</button>
             </div>
           </div>
         `).join("") : '<div class="item muted">No pending requests.</div>';
+      }
+
+      // Ban list
+      if (canManage()) {
+        banListCard.style.display = "block";
+        banListEl.innerHTML = bans.length ? bans.map(b => `
+          <div class="item">
+            <div class="row" style="justify-content:space-between;">
+              <strong>${esc(b.username)}</strong>
+              <button class="btn ghost sm unbanBtn" data-user="${b.user_id}">Unban</button>
+            </div>
+            ${b.penalty_reason ? `<div class="muted">${esc(b.penalty_reason)}</div>` : ""}
+          </div>
+        `).join("") : '<div class="item muted">No banned players.</div>';
+      } else {
+        banListCard.style.display = "none";
       }
     }
 
@@ -208,14 +383,14 @@
         const tasks = [
           apiFetch(`/leagues/${leagueId}`, { method: "GET" }),
           apiFetch(`/leagues/${leagueId}/matches`, { method: "GET" }),
+          apiFetch(`/leagues/${leagueId}/join-requests`, { method: "GET" }).catch(() => []),
+          apiFetch(`/leagues/${leagueId}/bans`, { method: "GET" }).catch(() => []),
         ];
-        if (getToken()) {
-          tasks.push(apiFetch(`/leagues/${leagueId}/join-requests`, { method: "GET" }).catch(() => []));
-        }
         const result = await Promise.all(tasks);
         detail = result[0];
         matches = result[1];
         joinRequests = Array.isArray(result[2]) ? result[2] : [];
+        bans = Array.isArray(result[3]) ? result[3] : [];
         render();
       } catch (err) {
         show(err.message || "Failed loading league.", "error");
@@ -227,16 +402,76 @@
         await apiFetch(`/leagues/${leagueId}/invites`, { method: "POST" });
         await load();
         show("Invite created.");
-      } catch (err) {
-        show(err.message || "Failed to create invite.", "error");
-      }
+      } catch (err) { show(err.message || "Failed.", "error"); }
+    });
+
+    document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
+      const payload = {
+        name: document.getElementById("settingName").value.trim() || null,
+        description: document.getElementById("settingDesc").value.trim() || null,
+        auto_accept_members: document.getElementById("settingAutoAccept").checked,
+      };
+      try {
+        await apiFetch(`/leagues/${leagueId}/settings`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        await load();
+        show("Settings saved.");
+      } catch (err) { show(err.message || "Failed.", "error"); }
+    });
+
+    // Ban modal
+    document.getElementById("banCancelBtn").addEventListener("click", () => {
+      document.getElementById("banModal").style.display = "none";
+      pendingBanUserId = null;
+    });
+    document.getElementById("banConfirmBtn").addEventListener("click", async () => {
+      if (!pendingBanUserId) return;
+      const reason = document.getElementById("banReasonInput").value.trim() || null;
+      try {
+        await apiFetch(`/leagues/${leagueId}/members/${pendingBanUserId}/ban`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
+        document.getElementById("banModal").style.display = "none";
+        pendingBanUserId = null;
+        await load();
+        show("Player banned.");
+      } catch (err) { show(err.message || "Failed.", "error"); }
+    });
+
+    // Penalty modal
+    document.getElementById("penaltyCancelBtn").addEventListener("click", () => {
+      document.getElementById("penaltyModal").style.display = "none";
+      pendingPenaltyUserId = null;
+    });
+    document.getElementById("penaltyConfirmBtn").addEventListener("click", async () => {
+      if (!pendingPenaltyUserId) return;
+      const until = document.getElementById("penaltyUntilInput").value;
+      const reason = document.getElementById("penaltyReasonInput").value.trim() || null;
+      if (!until) { show("Please select a penalty end date.", "error"); return; }
+      try {
+        await apiFetch(`/leagues/${leagueId}/members/${pendingPenaltyUserId}/penalty`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ until, reason }),
+        });
+        document.getElementById("penaltyModal").style.display = "none";
+        pendingPenaltyUserId = null;
+        await load();
+        show("Penalty applied.");
+      } catch (err) { show(err.message || "Failed.", "error"); }
     });
 
     document.body.addEventListener("click", async (e) => {
       const copyBtn = e.target.closest(".copyInvite");
       if (copyBtn) {
-        try { await navigator.clipboard.writeText(copyBtn.dataset.url); show("Invite copied."); }
-        catch { show("Copy failed. Copy manually.", "error"); }
+        try { await navigator.clipboard.writeText(copyBtn.dataset.url); show("Copied."); }
+        catch { show("Copy failed.", "error"); }
+        return;
       }
       const roleBtn = e.target.closest(".roleBtn");
       if (roleBtn) {
@@ -247,10 +482,35 @@
             body: JSON.stringify({ role: roleBtn.dataset.role }),
           });
           await load();
-          show("Member role updated.");
-        } catch (err) {
-          show(err.message || "Failed to update role.", "error");
-        }
+          show("Role updated.");
+        } catch (err) { show(err.message || "Failed.", "error"); }
+        return;
+      }
+      const banBtn = e.target.closest(".banTriggerBtn");
+      if (banBtn) {
+        pendingBanUserId = Number(banBtn.dataset.user);
+        document.getElementById("banReasonInput").value = "";
+        document.getElementById("banModalSubtitle").textContent = `Banning: ${banBtn.dataset.name}`;
+        document.getElementById("banModal").style.display = "flex";
+        return;
+      }
+      const penaltyBtn = e.target.closest(".penaltyTriggerBtn");
+      if (penaltyBtn) {
+        pendingPenaltyUserId = Number(penaltyBtn.dataset.user);
+        document.getElementById("penaltyReasonInput").value = "";
+        document.getElementById("penaltyUntilInput").value = "";
+        document.getElementById("penaltyModalSubtitle").textContent = `Penalizing: ${penaltyBtn.dataset.name}`;
+        document.getElementById("penaltyModal").style.display = "flex";
+        return;
+      }
+      const unbanBtn = e.target.closest(".unbanBtn");
+      if (unbanBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/bans/${unbanBtn.dataset.user}`, { method: "DELETE" });
+          await load();
+          show("Player unbanned.");
+        } catch (err) { show(err.message || "Failed.", "error"); }
+        return;
       }
       const reqBtn = e.target.closest(".joinReqDecision");
       if (reqBtn) {
@@ -262,9 +522,8 @@
           });
           await load();
           show(`Join request ${reqBtn.dataset.decision}ed.`);
-        } catch (err) {
-          show(err.message || "Failed to process request.", "error");
-        }
+        } catch (err) { show(err.message || "Failed.", "error"); }
+        return;
       }
     });
 
