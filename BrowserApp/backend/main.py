@@ -12,6 +12,7 @@ from typing import Iterator
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel, ConfigDict, Field
@@ -1578,6 +1579,24 @@ def import_backup(payload: BackupImportData, current_admin: sqlite3.Row = Depend
         f"Imported users: {imported_users}, leagues: {imported_leagues}, memberships: {imported_memberships}, "
         f"invites: {imported_invites}, league stats: {imported_league_stats}. Skipped: {skipped}."
     ))
+
+
+@app.get("/admin/download-db", summary="Download raw SQLite database file (admin only)")
+def download_db(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> FileResponse:
+    """Stream the live SQLite database file as a binary download.
+
+    The downloaded file is a consistent snapshot because SQLite's
+    file format is safe to copy while no write transaction is open.
+    For a fully atomic snapshot use the JSON backup/export endpoint instead.
+    """
+    if not DB_PATH.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database file not found on server.")
+    filename = f"rstrating_backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.db"
+    return FileResponse(
+        path=str(DB_PATH),
+        media_type="application/octet-stream",
+        filename=filename,
+    )
 
 
 @app.post("/auth/password-reset-request")

@@ -5,8 +5,12 @@ services:
     rootDir: BrowserApp/backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    plan: free
+    plan: starter
     healthCheckPath: /health
+    disk:
+      name: rstrating-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: JWT_SECRET
         generateValue: true
@@ -17,4 +21,4 @@ services:
       - key: FRONTEND_ORIGINS
         value: https://xeroxandarian.github.io
       - key: DB_PATH
-        value: /tmp/accounts.db
+        value: /var/data/accounts.db
