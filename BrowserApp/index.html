@@ -143,7 +143,7 @@
 
         .ghost {
             color: var(--text);
-            background: rgba(255, 255, 255, 0.55);
+            background: var(--card);
             border: 1px solid var(--line);
         }
 
@@ -471,16 +471,16 @@
         /* ── Notification Bell ──────────────────────────────────── */
         .notif-bell {
             position: relative;
-            background: transparent;
-            border: 1.5px solid rgba(255,255,255,0.25);
-            color: #fff;
-            border-radius: 8px;
-            padding: 7px 14px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 9px 13px;
             cursor: pointer;
             font-size: 1rem;
-            transition: background 0.15s;
+            transition: background 0.12s;
         }
-        .notif-bell:hover { background: rgba(255,255,255,0.1); }
+        .notif-bell:hover { background: var(--panel-strong); }
         .notif-badge {
             position: absolute;
             top: -5px; right: -5px;
@@ -505,7 +505,7 @@
             top: 0; right: 0;
             width: min(400px, 100vw);
             height: 100vh;
-            background: #ffffff;
+            background: var(--panel-strong);
             border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -537,7 +537,7 @@
             cursor: pointer;
             transition: background 0.12s;
         }
-        .notif-item:hover { background: #eefaf2; }
+        .notif-item:hover { background: var(--card); }
         .notif-item.unread { border-left: 3px solid var(--accent); }
         .notif-item-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 3px; }
         .notif-item-msg { font-size: 0.82rem; color: var(--muted); }
@@ -894,6 +894,76 @@
         .umr-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .umr-meta { font-size: 0.75rem; color: var(--muted); }
         .umr-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+        /* ── Dark mode: inputs match panel background ──────────────────── */
+        [data-theme="dark"] input,
+        [data-theme="dark"] textarea,
+        [data-theme="dark"] select {
+            background: var(--card);
+            color: var(--text);
+        }
+
+        /* ── Hero action buttons – uniform size ──────────────────── */
+        .hero .actions > button,
+        .hero .actions > a {
+            padding: 9px 13px;
+            font-size: 1rem;
+        }
+
+        /* ── Notification tabs ──────────────────── */
+        .notif-tab-bar {
+            display: flex;
+            gap: 8px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-strong);
+        }
+        .notif-tab-btn {
+            appearance: none;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 5px 16px;
+            background: var(--card);
+            color: var(--muted);
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+        .notif-tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        /* ── Welcome stats grid ──────────────────── */
+        .welcome-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+        .welcome-stat-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .welcome-stat-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            display: block;
+        }
+        .welcome-stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            display: block;
+            margin-top: 3px;
+        }
     </style>
 </head>
 <body>
@@ -911,7 +981,7 @@
                     <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;padding:9px 12px;font-size:1rem;">⚙</button>
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" style="padding:9px 12px;">🌙</button>
                     <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;padding:9px 12px;font-size:1.1rem;">↺</button>
-                    <button class="danger" id="logoutButton" type="button" aria-disabled="true" style="padding:9px 14px;">Sign out</button>
+                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">&#x23FB;</button>
                 </div>
             </div>
         </section>
@@ -936,9 +1006,9 @@
                             <div class="panel active" id="loginPanel">
                                 <form class="stack" id="loginForm">
                                     <label for="loginUsername">Username</label>
-                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="e.g. john_smith">
                                     <label for="loginPassword">Password</label>
-                                    <input id="loginPassword" name="password" type="password" minlength="6" required>
+                                    <input id="loginPassword" name="password" type="password" minlength="6" required placeholder="e.g. ••••••••">
                                     <button class="button" type="submit">Enter Lobby</button>
                                 </form>
                                 <p class="hint">If you opened an invitation link, log in and accept it directly from this page.</p>
@@ -947,24 +1017,21 @@
                             <div class="panel" id="registerPanel">
                                 <form class="stack" id="registerForm">
                                     <label for="registerUsername">Username</label>
-                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required>
+                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="e.g. john_smith">
                                     <label for="registerName">Name</label>
-                                    <input id="registerName" name="name" type="text" maxlength="100" required>
+                                    <input id="registerName" name="name" type="text" maxlength="100" required placeholder="e.g. John">
                                     <label for="registerSurname">Surname</label>
-                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required>
-                                    <label for="registerNicknames">Nicknames</label>
-                                    <input id="registerNicknames" name="nicknames" type="text" maxlength="500" placeholder="Andro, Andraz, Cefu">
+                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required placeholder="e.g. Smith">
                                     <label for="registerEmail">Email</label>
-                                    <input id="registerEmail" name="email" type="email" maxlength="255" required>
+                                    <input id="registerEmail" name="email" type="email" maxlength="255" required placeholder="e.g. john@example.com">
                                     <label for="registerPassword">Password</label>
-                                    <input id="registerPassword" name="password" type="password" minlength="6" required>
+                                    <input id="registerPassword" name="password" type="password" minlength="6" required placeholder="At least 6 characters">
                                     <label for="registerPasswordRepeat">Repeat password</label>
-                                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required>
+                                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required placeholder="Same as above">
                                     <label for="registerDisplayName">Display name</label>
-                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="Optional public name">
+                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="e.g. Cool Player (optional)">
                                     <button class="button" type="submit">Create account</button>
                                 </form>
-                                <p class="hint">Nicknames are stored as a list so they can feed straight into the player model.</p>
                             </div>
 
                             <div class="status" id="statusBox" role="status" aria-live="polite"></div>
@@ -1040,12 +1107,21 @@
                         </section>
 
                         <section class="panel-card">
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                                <h2 class="section-title" style="margin:0;" id="welcomeTitle">Welcome</h2>
-                                <a class="button" href="./create_league.html" style="padding:7px 14px;font-size:0.85rem;">+ New league</a>
+                            <h2 class="section-title" style="margin:0 0 4px;" id="welcomeTitle">Welcome</h2>
+                            <p class="subtle" id="welcomeSubtitle" style="margin-top:0;font-size:0.88rem;"></p>
+                            <div id="welcomeStatsGrid" class="welcome-stats-grid" style="margin-top:12px;"></div>
+                        </section>
+
+                        <section class="panel-card">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                                <h2 class="section-title" style="margin:0;">Your Leagues</h2>
+                                <div class="actions" style="gap:6px;">
+                                    <a class="ghost" href="./create_league.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">+ New</a>
+                                    <button class="ghost" id="joinLeagueBtn" type="button" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Join</button>
+                                    <a class="ghost" href="./discover.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Find</a>
+                                </div>
                             </div>
-                            <p class="subtle" id="welcomeSubtitle" style="margin-top:6px;"></p>
-                            <div id="leagueTable" class="league-table" style="margin-top:12px;">
+                            <div id="leagueTable" class="league-table">
                                 <p class="hint" style="padding:8px 0;">Loading leagues…</p>
                             </div>
                         </section>
@@ -1098,10 +1174,14 @@
             <h3>Notifications</h3>
             <button class="icon-button" id="closeNotifButton" type="button" aria-label="Close">✕</button>
         </div>
+        <div class="notif-tab-bar">
+            <button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>
+            <button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>
+        </div>
         <div class="notif-drawer-actions">
             <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>
         </div>
-        <div class="notif-list" id="notifList"><p class="hint" style="padding:16px;">No notifications yet.</p></div>
+        <div class="notif-list" id="notifList"></div>
     </div>
     <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
 
@@ -1266,6 +1346,7 @@
         let leagueMatchesCache = {};
         let notifications = [];
         let notifUnreadCount = 0;
+        let activeNotifTab = "unread";
         let liveClockInterval = null;
         let pendingGoalState = null;  // { matchId, scorerUserId, scorerUsername, team }
         let notifPollInterval = null;
@@ -1700,9 +1781,7 @@
                 lobbyShell.classList.remove("active");
                 const bellButton = document.getElementById("notifBellButton");
                 if (bellButton) bellButton.style.display = "none";
-                logoutButton.disabled = true;
-                logoutButton.style.opacity = "0.45";
-                logoutButton.setAttribute("aria-disabled", "true");
+                logoutButton.style.display = "none";
                 if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
@@ -1713,9 +1792,7 @@
             const adminSignedIn = isAdmin();
             backupSection.style.display = adminSignedIn ? "block" : "none";
             devToolsSection.style.display = adminSignedIn ? "block" : "none";
-            logoutButton.disabled = !signedIn;
-            logoutButton.style.opacity = signedIn ? "1" : "0.45";
-            logoutButton.setAttribute("aria-disabled", signedIn ? "false" : "true");
+            logoutButton.style.display = signedIn ? "inline-flex" : "none";
 
             const bellButton = document.getElementById("notifBellButton");
             if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
@@ -1743,9 +1820,46 @@
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
             welcomeTitle.textContent = "Welcome, " + displayName;
-            welcomeSubtitle.textContent = `Member of ${lobbyState.leagues.length} league(s). Click a row to open it.`;
+            renderWelcomeStats();
             renderLeagueList();
             renderUpcomingMatches();
+        }
+
+        function renderWelcomeStats() {
+            const grid = document.getElementById("welcomeStatsGrid");
+            if (!grid) return;
+            const stats = lobbyState.user_stats || {};
+            const leagues = lobbyState.leagues || [];
+            const refOrManagerCount = leagues.filter(l => l.member_role === "owner" || l.member_role === "admin").length;
+            const attendance = stats.attendance || 0;
+            const wins = stats.wins || 0;
+            const winRate = attendance > 0 ? Math.round((wins / attendance) * 100) : 0;
+            grid.innerHTML = `
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Global Rating</span>
+                    <span class="welcome-stat-value">${escapeHtml(formatRating(stats.global_rating || 1000))}</span>
+                </div>
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Leagues Joined</span>
+                    <span class="welcome-stat-value">${leagues.length}</span>
+                </div>
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Ref / Manager</span>
+                    <span class="welcome-stat-value">${refOrManagerCount}</span>
+                </div>
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Avg Win Rate</span>
+                    <span class="welcome-stat-value">${winRate}%</span>
+                </div>
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Goals / Assists</span>
+                    <span class="welcome-stat-value">${stats.goals || 0} / ${stats.assists || 0}</span>
+                </div>
+                <div class="welcome-stat-card">
+                    <span class="welcome-stat-label">Matches Played</span>
+                    <span class="welcome-stat-value">${attendance}</span>
+                </div>
+            `;
         }
 
         async function refreshAndRender() {
@@ -1844,7 +1958,6 @@
             const username = registerForm.username.value.trim();
             const name = registerForm.name.value.trim();
             const surname = registerForm.surname.value.trim();
-            const nicknames = splitNicknames(registerForm.nicknames.value.trim());
             const email = registerForm.email.value.trim();
             const password = registerForm.password.value;
             const passwordRepeat = registerForm.passwordRepeat.value;
@@ -1885,7 +1998,7 @@
                         email,
                         name,
                         surname,
-                        nicknames,
+                        nicknames: [],
                         display_name: displayName || null
                     })
                 });
@@ -2081,6 +2194,17 @@
             });
         }
 
+        const joinLeagueBtn = document.getElementById("joinLeagueBtn");
+        if (joinLeagueBtn) {
+            joinLeagueBtn.addEventListener("click", () => {
+                const input = document.getElementById("inviteCodeInput");
+                if (input) {
+                    input.scrollIntoView({ behavior: "smooth", block: "center" });
+                    input.focus();
+                }
+            });
+        }
+
         if (joinByCodeForm) {
             joinByCodeForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
@@ -2191,9 +2315,20 @@
         // ============================================================
 
         function openNotifDrawer() {
+            const hasUnread = notifications.some(n => !n.read);
+            setNotifTab(hasUnread ? "unread" : "read");
             document.getElementById("notifDrawer").classList.add("open");
             document.getElementById("notifBackdrop").style.display = "block";
             loadNotifications();
+        }
+
+        function setNotifTab(tab) {
+            activeNotifTab = tab;
+            const tabUnread = document.getElementById("notifTabUnread");
+            const tabRead = document.getElementById("notifTabRead");
+            if (tabUnread) tabUnread.classList.toggle("active", tab === "unread");
+            if (tabRead) tabRead.classList.toggle("active", tab === "read");
+            renderNotifList();
         }
 
         function closeNotifDrawer() {
@@ -2226,11 +2361,15 @@
         function renderNotifList() {
             const notifList = document.getElementById("notifList");
             if (!notifList) return;
-            if (!notifications.length) {
-                notifList.innerHTML = '<p class="hint" style="padding:16px;">No notifications yet.</p>';
+            const filtered = notifications.filter(n => activeNotifTab === "unread" ? !n.read : n.read);
+            if (!filtered.length) {
+                const msg = notifications.length === 0
+                    ? "No notifications yet."
+                    : (activeNotifTab === "unread" ? "No unread notifications." : "No read notifications.");
+                notifList.innerHTML = `<p class="hint" style="padding:16px;">${msg}</p>`;
                 return;
             }
-            notifList.innerHTML = notifications.map(n => `
+            notifList.innerHTML = filtered.map(n => `
                 <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${n.id}" data-match-id="${n.data && n.data.match_id ? n.data.match_id : ""}">
                     <div class="notif-item-title">${escapeHtml(n.title)}</div>
                     <div class="notif-item-msg">${escapeHtml(n.message)}</div>
@@ -2252,6 +2391,8 @@
         document.getElementById("closeNotifButton").addEventListener("click", closeNotifDrawer);
         document.getElementById("notifBackdrop").addEventListener("click", closeNotifDrawer);
         document.getElementById("notifBellButton").addEventListener("click", openNotifDrawer);
+        document.getElementById("notifTabUnread").addEventListener("click", () => setNotifTab("unread"));
+        document.getElementById("notifTabRead").addEventListener("click", () => setNotifTab("read"));
         document.getElementById("markAllReadButton").addEventListener("click", async () => {
             if (!currentUser) return;
             try {
