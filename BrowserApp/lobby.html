@@ -969,13 +969,13 @@
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
                 </div>
                 <div class="actions">
-                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;">↺</button>
-                    <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
+                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh">↺</button>
+                    <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications">
                         🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
                     </button>
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
-                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;">⚙</button>
-                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">🚪</button>
+                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings">⚙</button>
+                    <button class="danger" id="logoutButton" type="button" title="Sign out">🚪</button>
                 </div>
             </div>
         </section>
@@ -1304,21 +1304,19 @@
         }
 
         function showStatus(message, type) {
-            statusBox.textContent = message;
-            statusBox.className = "status show " + type;
+            if (statusBox) { statusBox.textContent = message; statusBox.className = "status show " + type; }
         }
 
         function clearStatus() {
-            statusBox.textContent = "";
-            statusBox.className = "status";
+            if (statusBox) { statusBox.textContent = ""; statusBox.className = "status"; }
         }
 
         function openTab(name) {
             const loginOpen = name === "login";
-            loginTab.classList.toggle("active", loginOpen);
-            registerTab.classList.toggle("active", !loginOpen);
-            loginPanel.classList.toggle("active", loginOpen);
-            registerPanel.classList.toggle("active", !loginOpen);
+            if (loginTab) loginTab.classList.toggle("active", loginOpen);
+            if (registerTab) registerTab.classList.toggle("active", !loginOpen);
+            if (loginPanel) loginPanel.classList.toggle("active", loginOpen);
+            if (registerPanel) registerPanel.classList.toggle("active", !loginOpen);
             clearStatus();
         }
 
@@ -1725,9 +1723,6 @@
             if (previewMode) {
                 if (authShell) authShell.classList.remove("active");
                 if (lobbyShell) lobbyShell.classList.remove("active");
-                const bellButton = document.getElementById("notifBellButton");
-                if (bellButton) bellButton.style.display = "none";
-                if (logoutButton) logoutButton.style.display = "none";
                 if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
@@ -1738,14 +1733,6 @@
             const adminSignedIn = isAdmin();
             if (backupSection) backupSection.style.display = adminSignedIn ? "block" : "none";
             if (devToolsSection) devToolsSection.style.display = adminSignedIn ? "block" : "none";
-            if (logoutButton) logoutButton.style.display = signedIn ? "inline-flex" : "none";
-
-            const bellButton = document.getElementById("notifBellButton");
-            if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
-            const acctBtn = document.getElementById("acctSettingsBtn");
-            if (acctBtn) acctBtn.style.display = signedIn ? "inline-flex" : "none";
-            const refreshBtn = document.getElementById("refreshLobbyBtn");
-            if (refreshBtn) refreshBtn.style.display = signedIn ? "inline-flex" : "none";
 
             renderInviteEntry();
 
@@ -1839,10 +1826,10 @@
             window.history.replaceState({}, "", nextUrl.toString());
         }
 
-        loginTab.addEventListener("click", () => openTab("login"));
-        registerTab.addEventListener("click", () => openTab("register"));
+        if (loginTab) loginTab.addEventListener("click", () => openTab("login"));
+        if (registerTab) registerTab.addEventListener("click", () => openTab("register"));
 
-        saveApiBaseButton.addEventListener("click", () => {
+        if (saveApiBaseButton) saveApiBaseButton.addEventListener("click", () => {
             const value = apiBaseInput.value.trim();
             if (!value) {
                 showStatus("Enter a backend API URL first.", "error");
@@ -1899,7 +1886,7 @@
             } catch (_) { /* silently ignore if API not reachable */ }
         })();
 
-        registerForm.addEventListener("submit", async (event) => {
+        if (registerForm) registerForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const username = registerForm.username.value.trim();
             const name = registerForm.name.value.trim();
@@ -1957,7 +1944,7 @@
             }
         });
 
-        loginForm.addEventListener("submit", async (event) => {
+        if (loginForm) loginForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
                 const tokenData = await apiFetch("/auth/login", {
@@ -1980,10 +1967,8 @@
             }
         });
 
-        logoutButton.addEventListener("click", () => {
-            if (!currentUser) {
-                return;
-            }
+        if (logoutButton) logoutButton.addEventListener("click", () => {
+            if (!currentUser) return;
             clearToken();
             currentUser = null;
             leagueDetails = {};
@@ -1993,9 +1978,7 @@
             if (notifPollInterval) { clearInterval(notifPollInterval); notifPollInterval = null; }
             if (liveClockInterval) { clearInterval(liveClockInterval); liveClockInterval = null; }
             lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
-            openTab("login");
-            renderAppState();
-            showStatus("You have been signed out.", "ok");
+            window.location.href = './index.html';
         });
 
         // Refresh button
@@ -2070,7 +2053,7 @@
             });
         }
 
-        resetRequestForm.addEventListener("submit", async (event) => {
+        if (resetRequestForm) resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
                 const response = await apiFetch("/auth/password-reset-request", {
@@ -2078,14 +2061,14 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email: resetRequestForm.email.value.trim() })
                 });
-                resetTokenPanel.style.display = "block";
+                if (resetTokenPanel) resetTokenPanel.style.display = "block";
                 showStatus(response.detail || "Reset token requested.", "ok");
             } catch (error) {
                 showStatus(error.message || "Failed to request password reset.", "error");
             }
         });
 
-        resetForm.addEventListener("submit", async (event) => {
+        if (resetForm) resetForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const email = resetRequestForm.email.value.trim();
             const token = resetForm.token.value.trim();
@@ -2110,7 +2093,7 @@
                     body: JSON.stringify({ email, token, new_password: newPassword })
                 });
                 resetForm.reset();
-                resetTokenPanel.style.display = "none";
+                if (resetTokenPanel) resetTokenPanel.style.display = "none";
                 showStatus(response.detail || "Password reset successfully.", "ok");
                 openTab("login");
             } catch (error) {
