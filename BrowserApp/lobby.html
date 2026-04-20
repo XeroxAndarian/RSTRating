@@ -1444,8 +1444,8 @@
 
         function renderInviteEntry() {
             if (!inviteTokenFromUrl) {
-                invitePreviewCard.style.display = "none";
-                inviteLobbyCard.style.display = "none";
+                if (invitePreviewCard) invitePreviewCard.style.display = "none";
+                if (inviteLobbyCard) inviteLobbyCard.style.display = "none";
                 return;
             }
 
@@ -1459,14 +1459,14 @@
                     : '<button class="ghost" id="promptLoginButton" type="button">Log in to accept</button>')
                 : "";
 
-            invitePreviewCard.style.display = currentUser ? "none" : "block";
-            inviteLobbyCard.style.display = currentUser ? "block" : "none";
-            invitePreviewText.textContent = text;
-            inviteLobbyText.textContent = text;
-            invitePreviewMeta.innerHTML = inviteMetaHtml(pendingInvite);
-            inviteLobbyMeta.innerHTML = inviteMetaHtml(pendingInvite);
-            invitePreviewActions.innerHTML = actionHtml;
-            inviteLobbyActions.innerHTML = actionHtml;
+            if (invitePreviewCard) invitePreviewCard.style.display = currentUser ? "none" : "block";
+            if (inviteLobbyCard) inviteLobbyCard.style.display = currentUser ? "block" : "none";
+            if (invitePreviewText) invitePreviewText.textContent = text;
+            if (inviteLobbyText) inviteLobbyText.textContent = text;
+            if (invitePreviewMeta) invitePreviewMeta.innerHTML = inviteMetaHtml(pendingInvite);
+            if (inviteLobbyMeta) inviteLobbyMeta.innerHTML = inviteMetaHtml(pendingInvite);
+            if (invitePreviewActions) invitePreviewActions.innerHTML = actionHtml;
+            if (inviteLobbyActions) inviteLobbyActions.innerHTML = actionHtml;
         }
 
         function renderLobbyOverview() {
@@ -2172,7 +2172,7 @@
             });
         }
 
-        leagueList.addEventListener("click", async (event) => {
+        if (leagueList) leagueList.addEventListener("click", async (event) => {
             const viewButton = event.target.closest(".view-league-button");
             if (viewButton) {
                 window.location.href = `./league.html?id=${Number(viewButton.dataset.leagueId)}`;
@@ -2198,7 +2198,7 @@
             }
         });
 
-        downloadBackupButton.addEventListener("click", async () => {
+        if (downloadBackupButton) downloadBackupButton.addEventListener("click", async () => {
             if (!isAdmin()) {
                 showStatus("Only admin can download backup data.", "error");
                 return;
@@ -2220,7 +2220,7 @@
             }
         });
 
-        restoreBackupButton.addEventListener("click", () => {
+        if (restoreBackupButton) restoreBackupButton.addEventListener("click", () => {
             if (!isAdmin()) {
                 showStatus("Only admin can restore backup data.", "error");
                 return;
@@ -2228,7 +2228,7 @@
             backupFileInput.click();
         });
 
-        backupFileInput.addEventListener("change", async (event) => {
+        if (backupFileInput) backupFileInput.addEventListener("change", async (event) => {
             const file = event.target.files && event.target.files[0];
             if (!file) {
                 return;
