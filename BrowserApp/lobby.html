@@ -1723,22 +1723,22 @@
 
         function renderAppState() {
             if (previewMode) {
-                authShell.classList.remove("active");
-                lobbyShell.classList.remove("active");
+                if (authShell) authShell.classList.remove("active");
+                if (lobbyShell) lobbyShell.classList.remove("active");
                 const bellButton = document.getElementById("notifBellButton");
                 if (bellButton) bellButton.style.display = "none";
-                logoutButton.style.display = "none";
+                if (logoutButton) logoutButton.style.display = "none";
                 if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
 
             const signedIn = !!currentUser;
-            authShell.classList.toggle("active", !signedIn);
-            lobbyShell.classList.toggle("active", signedIn);
+            if (authShell) authShell.classList.toggle("active", !signedIn);
+            if (lobbyShell) lobbyShell.classList.toggle("active", signedIn);
             const adminSignedIn = isAdmin();
-            backupSection.style.display = adminSignedIn ? "block" : "none";
-            devToolsSection.style.display = adminSignedIn ? "block" : "none";
-            logoutButton.style.display = signedIn ? "inline-flex" : "none";
+            if (backupSection) backupSection.style.display = adminSignedIn ? "block" : "none";
+            if (devToolsSection) devToolsSection.style.display = adminSignedIn ? "block" : "none";
+            if (logoutButton) logoutButton.style.display = signedIn ? "inline-flex" : "none";
 
             const bellButton = document.getElementById("notifBellButton");
             if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
@@ -1765,7 +1765,7 @@
             }
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
-            welcomeTitle.textContent = "Welcome, " + displayName;
+            if (welcomeTitle) welcomeTitle.textContent = "Welcome, " + displayName;
             renderWelcomeStats();
             renderLeagueList();
             renderUpcomingMatches();
