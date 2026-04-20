@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSTRating – Sign In</title>
+    <title>RSTRating Leagues</title>
     <style>
         :root {
             --bg: #d6ece0;
@@ -468,7 +468,7 @@
             }
         }
 
-        /* ── Notification Bell ──────────────────────────────────── */
+        /* â”€â”€ Notification Bell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .notif-bell {
             position: relative;
             background: var(--card);
@@ -494,7 +494,7 @@
             text-align: center;
         }
 
-        /* ── Notification Drawer ──────────────────────────────────── */
+        /* â”€â”€ Notification Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .notif-backdrop {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.45);
@@ -554,7 +554,7 @@
         }
         .icon-button:hover { background: var(--bg); color: var(--text); }
 
-        /* ── Modal ──────────────────────────────────── */
+        /* â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .modal-backdrop {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.55);
@@ -574,7 +574,7 @@
         }
         .modal-card h3 { margin: 0 0 6px; }
 
-        /* ── Match Overlay (full-page slide-up) ──────────────────── */
+        /* â”€â”€ Match Overlay (full-page slide-up) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .match-overlay {
             position: fixed; inset: 0;
             background: var(--bg);
@@ -615,7 +615,7 @@
             margin: 0 auto;
         }
 
-        /* ── Match Creation form toggle ──────────────────── */
+        /* â”€â”€ Match Creation form toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .collapsible-form {
             margin-top: 14px;
         }
@@ -633,7 +633,7 @@
         }
         .collapsible-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
-        /* ── Matches list in league card ──────────────────── */
+        /* â”€â”€ Matches list in league card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .match-mini-card {
             display: flex;
             align-items: center;
@@ -652,7 +652,7 @@
         .match-mini-meta { font-size: 0.78rem; color: var(--muted); }
         .match-mini-pill { font-size: 0.75rem; }
 
-        /* ── Match Detail view ──────────────────── */
+        /* â”€â”€ Match Detail view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .match-detail-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -682,7 +682,7 @@
             border-top: 1px solid var(--border);
         }
 
-        /* ── Live Match view ──────────────────── */
+        /* â”€â”€ Live Match view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .score-board {
             display: flex;
             align-items: center;
@@ -751,7 +751,7 @@
         .event-desc { flex: 1; }
         .event-undo { margin-left: auto; }
 
-        /* ── Undo toast ──────────────────── */
+        /* â”€â”€ Undo toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .undo-toast {
             position: fixed;
             bottom: 28px; left: 50%;
@@ -769,7 +769,7 @@
         }
         .undo-toast button { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
 
-        /* ── Match Summary ──────────────────── */
+        /* â”€â”€ Match Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .summary-player-row {
             display: flex;
             align-items: center;
@@ -783,7 +783,7 @@
         }
         .summary-stats { display: flex; gap: 16px; color: var(--muted); font-size: 0.82rem; }
 
-        /* ── Team display (pre-match) ──────────────────────────── */
+        /* â”€â”€ Team display (pre-match) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .teams-preview {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -809,7 +809,7 @@
         .team-player-chip:last-child { border-bottom: none; }
         .player-rating-small { color: var(--muted); font-size: 0.78rem; }
 
-        /* ── Assist picker modal ──────────────────────────── */
+        /* â”€â”€ Assist picker modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         #assistPickerModal .modal-card { max-width: 340px; }
         .assist-player-list { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
         .assist-player-btn {
@@ -824,7 +824,7 @@
         }
         .assist-player-btn:hover { border-color: var(--accent); }
 
-        /* ── Account Settings Drawer ──────────────────── */
+        /* â”€â”€ Account Settings Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .acct-drawer {
             position: fixed;
             top: 0; right: 0;
@@ -859,7 +859,7 @@
         }
         .league-leave-row:last-child { border-bottom: none; }
 
-        /* ── Compact league table ──────────────────── */
+        /* â”€â”€ Compact league table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .league-table { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
         .league-row {
             display: flex; align-items: center; gap: 10px;
@@ -879,7 +879,7 @@
         .lr-chip { font-size: 0.75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
         .lr-chip strong { color: var(--text); }
 
-        /* ── Upcoming matches list ──────────────────── */
+        /* â”€â”€ Upcoming matches list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .upcoming-match-row {
             display: flex; align-items: center; gap: 8px;
             padding: 8px 10px;
@@ -895,7 +895,7 @@
         .umr-meta { font-size: 0.75rem; color: var(--muted); }
         .umr-actions { display: flex; gap: 5px; flex-shrink: 0; }
 
-        /* ── Dark mode: inputs match panel background ──────────────────── */
+        /* â”€â”€ Dark mode: inputs match panel background â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         [data-theme="dark"] input,
         [data-theme="dark"] textarea,
         [data-theme="dark"] select {
@@ -903,14 +903,14 @@
             color: var(--text);
         }
 
-        /* ── Hero action buttons – uniform size ──────────────────── */
+        /* â”€â”€ Hero action buttons â€“ uniform size â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .hero .actions > button,
         .hero .actions > a {
             padding: 9px 13px;
             font-size: 1rem;
         }
 
-        /* ── Notification tabs ──────────────────── */
+        /* â”€â”€ Notification tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .notif-tab-bar {
             display: flex;
             gap: 8px;
@@ -937,7 +937,7 @@
             border-color: transparent;
         }
 
-        /* ── Welcome stats grid ──────────────────── */
+        /* â”€â”€ Welcome stats grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .welcome-stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -975,7 +975,13 @@
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
                 </div>
                 <div class="actions">
-                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;">â†ş</button>
+                    <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
+                        đź”” <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+                    </button>
+                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">đźŚ™</button>
+                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;">âš™</button>
+                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">đźšŞ</button>
                 </div>
             </div>
         </section>
@@ -1052,7 +1058,7 @@
                             </div>
                         </section>
 
-                        <p class="dev-toggle-row"><button class="dev-toggle-btn" id="devToggleBtn" type="button" title="Advanced connection settings">⚙</button></p>
+                        <p class="dev-toggle-row"><button class="dev-toggle-btn" id="devToggleBtn" type="button" title="Advanced connection settings">âš™</button></p>
                         <section class="panel-card dev-tools-panel" id="devToolsPanel" style="display:none;">
                             <h2 class="section-title">Backend connection</h2>
                             <p class="subtle">Override the API server URL (advanced).</p>
@@ -1073,28 +1079,194 @@
                         <div class="overview-grid" id="publicStatsGrid" style="margin-top:18px;">
                             <div class="overview-card">
                                 <span class="overview-label">Registered players</span>
-                                <span class="overview-value" id="statUsers">—</span>
+                                <span class="overview-value" id="statUsers">â€”</span>
                             </div>
                             <div class="overview-card">
                                 <span class="overview-label">Active leagues</span>
-                                <span class="overview-value" id="statLeagues">—</span>
+                                <span class="overview-value" id="statLeagues">â€”</span>
                             </div>
                             <div class="overview-card">
                                 <span class="overview-label">Matches played</span>
-                                <span class="overview-value" id="statMatches">—</span>
+                                <span class="overview-value" id="statMatches">â€”</span>
                             </div>
                         </div>
                         <p class="hint" style="margin-top:20px;">Create or join a league with invite code or a direct invitation link. One account works across all leagues.</p>
                     </aside>
                 </div>
             </section>
+
+            <section class="lobby-shell" id="lobbyShell">
+                <div class="lobby-grid">
+                    <!-- LEFT: compact league list -->
+                    <div class="stack">
+                        <section class="invite-preview-card" id="inviteLobbyCard" style="display: none;">
+                            <h2 class="section-title">Invitation ready</h2>
+                            <p class="subtle" id="inviteLobbyText"></p>
+                            <div class="meta-grid" id="inviteLobbyMeta"></div>
+                            <div class="section-actions" style="margin-top: 14px;" id="inviteLobbyActions"></div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title" style="margin:0 0 4px;" id="welcomeTitle">Welcome</h2>
+                            <p class="subtle" id="welcomeSubtitle" style="margin-top:0;font-size:0.88rem;"></p>
+                            <div id="welcomeStatsGrid" class="welcome-stats-grid" style="margin-top:12px;"></div>
+                        </section>
+
+                        <section class="panel-card">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                                <h2 class="section-title" style="margin:0;">Your Leagues</h2>
+                                <div class="actions" style="gap:6px;">
+                                    <a class="ghost" href="./create_league.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">+ New</a>
+                                    <button class="ghost" id="joinLeagueBtn" type="button" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Join</button>
+                                    <a class="ghost" href="./discover.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Find</a>
+                                </div>
+                            </div>
+                            <div id="leagueTable" class="league-table">
+                                <p class="hint" style="padding:8px 0;">Loading leaguesâ€¦</p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- RIGHT: upcoming matches + match history + quick actions -->
+                    <div class="stack">
+                        <section class="panel-card">
+                            <h2 class="section-title">Upcoming Matches</h2>
+                            <div id="upcomingMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loadingâ€¦</p>
+                            </div>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Recent Matches</h2>
+                            <div id="recentMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loadingâ€¦</p>
+                            </div>
+                        </section>
+
+                        <section class="panel-card" id="backupSection" style="display: none;">
+                            <h2 class="section-title">Backup all data</h2>
+                            <p class="subtle">Admin only: accounts, leagues, memberships, invites, stats.</p>
+                            <div class="actions" style="margin-top: 14px;">
+                                <button class="button" id="downloadBackupButton" type="button">Download backup</button>
+                                <button class="ghost" id="restoreBackupButton" type="button">Restore backup</button>
+                            </div>
+                            <input id="backupFileInput" type="file" accept=".json" hidden>
+                        </section>
+
+                        <details class="dev-tools" id="devToolsSection" style="display: none;">
+                            <summary>Developer connection override</summary>
+                            <div class="stack" style="margin-top: 12px;">
+                                <label for="apiBaseInput">Backend API URL</label>
+                                <input id="apiBaseInput" type="text" placeholder="https://rstrating-accounts-api.onrender.com">
+                                <button class="ghost" id="saveApiBaseButton" type="button">Save override</button>
+                            </div>
+                        </details>
+                    </div>
+                </div>
             </section>
         </section>
     </main>
 
+    <!-- Notification Drawer -->
+    <div class="notif-drawer" id="notifDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Notifications</h3>
+            <button class="icon-button" id="closeNotifButton" type="button" aria-label="Close">âś•</button>
+        </div>
+        <div class="notif-tab-bar">
+            <button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>
+            <button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>
+        </div>
+        <div class="notif-drawer-actions">
+            <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>
+        </div>
+        <div class="notif-list" id="notifList"></div>
+    </div>
+    <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
+
+    <!-- Join Drawer -->
+    <div class="notif-drawer" id="joinDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Join a League</h3>
+            <button class="icon-button" id="closeJoinDrawerBtn" type="button" aria-label="Close">âś•</button>
+        </div>
+        <div style="padding:20px;">
+            <p class="subtle" style="margin-bottom:16px;">Enter the invite code you received to join a league directly.</p>
+            <form class="stack" id="joinByCodeForm">
+                <label for="inviteCodeInput">Invite code</label>
+                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="A1B2C3" required autocomplete="off">
+                <button class="button" type="submit">Join league</button>
+            </form>
+        </div>
+    </div>
+    <div class="notif-backdrop" id="joinBackdrop" style="display:none;"></div>
+
+    <!-- Account Settings Drawer -->
+    <div class="acct-drawer" id="acctDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Account Settings</h3>
+            <button class="icon-button" id="closeAcctDrawerBtn" type="button" aria-label="Close">âś•</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
+            <div>
+                <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">â€”</strong></p>
+            </div>
+            <form id="updateProfileForm" class="stack" style="gap:8px;">
+                <label for="acctDisplayName">Display name</label>
+                <input id="acctDisplayName" type="text" placeholder="Your display name" maxlength="40">
+                <button class="button" type="submit" style="align-self:flex-start;padding:7px 16px;">Save</button>
+                <p class="hint" id="acctUpdateMsg" style="display:none;"></p>
+            </form>
+            <div>
+                <h4 style="margin:0 0 8px;font-size:0.95rem;">Your leagues</h4>
+                <div id="acctLeagueList" style="display:flex;flex-direction:column;gap:6px;">
+                    <p class="hint">Loadingâ€¦</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Match Overlay -->
+    <div class="match-overlay" id="matchOverlay" style="display:none;">
+        <div class="match-overlay-header">
+            <button class="icon-button" id="closeMatchOverlayButton" type="button" aria-label="Back">â† Back</button>
+            <div class="match-overlay-title-group">
+                <h2 id="matchOverlayTitle">Match</h2>
+                <span class="pill" id="matchStatusBadge"></span>
+            </div>
+        </div>
+        <div id="matchOverlayContent">
+            <p class="hint" style="padding:24px;">Loading match detailsâ€¦</p>
+        </div>
+    </div>
+
+    <!-- Assist Picker Modal (shown over match overlay) -->
+    <div class="modal-backdrop" id="assistPickerModal" style="display:none;">
+        <div class="modal-card" id="assistPickerModalCard">
+            <h3>Who assisted?</h3>
+            <p class="subtle" id="assistPickerSubtitle">Select the player who assisted, or skip.</p>
+            <div class="assist-player-list" id="assistPlayerList"></div>
+            <button class="ghost" id="noAssistButton" type="button" style="margin-top:12px;width:100%;">No assist / skip</button>
+        </div>
+    </div>
+
+    <!-- Admin Backdoor Modal -->
+    <div class="modal-backdrop" id="backdoorBackdrop" style="display:none;">
+        <div class="modal-card">
+            <h3>Admin backdoor</h3>
+            <p class="subtle">Enter the admin PIN to authenticate as admin without using stored credentials.</p>
+            <input type="password" id="backdoorPinInput" placeholder="Admin PIN" maxlength="64" style="margin-top:14px;width:100%;box-sizing:border-box;">
+            <div class="actions" style="margin-top:14px;">
+                <button class="button" id="backdoorSubmitButton" type="button">Authenticate</button>
+                <button class="ghost" id="backdoorCancelButton" type="button">Cancel</button>
+            </div>
+            <div class="status" id="backdoorStatus" role="status" aria-live="polite" style="margin-top:10px;"></div>
+        </div>
+    </div>
+
     <script>
 
-        // ── Dark mode ────────────────────────────
+        // â”€â”€ Dark mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         (function() {
             const saved = localStorage.getItem("rs_theme");
             if (saved !== "light") document.documentElement.setAttribute("data-theme", "dark");
@@ -1103,7 +1275,7 @@
             const btn = document.getElementById("darkModeToggle");
             if (btn) {
                 function updateBtn() {
-                    btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
+                    btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "â€ď¸Ź" : "đźŚ™";
                 }
                 updateBtn();
                 btn.addEventListener("click", function() {
@@ -1335,12 +1507,12 @@
                 };
             } catch (err) {
                 if (err.status === 401) {
-                    // Token rejected by server — clear it
+                    // Token rejected by server â€” clear it
                     clearToken();
                     currentUser = null;
                     lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
                 } else {
-                    // Network / server error — keep token, show login with error hint
+                    // Network / server error â€” keep token, show login with error hint
                     currentUser = null;
                     lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
                 }
@@ -1531,16 +1703,16 @@
                 return;
             }
             const WHISTLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
-            const roleIcon = r => r === "owner" ? "🤵" : r === "admin" ? WHISTLE : "👕";
+            const roleIcon = r => r === "owner" ? "đź¤µ" : r === "admin" ? WHISTLE : "đź‘•";
             el.innerHTML = lobbyState.leagues.map(league => {
                 const stats = (lobbyState.league_player_stats || []).find(s => s.league_id === league.id);
-                const rating = stats ? Math.round(stats.rating) : "—";
+                const rating = stats ? Math.round(stats.rating) : "â€”";
                 return `
                 <div class="league-row" data-league-id="${league.id}">
                     <span class="lr-role" title="${escapeHtml(league.member_role)}">${roleIcon(league.member_role)}</span>
                     <span class="lr-name">${escapeHtml(league.name)}</span>
-                    <span class="lr-chip">👥 ${league.member_count}</span>
-                    <span class="lr-chip">★ ${rating}</span>
+                    <span class="lr-chip">đź‘Ą ${league.member_count}</span>
+                    <span class="lr-chip">â… ${rating}</span>
                 </div>`;
             }).join("");
             el.querySelectorAll(".league-row").forEach(row => {
@@ -1580,8 +1752,8 @@
                             <span class="umr-date">${dateStr}</span>
                         </div>
                         <div class="umr-actions">
-                            <span class="lr-chip">👥 ${regCount}</span>
-                            <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
+                            <span class="lr-chip">đź‘Ą ${regCount}</span>
+                            <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">â„ąď¸Ź</button>
                             <button class="button umr-reg-btn" type="button" data-match-id="${m.id}" data-league-id="${m.league_id}" style="padding:4px 10px;font-size:0.8rem;">Register</button>
                         </div>
                     </div>`;
@@ -1616,15 +1788,15 @@
             panel.innerHTML = recent.map(m => {
                 const dt = new Date(m.scheduled_at || m.created_at);
                 const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                const score = (m.score_a != null && m.score_b != null) ? `${m.score_a} – ${m.score_b}` : "";
+                const score = (m.score_a != null && m.score_b != null) ? `${m.score_a} â€“ ${m.score_b}` : "";
                 return `<div class="upcoming-match-row" style="cursor:pointer;" data-match-id="${m.id}">
                     <div class="umr-info">
                         <span class="umr-league">${escapeHtml(m._leagueName)}</span>
                         <div class="umr-title">${escapeHtml(m.title || "Match")}</div>
-                        <span class="umr-meta">${dateStr}${score ? " · " + score : ""}</span>
+                        <span class="umr-meta">${dateStr}${score ? " Â· " + score : ""}</span>
                     </div>
                     <div class="umr-actions">
-                        <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
+                        <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">â„ąď¸Ź</button>
                     </div>
                 </div>`;
             }).join("");
@@ -1666,22 +1838,22 @@
 
         function renderAppState() {
             if (previewMode) {
-                if (authShell) authShell.classList.remove("active");
-                if (lobbyShell) lobbyShell.classList.remove("active");
+                authShell.classList.remove("active");
+                lobbyShell.classList.remove("active");
                 const bellButton = document.getElementById("notifBellButton");
                 if (bellButton) bellButton.style.display = "none";
-                if (logoutButton) logoutButton.style.display = "none";
+                logoutButton.style.display = "none";
                 if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
 
             const signedIn = !!currentUser;
-            if (authShell) authShell.classList.toggle("active", !signedIn);
-            if (lobbyShell) lobbyShell.classList.toggle("active", signedIn);
+            authShell.classList.toggle("active", !signedIn);
+            lobbyShell.classList.toggle("active", signedIn);
             const adminSignedIn = isAdmin();
-            if (backupSection) backupSection.style.display = adminSignedIn ? "block" : "none";
-            if (devToolsSection) devToolsSection.style.display = adminSignedIn ? "block" : "none";
-            if (logoutButton) logoutButton.style.display = signedIn ? "inline-flex" : "none";
+            backupSection.style.display = adminSignedIn ? "block" : "none";
+            devToolsSection.style.display = adminSignedIn ? "block" : "none";
+            logoutButton.style.display = signedIn ? "inline-flex" : "none";
 
             const bellButton = document.getElementById("notifBellButton");
             if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
@@ -1708,7 +1880,7 @@
             }
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
-            if (welcomeTitle) welcomeTitle.textContent = "Welcome, " + displayName;
+            welcomeTitle.textContent = "Welcome, " + displayName;
             renderWelcomeStats();
             renderLeagueList();
             renderUpcomingMatches();
@@ -1923,7 +2095,7 @@
             }
         });
 
-        if (logoutButton) logoutButton.addEventListener("click", () => {
+        logoutButton.addEventListener("click", () => {
             if (!currentUser) {
                 return;
             }
@@ -2393,7 +2565,7 @@
                     <div class="match-mini-card open-match-button" data-match-id="${m.id}">
                         <div class="match-mini-left">
                             <div class="match-mini-title">${escapeHtml(m.title)}</div>
-                            <div class="match-mini-meta">${escapeHtml(m.scheduled_at.slice(0, 16).replace("T", " "))}${m.location ? " · " + escapeHtml(m.location) : ""} · ${escapeHtml(m.registered_count)}/${escapeHtml(m.max_participants)} registered</div>
+                            <div class="match-mini-meta">${escapeHtml(m.scheduled_at.slice(0, 16).replace("T", " "))}${m.location ? " Â· " + escapeHtml(m.location) : ""} Â· ${escapeHtml(m.registered_count)}/${escapeHtml(m.max_participants)} registered</div>
                         </div>
                         <span class="pill match-mini-pill">${statusLabel(m.status)}</span>
                     </div>
@@ -2453,7 +2625,7 @@
 
         async function loadMatchDetail(matchId) {
             document.getElementById("matchOverlay").style.display = "flex";
-            document.getElementById("matchOverlayContent").innerHTML = '<p class="hint" style="padding:24px;">Loading…</p>';
+            document.getElementById("matchOverlayContent").innerHTML = '<p class="hint" style="padding:24px;">Loadingâ€¦</p>';
             document.getElementById("matchOverlayTitle").textContent = "Match";
             document.getElementById("matchStatusBadge").textContent = "";
             currentMatchId = matchId;
@@ -2605,7 +2777,7 @@
                 <div class="player-event-row">
                     <span>${escapeHtml(playerName(uid))}</span>
                     ${canManage ? `<div class="player-event-buttons">
-                        <button class="event-btn goal" data-uid="${uid}" data-team="${teamLabel}">⚽ Goal</button>
+                        <button class="event-btn goal" data-uid="${uid}" data-team="${teamLabel}">âš˝ Goal</button>
                     </div>` : ""}
                 </div>`).join("");
 
@@ -2613,11 +2785,11 @@
             const timelineHtml = activeEvents.length
                 ? activeEvents.map(e => {
                     const mins = Math.floor(e.event_seconds / 60);
-                    const icon = e.event_type === "goal" ? "⚽" : e.event_type === "assist" ? "🅰️" : "⏸️";
+                    const icon = e.event_type === "goal" ? "âš˝" : e.event_type === "assist" ? "đź…°ď¸Ź" : "âŹ¸ď¸Ź";
                     const desc = e.event_type === "goal"
                         ? `<strong>${escapeHtml(e.username || "?")} </strong> scored (Team ${e.team ? e.team.toUpperCase() : "?"})`
                         : e.event_type === "assist"
-                        ? `<span style="color:var(--muted)">🅰️ ${escapeHtml(e.username || "?")} assisted (Team ${e.team ? e.team.toUpperCase() : "?"})</span>`
+                        ? `<span style="color:var(--muted)">đź…°ď¸Ź ${escapeHtml(e.username || "?")} assisted (Team ${e.team ? e.team.toUpperCase() : "?"})</span>`
                         : `${icon} ${e.event_type}`;
                     const canUndo = canManage && (Date.now() - new Date(e.created_at.endsWith("Z") ? e.created_at : e.created_at + "Z").getTime()) < 30000;
                     return `<div class="event-line">
@@ -2634,7 +2806,7 @@
                         <div class="score-team-name">Team A</div>
                         <div class="score-value" id="scoreA">${match.score_a}</div>
                     </div>
-                    <div class="score-divider">–</div>
+                    <div class="score-divider">â€“</div>
                     <div class="score-team">
                         <div class="score-team-name">Team B</div>
                         <div class="score-value" id="scoreB">${match.score_b}</div>
@@ -2771,13 +2943,13 @@
             function teamSummary(ids, label, won) {
                 return `
                     <div class="panel-card">
-                        <h4 class="section-title" style="font-size:0.95rem;margin-bottom:10px;">Team ${label} ${won ? "🏆" : ""}</h4>
+                        <h4 class="section-title" style="font-size:0.95rem;margin-bottom:10px;">Team ${label} ${won ? "đźŹ†" : ""}</h4>
                         ${ids.map(uid => `
                             <div class="summary-player-row">
                                 <span>${escapeHtml(playerName(uid))}</span>
                                 <div class="summary-stats">
-                                    <span>⚽ ${goalsByPlayer[uid] || 0}</span>
-                                    <span>🅰️ ${assistsByPlayer[uid] || 0}</span>
+                                    <span>âš˝ ${goalsByPlayer[uid] || 0}</span>
+                                    <span>đź…°ď¸Ź ${assistsByPlayer[uid] || 0}</span>
                                 </div>
                             </div>`).join("")}
                     </div>`;
@@ -2786,7 +2958,7 @@
             document.getElementById("matchOverlayContent").innerHTML = `
                 <div class="score-board" style="margin-bottom:20px;">
                     <div class="score-team"><div class="score-team-name">Team A</div><div class="score-value">${match.score_a}</div></div>
-                    <div class="score-divider">–</div>
+                    <div class="score-divider">â€“</div>
                     <div class="score-team"><div class="score-team-name">Team B</div><div class="score-value">${match.score_b}</div></div>
                 </div>
                 ${teamSummary(match.team_a || [], "A", aWon)}
@@ -2855,11 +3027,6 @@
         }
 
         async function bootstrap() {
-            // If already authenticated, go straight to the lobby
-            if (getToken()) {
-                window.location.href = './lobby.html';
-                return;
-            }
             apiBaseInput.value = getApiBase();
             if (authApiBaseInput) authApiBaseInput.value = getApiBase();
 
@@ -2904,3 +3071,4 @@
     </script>
 </body>
 </html>
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSTRating – Sign In</title>
+    <title>RSTRating – Lobby</title>
     <style>
         :root {
             --bg: #d6ece0;
@@ -163,13 +163,7 @@
             padding: 32px;
         }
 
-        .auth-shell,
         .lobby-shell {
-            display: none;
-        }
-
-        .auth-shell.active,
-        .lobby-shell.active {
             display: block;
         }
 
@@ -975,122 +969,185 @@
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
                 </div>
                 <div class="actions">
+                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;">↺</button>
+                    <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
+                        🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+                    </button>
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;">⚙</button>
+                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">🚪</button>
                 </div>
             </div>
         </section>
-
         <section class="content">
-            <section class="auth-shell active" id="authShell">
-                <div class="auth-grid">
+            <section class="lobby-shell" id="lobbyShell">
+                <div class="lobby-grid">
+                    <!-- LEFT: compact league list -->
                     <div class="stack">
-                        <section class="invite-preview-card" id="invitePreviewCard" style="display: none;">
-                            <h2 class="section-title">League invitation</h2>
-                            <p class="subtle" id="invitePreviewText"></p>
-                            <div class="meta-grid" id="invitePreviewMeta"></div>
-                            <div class="section-actions" style="margin-top: 14px;" id="invitePreviewActions"></div>
+                        <section class="invite-preview-card" id="inviteLobbyCard" style="display: none;">
+                            <h2 class="section-title">Invitation ready</h2>
+                            <p class="subtle" id="inviteLobbyText"></p>
+                            <div class="meta-grid" id="inviteLobbyMeta"></div>
+                            <div class="section-actions" style="margin-top: 14px;" id="inviteLobbyActions"></div>
                         </section>
 
                         <section class="panel-card">
-                            <div class="auth-tabs">
-                                <button class="tab active" id="loginTab" type="button">Log in</button>
-                                <button class="tab" id="registerTab" type="button">Register</button>
-                            </div>
-
-                            <div class="panel active" id="loginPanel">
-                                <form class="stack" id="loginForm">
-                                    <label for="loginUsername">Username</label>
-                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
-                                    <label for="loginPassword">Password</label>
-                                    <input id="loginPassword" name="password" type="password" minlength="6" required>
-                                    <button class="button" type="submit">Enter Lobby</button>
-                                </form>
-                                <p class="hint">If you opened an invitation link, log in and accept it directly from this page.</p>
-                            </div>
-
-                            <div class="panel" id="registerPanel">
-                                <form class="stack" id="registerForm">
-                                    <label for="registerUsername">Username</label>
-                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="john_smith">
-                                    <label for="registerName">Name</label>
-                                    <input id="registerName" name="name" type="text" maxlength="100" required placeholder="John">
-                                    <label for="registerSurname">Surname</label>
-                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required placeholder="Smith">
-                                    <label for="registerEmail">Email</label>
-                                    <input id="registerEmail" name="email" type="email" maxlength="255" required placeholder="john@example.com">
-                                    <label for="registerPassword">Password</label>
-                                    <input id="registerPassword" name="password" type="password" minlength="6" required placeholder="At least 6 characters">
-                                    <label for="registerPasswordRepeat">Repeat password</label>
-                                    <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required placeholder="Same as above">
-                                    <label for="registerDisplayName">Display name</label>
-                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="Cool Player (optional)">
-                                    <button class="button" type="submit">Create account</button>
-                                </form>
-                            </div>
-
-                            <div class="status" id="statusBox" role="status" aria-live="polite"></div>
+                            <h2 class="section-title" style="margin:0 0 4px;" id="welcomeTitle">Welcome</h2>
+                            <p class="subtle" id="welcomeSubtitle" style="margin-top:0;font-size:0.88rem;"></p>
+                            <div id="welcomeStatsGrid" class="welcome-stats-grid" style="margin-top:12px;"></div>
                         </section>
 
-                        <section class="panel-card" id="resetSection" style="display:none;">
-                            <h2 class="section-title">Forgot your password?</h2>
-                            <p class="subtle">Enter the email linked to your account to receive a reset token.</p>
-                            <form class="stack" id="resetRequestForm" style="margin-top: 12px; margin-bottom: 14px;">
-                                <label for="resetEmail">Email</label>
-                                <input id="resetEmail" name="email" type="email" required>
-                                <button class="ghost" type="submit">Send reset token</button>
-                            </form>
-                            <div id="resetTokenPanel" style="display: none;">
-                                <form class="stack" id="resetForm">
-                                    <label for="resetToken">Reset token</label>
-                                    <input id="resetToken" name="token" type="text" required>
-                                    <label for="resetNewPassword">New password</label>
-                                    <input id="resetNewPassword" name="newPassword" type="password" minlength="6" required>
-                                    <label for="resetPasswordRepeat">Repeat new password</label>
-                                    <input id="resetPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required>
-                                    <button class="button" type="submit">Set new password</button>
-                                </form>
-                            </div>
-                        </section>
-
-                        <p class="dev-toggle-row"><button class="dev-toggle-btn" id="devToggleBtn" type="button" title="Advanced connection settings">⚙</button></p>
-                        <section class="panel-card dev-tools-panel" id="devToolsPanel" style="display:none;">
-                            <h2 class="section-title">Backend connection</h2>
-                            <p class="subtle">Override the API server URL (advanced).</p>
-                            <div class="stack" style="margin-top:12px;">
-                                <label for="authApiBaseInput">Backend API URL</label>
-                                <input id="authApiBaseInput" type="text" placeholder="http://127.0.0.1:8000">
-                                <div class="actions">
-                                    <button class="ghost" id="saveAuthApiBaseButton" type="button">Save</button>
-                                    <button class="ghost" id="resetAuthApiBaseButton" type="button">Reset</button>
+                        <section class="panel-card">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                                <h2 class="section-title" style="margin:0;">Your Leagues</h2>
+                                <div class="actions" style="gap:6px;">
+                                    <a class="ghost" href="./create_league.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">+ New</a>
+                                    <button class="ghost" id="joinLeagueBtn" type="button" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Join</button>
+                                    <a class="ghost" href="./discover.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Find</a>
                                 </div>
+                            </div>
+                            <div id="leagueTable" class="league-table">
+                                <p class="hint" style="padding:8px 0;">Loading leagues…</p>
                             </div>
                         </section>
                     </div>
 
-                    <aside class="panel-card">
-                        <h2 class="section-title">Platform at a glance</h2>
-                        <p class="subtle" id="statsSubtitle">Live numbers from the server.</p>
-                        <div class="overview-grid" id="publicStatsGrid" style="margin-top:18px;">
-                            <div class="overview-card">
-                                <span class="overview-label">Registered players</span>
-                                <span class="overview-value" id="statUsers">—</span>
+                    <!-- RIGHT: upcoming matches + match history + quick actions -->
+                    <div class="stack">
+                        <section class="panel-card">
+                            <h2 class="section-title">Upcoming Matches</h2>
+                            <div id="upcomingMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loading…</p>
                             </div>
-                            <div class="overview-card">
-                                <span class="overview-label">Active leagues</span>
-                                <span class="overview-value" id="statLeagues">—</span>
+                        </section>
+
+                        <section class="panel-card">
+                            <h2 class="section-title">Recent Matches</h2>
+                            <div id="recentMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loading…</p>
                             </div>
-                            <div class="overview-card">
-                                <span class="overview-label">Matches played</span>
-                                <span class="overview-value" id="statMatches">—</span>
+                        </section>
+
+                        <section class="panel-card" id="backupSection" style="display: none;">
+                            <h2 class="section-title">Backup all data</h2>
+                            <p class="subtle">Admin only: accounts, leagues, memberships, invites, stats.</p>
+                            <div class="actions" style="margin-top: 14px;">
+                                <button class="button" id="downloadBackupButton" type="button">Download backup</button>
+                                <button class="ghost" id="restoreBackupButton" type="button">Restore backup</button>
                             </div>
-                        </div>
-                        <p class="hint" style="margin-top:20px;">Create or join a league with invite code or a direct invitation link. One account works across all leagues.</p>
-                    </aside>
+                            <input id="backupFileInput" type="file" accept=".json" hidden>
+                        </section>
+
+                        <details class="dev-tools" id="devToolsSection" style="display: none;">
+                            <summary>Developer connection override</summary>
+                            <div class="stack" style="margin-top: 12px;">
+                                <label for="apiBaseInput">Backend API URL</label>
+                                <input id="apiBaseInput" type="text" placeholder="https://rstrating-accounts-api.onrender.com">
+                                <button class="ghost" id="saveApiBaseButton" type="button">Save override</button>
+                            </div>
+                        </details>
+                    </div>
                 </div>
-            </section>
             </section>
         </section>
     </main>
+
+    <!-- Notification Drawer -->
+    <div class="notif-drawer" id="notifDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Notifications</h3>
+            <button class="icon-button" id="closeNotifButton" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="notif-tab-bar">
+            <button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>
+            <button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>
+        </div>
+        <div class="notif-drawer-actions">
+            <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>
+        </div>
+        <div class="notif-list" id="notifList"></div>
+    </div>
+    <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
+
+    <!-- Join Drawer -->
+    <div class="notif-drawer" id="joinDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Join a League</h3>
+            <button class="icon-button" id="closeJoinDrawerBtn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div style="padding:20px;">
+            <p class="subtle" style="margin-bottom:16px;">Enter the invite code you received to join a league directly.</p>
+            <form class="stack" id="joinByCodeForm">
+                <label for="inviteCodeInput">Invite code</label>
+                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="A1B2C3" required autocomplete="off">
+                <button class="button" type="submit">Join league</button>
+            </form>
+        </div>
+    </div>
+    <div class="notif-backdrop" id="joinBackdrop" style="display:none;"></div>
+
+    <!-- Account Settings Drawer -->
+    <div class="acct-drawer" id="acctDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Account Settings</h3>
+            <button class="icon-button" id="closeAcctDrawerBtn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
+            <div>
+                <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">—</strong></p>
+            </div>
+            <form id="updateProfileForm" class="stack" style="gap:8px;">
+                <label for="acctDisplayName">Display name</label>
+                <input id="acctDisplayName" type="text" placeholder="Your display name" maxlength="40">
+                <button class="button" type="submit" style="align-self:flex-start;padding:7px 16px;">Save</button>
+                <p class="hint" id="acctUpdateMsg" style="display:none;"></p>
+            </form>
+            <div>
+                <h4 style="margin:0 0 8px;font-size:0.95rem;">Your leagues</h4>
+                <div id="acctLeagueList" style="display:flex;flex-direction:column;gap:6px;">
+                    <p class="hint">Loading…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Match Overlay -->
+    <div class="match-overlay" id="matchOverlay" style="display:none;">
+        <div class="match-overlay-header">
+            <button class="icon-button" id="closeMatchOverlayButton" type="button" aria-label="Back">← Back</button>
+            <div class="match-overlay-title-group">
+                <h2 id="matchOverlayTitle">Match</h2>
+                <span class="pill" id="matchStatusBadge"></span>
+            </div>
+        </div>
+        <div id="matchOverlayContent">
+            <p class="hint" style="padding:24px;">Loading match details…</p>
+        </div>
+    </div>
+
+    <!-- Assist Picker Modal (shown over match overlay) -->
+    <div class="modal-backdrop" id="assistPickerModal" style="display:none;">
+        <div class="modal-card" id="assistPickerModalCard">
+            <h3>Who assisted?</h3>
+            <p class="subtle" id="assistPickerSubtitle">Select the player who assisted, or skip.</p>
+            <div class="assist-player-list" id="assistPlayerList"></div>
+            <button class="ghost" id="noAssistButton" type="button" style="margin-top:12px;width:100%;">No assist / skip</button>
+        </div>
+    </div>
+
+    <!-- Admin Backdoor Modal -->
+    <div class="modal-backdrop" id="backdoorBackdrop" style="display:none;">
+        <div class="modal-card">
+            <h3>Admin backdoor</h3>
+            <p class="subtle">Enter the admin PIN to authenticate as admin without using stored credentials.</p>
+            <input type="password" id="backdoorPinInput" placeholder="Admin PIN" maxlength="64" style="margin-top:14px;width:100%;box-sizing:border-box;">
+            <div class="actions" style="margin-top:14px;">
+                <button class="button" id="backdoorSubmitButton" type="button">Authenticate</button>
+                <button class="ghost" id="backdoorCancelButton" type="button">Cancel</button>
+            </div>
+            <div class="status" id="backdoorStatus" role="status" aria-live="polite" style="margin-top:10px;"></div>
+        </div>
+    </div>
 
     <script>
 
@@ -1666,22 +1723,22 @@
 
         function renderAppState() {
             if (previewMode) {
-                if (authShell) authShell.classList.remove("active");
-                if (lobbyShell) lobbyShell.classList.remove("active");
+                authShell.classList.remove("active");
+                lobbyShell.classList.remove("active");
                 const bellButton = document.getElementById("notifBellButton");
                 if (bellButton) bellButton.style.display = "none";
-                if (logoutButton) logoutButton.style.display = "none";
+                logoutButton.style.display = "none";
                 if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
 
             const signedIn = !!currentUser;
-            if (authShell) authShell.classList.toggle("active", !signedIn);
-            if (lobbyShell) lobbyShell.classList.toggle("active", signedIn);
+            authShell.classList.toggle("active", !signedIn);
+            lobbyShell.classList.toggle("active", signedIn);
             const adminSignedIn = isAdmin();
-            if (backupSection) backupSection.style.display = adminSignedIn ? "block" : "none";
-            if (devToolsSection) devToolsSection.style.display = adminSignedIn ? "block" : "none";
-            if (logoutButton) logoutButton.style.display = signedIn ? "inline-flex" : "none";
+            backupSection.style.display = adminSignedIn ? "block" : "none";
+            devToolsSection.style.display = adminSignedIn ? "block" : "none";
+            logoutButton.style.display = signedIn ? "inline-flex" : "none";
 
             const bellButton = document.getElementById("notifBellButton");
             if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
@@ -1708,7 +1765,7 @@
             }
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
-            if (welcomeTitle) welcomeTitle.textContent = "Welcome, " + displayName;
+            welcomeTitle.textContent = "Welcome, " + displayName;
             renderWelcomeStats();
             renderLeagueList();
             renderUpcomingMatches();
@@ -1923,7 +1980,7 @@
             }
         });
 
-        if (logoutButton) logoutButton.addEventListener("click", () => {
+        logoutButton.addEventListener("click", () => {
             if (!currentUser) {
                 return;
             }
@@ -2855,9 +2912,9 @@
         }
 
         async function bootstrap() {
-            // If already authenticated, go straight to the lobby
-            if (getToken()) {
-                window.location.href = './lobby.html';
+            // Auth guard — send unauthenticated users to login page
+            if (!getToken()) {
+                window.location.href = './index.html';
                 return;
             }
             apiBaseInput.value = getApiBase();
@@ -2893,10 +2950,10 @@
                 return;
             }
 
-            openTab("login");
             await refreshAndRender();
             if (!currentUser) {
-                showStatus(inviteTokenFromUrl ? "Invitation detected. Sign in or register to accept it." : "Sign in or register to enter the league lobby.", "ok");
+                // Token present but invalid or server error — redirect to login
+                window.location.href = './index.html';
             }
         }
 
