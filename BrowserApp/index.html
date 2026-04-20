@@ -1912,9 +1912,8 @@
                     })
                 });
                 setToken(tokenData.access_token);
-                await refreshAndRender();
-                loginForm.reset();
-                clearStatus();
+                window.location.href = './lobby.html';
+                return;
             } catch (error) {
                 showStatus(error.message || "Invalid username or password.", "error");
                 // Reveal password reset option after a failed login
