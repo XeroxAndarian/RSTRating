@@ -975,13 +975,13 @@
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
                 </div>
                 <div class="actions">
+                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;">↺</button>
                     <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
                         🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
                     </button>
-                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;padding:9px 12px;font-size:1rem;">⚙</button>
-                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" style="padding:9px 12px;">🌙</button>
-                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;padding:9px 12px;font-size:1.1rem;">↺</button>
-                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">&#x23FB;</button>
+                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;">⚙</button>
+                    <button class="danger" id="logoutButton" type="button" title="Sign out" style="display:none;">🚪</button>
                 </div>
             </div>
         </section>
@@ -1006,9 +1006,9 @@
                             <div class="panel active" id="loginPanel">
                                 <form class="stack" id="loginForm">
                                     <label for="loginUsername">Username</label>
-                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="e.g. john_smith">
+                                    <input id="loginUsername" name="username" type="text" minlength="3" maxlength="24" required>
                                     <label for="loginPassword">Password</label>
-                                    <input id="loginPassword" name="password" type="password" minlength="6" required placeholder="e.g. ••••••••">
+                                    <input id="loginPassword" name="password" type="password" minlength="6" required>
                                     <button class="button" type="submit">Enter Lobby</button>
                                 </form>
                                 <p class="hint">If you opened an invitation link, log in and accept it directly from this page.</p>
@@ -1017,19 +1017,19 @@
                             <div class="panel" id="registerPanel">
                                 <form class="stack" id="registerForm">
                                     <label for="registerUsername">Username</label>
-                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="e.g. john_smith">
+                                    <input id="registerUsername" name="username" type="text" minlength="3" maxlength="24" required placeholder="john_smith">
                                     <label for="registerName">Name</label>
-                                    <input id="registerName" name="name" type="text" maxlength="100" required placeholder="e.g. John">
+                                    <input id="registerName" name="name" type="text" maxlength="100" required placeholder="John">
                                     <label for="registerSurname">Surname</label>
-                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required placeholder="e.g. Smith">
+                                    <input id="registerSurname" name="surname" type="text" maxlength="100" required placeholder="Smith">
                                     <label for="registerEmail">Email</label>
-                                    <input id="registerEmail" name="email" type="email" maxlength="255" required placeholder="e.g. john@example.com">
+                                    <input id="registerEmail" name="email" type="email" maxlength="255" required placeholder="john@example.com">
                                     <label for="registerPassword">Password</label>
                                     <input id="registerPassword" name="password" type="password" minlength="6" required placeholder="At least 6 characters">
                                     <label for="registerPasswordRepeat">Repeat password</label>
                                     <input id="registerPasswordRepeat" name="passwordRepeat" type="password" minlength="6" required placeholder="Same as above">
                                     <label for="registerDisplayName">Display name</label>
-                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="e.g. Cool Player (optional)">
+                                    <input id="registerDisplayName" name="displayName" type="text" maxlength="100" placeholder="Cool Player (optional)">
                                     <button class="button" type="submit">Create account</button>
                                 </form>
                             </div>
@@ -1127,7 +1127,7 @@
                         </section>
                     </div>
 
-                    <!-- RIGHT: upcoming matches + quick actions -->
+                    <!-- RIGHT: upcoming matches + match history + quick actions -->
                     <div class="stack">
                         <section class="panel-card">
                             <h2 class="section-title">Upcoming Matches</h2>
@@ -1137,11 +1137,10 @@
                         </section>
 
                         <section class="panel-card">
-                            <h2 class="section-title">Join by Invite Code</h2>
-                            <form class="stack" id="joinByCodeForm" style="margin-top: 8px;">
-                                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="Invite code (e.g. A1B2C3)" required>
-                                <button class="button" type="submit">Join league</button>
-                            </form>
+                            <h2 class="section-title">Recent Matches</h2>
+                            <div id="recentMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loading…</p>
+                            </div>
                         </section>
 
                         <section class="panel-card" id="backupSection" style="display: none;">
@@ -1184,6 +1183,23 @@
         <div class="notif-list" id="notifList"></div>
     </div>
     <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
+
+    <!-- Join Drawer -->
+    <div class="notif-drawer" id="joinDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Join a League</h3>
+            <button class="icon-button" id="closeJoinDrawerBtn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div style="padding:20px;">
+            <p class="subtle" style="margin-bottom:16px;">Enter the invite code you received to join a league directly.</p>
+            <form class="stack" id="joinByCodeForm">
+                <label for="inviteCodeInput">Invite code</label>
+                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="A1B2C3" required autocomplete="off">
+                <button class="button" type="submit">Join league</button>
+            </form>
+        </div>
+    </div>
+    <div class="notif-backdrop" id="joinBackdrop" style="display:none;"></div>
 
     <!-- Account Settings Drawer -->
     <div class="acct-drawer" id="acctDrawer" aria-hidden="true">
@@ -1443,7 +1459,9 @@
             }
 
             if (!response.ok) {
-                throw new Error(body && body.detail ? body.detail : "Request failed");
+                const err = new Error(body && body.detail ? body.detail : "Request failed");
+                err.status = response.status;
+                throw err;
             }
 
             return body;
@@ -1487,10 +1505,17 @@
                     user_stats: lobby.user_stats || null,
                     league_player_stats: lobby.league_player_stats || []
                 };
-            } catch {
-                clearToken();
-                currentUser = null;
-                lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
+            } catch (err) {
+                if (err.status === 401) {
+                    // Token rejected by server — clear it
+                    clearToken();
+                    currentUser = null;
+                    lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
+                } else {
+                    // Network / server error — keep token, show login with error hint
+                    currentUser = null;
+                    lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
+                }
             }
         }
 
@@ -1697,50 +1722,86 @@
             });
         }
 
+        let allFetchedMatches = []; // shared cache for upcoming + recent
+
         async function renderUpcomingMatches() {
             const panel = document.getElementById("upcomingMatchesPanel");
             if (!panel || !lobbyState.leagues.length) return;
-            let upcoming = [];
+            allFetchedMatches = [];
             for (const league of lobbyState.leagues) {
                 try {
                     const matches = await apiFetch(`/leagues/${league.id}/matches`);
-                    const now = Date.now();
-                    matches.filter(m => m.status === "scheduled" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
-                        .forEach(m => upcoming.push({ ...m, _leagueName: league.name }));
+                    matches.forEach(m => allFetchedMatches.push({ ...m, _leagueName: league.name }));
                 } catch (e) { /* skip */ }
             }
+            const now = Date.now();
+            const upcoming = allFetchedMatches
+                .filter(m => m.status === "scheduled" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
+                .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+                .slice(0, 8);
             if (!upcoming.length) {
                 panel.innerHTML = '<p class="hint">No upcoming matches.</p>';
+            } else {
+                panel.innerHTML = upcoming.map(m => {
+                    const dt = new Date(m.scheduled_at);
+                    const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                    const regCount = m.registration_count ?? m.registrations?.length ?? "?";
+                    return `<div class="upcoming-match-row" data-match-id="${m.id}">
+                        <div class="umr-info">
+                            <span class="umr-league">${escapeHtml(m._leagueName)}</span>
+                            <span class="umr-date">${dateStr}</span>
+                        </div>
+                        <div class="umr-actions">
+                            <span class="lr-chip">👥 ${regCount}</span>
+                            <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
+                            <button class="button umr-reg-btn" type="button" data-match-id="${m.id}" data-league-id="${m.league_id}" style="padding:4px 10px;font-size:0.8rem;">Register</button>
+                        </div>
+                    </div>`;
+                }).join("");
+                panel.querySelectorAll(".umr-info-btn").forEach(btn => {
+                    btn.addEventListener("click", () => loadMatchDetail(Number(btn.dataset.matchId)));
+                });
+                panel.querySelectorAll(".umr-reg-btn").forEach(btn => {
+                    btn.addEventListener("click", async () => {
+                        try {
+                            await apiFetch(`/matches/${btn.dataset.matchId}/register`, { method: "POST" });
+                            showStatus("Registered!", "ok");
+                            await renderUpcomingMatches();
+                        } catch (e) { showStatus(e.message || "Failed.", "error"); }
+                    });
+                });
+            }
+            renderRecentMatches();
+        }
+
+        function renderRecentMatches() {
+            const panel = document.getElementById("recentMatchesPanel");
+            if (!panel) return;
+            const recent = allFetchedMatches
+                .filter(m => m.status === "completed" || m.status === "finished")
+                .sort((a, b) => new Date(b.scheduled_at || b.created_at) - new Date(a.scheduled_at || a.created_at))
+                .slice(0, 8);
+            if (!recent.length) {
+                panel.innerHTML = '<p class="hint">No completed matches yet.</p>';
                 return;
             }
-            upcoming.sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-            panel.innerHTML = upcoming.slice(0, 8).map(m => {
-                const dt = new Date(m.scheduled_at);
-                const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-                const regCount = m.registration_count ?? m.registrations?.length ?? "?";
-                return `<div class="upcoming-match-row" data-match-id="${m.id}">
+            panel.innerHTML = recent.map(m => {
+                const dt = new Date(m.scheduled_at || m.created_at);
+                const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                const score = (m.score_a != null && m.score_b != null) ? `${m.score_a} – ${m.score_b}` : "";
+                return `<div class="upcoming-match-row" style="cursor:pointer;" data-match-id="${m.id}">
                     <div class="umr-info">
                         <span class="umr-league">${escapeHtml(m._leagueName)}</span>
-                        <span class="umr-date">${dateStr}</span>
+                        <div class="umr-title">${escapeHtml(m.title || "Match")}</div>
+                        <span class="umr-meta">${dateStr}${score ? " · " + score : ""}</span>
                     </div>
                     <div class="umr-actions">
-                        <span class="lr-chip">👥 ${regCount}</span>
                         <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
-                        <button class="button umr-reg-btn" type="button" data-match-id="${m.id}" data-league-id="${m.league_id}" style="padding:4px 10px;font-size:0.8rem;">Register</button>
                     </div>
                 </div>`;
             }).join("");
             panel.querySelectorAll(".umr-info-btn").forEach(btn => {
                 btn.addEventListener("click", () => loadMatchDetail(Number(btn.dataset.matchId)));
-            });
-            panel.querySelectorAll(".umr-reg-btn").forEach(btn => {
-                btn.addEventListener("click", async () => {
-                    try {
-                        await apiFetch(`/matches/${btn.dataset.matchId}/register`, { method: "POST" });
-                        showStatus("Registered!", "ok");
-                        await renderUpcomingMatches();
-                    } catch (e) { showStatus(e.message || "Failed.", "error"); }
-                });
             });
         }
 
@@ -2196,14 +2257,25 @@
 
         const joinLeagueBtn = document.getElementById("joinLeagueBtn");
         if (joinLeagueBtn) {
-            joinLeagueBtn.addEventListener("click", () => {
-                const input = document.getElementById("inviteCodeInput");
-                if (input) {
-                    input.scrollIntoView({ behavior: "smooth", block: "center" });
-                    input.focus();
-                }
-            });
+            joinLeagueBtn.addEventListener("click", openJoinDrawer);
         }
+
+        function openJoinDrawer() {
+            document.getElementById("joinDrawer").classList.add("open");
+            document.getElementById("joinBackdrop").style.display = "block";
+            document.getElementById("joinDrawer").setAttribute("aria-hidden", "false");
+            const input = document.getElementById("inviteCodeInput");
+            if (input) setTimeout(() => input.focus(), 200);
+        }
+
+        function closeJoinDrawer() {
+            document.getElementById("joinDrawer").classList.remove("open");
+            document.getElementById("joinBackdrop").style.display = "none";
+            document.getElementById("joinDrawer").setAttribute("aria-hidden", "true");
+        }
+
+        document.getElementById("closeJoinDrawerBtn").addEventListener("click", closeJoinDrawer);
+        document.getElementById("joinBackdrop").addEventListener("click", closeJoinDrawer);
 
         if (joinByCodeForm) {
             joinByCodeForm.addEventListener("submit", async (event) => {
@@ -2223,6 +2295,7 @@
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ invite_code: code })
                     });
+                    closeJoinDrawer();
                     showStatus(`Joined ${league.name}. Redirecting...`, "ok");
                     window.location.href = `./league.html?id=${league.id}`;
                 } catch (error) {
