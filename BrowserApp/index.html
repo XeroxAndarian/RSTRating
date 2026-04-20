@@ -1785,8 +1785,8 @@
         loginTab.addEventListener("click", () => openTab("login"));
         registerTab.addEventListener("click", () => openTab("register"));
 
-        saveApiBaseButton.addEventListener("click", () => {
-            const value = apiBaseInput.value.trim();
+        if (saveApiBaseButton) saveApiBaseButton.addEventListener("click", () => {
+            const value = apiBaseInput ? apiBaseInput.value.trim() : "";
             if (!value) {
                 showStatus("Enter a backend API URL first.", "error");
                 return;
@@ -1804,7 +1804,7 @@
                     return;
                 }
                 setApiBase(value);
-                apiBaseInput.value = value;
+                if (apiBaseInput) apiBaseInput.value = value;
                 showStatus("Backend API URL saved.", "ok");
             });
         }
@@ -1814,7 +1814,7 @@
                 localStorage.removeItem(API_BASE_KEY);
                 const reset = getApiBase();
                 authApiBaseInput.value = reset;
-                apiBaseInput.value = reset;
+                if (apiBaseInput) apiBaseInput.value = reset;
                 showStatus("Backend API URL reset to default.", "ok");
             });
         }
@@ -1832,7 +1832,7 @@
         // Fetch and display public platform stats on the login page
         (async () => {
             try {
-                const s = await apiFetch("/public/stats");
+                const s = await publicApiFetch("/public/stats");
                 const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
                 el("statUsers", s.users);
                 el("statLeagues", s.leagues);
@@ -2859,7 +2859,7 @@
                 window.location.href = './lobby.html';
                 return;
             }
-            apiBaseInput.value = getApiBase();
+            if (apiBaseInput) apiBaseInput.value = getApiBase();
             if (authApiBaseInput) authApiBaseInput.value = getApiBase();
 
             if (previewTokenFromUrl) {
