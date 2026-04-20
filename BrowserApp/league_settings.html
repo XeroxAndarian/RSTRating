@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>League Settings | RSTRating</title>
+  <style>
+    :root {
+      --bg:#d6ece0; --panel:#fff; --card:rgba(248,255,251,.92);
+      --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --accent-dark:#166337;
+      --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16);
+      --surface:#ffffff; --border:rgba(14,44,29,.18);
+    }
+    [data-theme="dark"] {
+      --bg:#0f1f16; --panel:#1a2e22; --card:rgba(30,48,37,.92);
+      --text:#d4edda; --muted:#7faa8e; --accent:#2ab561; --accent-dark:#1d8748;
+      --success:#22c55e; --danger:#f87171; --line:rgba(180,220,195,.14);
+      --surface:#1a2e22; --border:rgba(180,220,195,.18);
+    }
+    body { margin:0; font-family:Georgia,"Times New Roman",serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .wrap { max-width:900px; margin:24px auto; padding:0 16px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
+    h1,h2,h3 { margin:0; }
+    .muted { color:var(--muted); }
+    .btn { border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:.88rem; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:opacity .12s; }
+    .btn:hover { opacity:.85; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.confirm { background:var(--success); color:#fff; }
+    .btn.danger { background:var(--danger); color:#fff; }
+    .btn.ghost { border:1px solid var(--line); background:var(--card); color:var(--text); }
+    .btn.sm { padding:5px 9px; font-size:.78rem; }
+    .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:rgba(31,138,76,.1); border:1px solid var(--line); font-size:.8rem; color:var(--accent-dark); font-weight:700; }
+    .stack { display:flex; flex-direction:column; gap:8px; }
+    label { font-size:.85rem; font-weight:700; display:block; }
+    input[type=text], textarea, input[type=datetime-local] { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); box-sizing:border-box; }
+    textarea { resize:vertical; }
+    .member-mgmt { display:flex; flex-direction:column; gap:5px; max-height:470px; overflow-y:auto; margin-top:8px; }
+    .member-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:var(--card); }
+    .member-row .mr-name { flex:1; font-size:.9rem; font-weight:700; }
+    .member-row .mr-since { font-size:.75rem; color:var(--muted); }
+    .member-row .mr-actions { display:flex; gap:4px; }
+    .invite-row { display:flex; flex-direction:column; gap:3px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+    .ban-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+    .tab-bar { display:flex; gap:4px; margin-bottom:10px; }
+    .tab-bar button { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:8px; padding:5px 14px; font:inherit; font-size:.85rem; cursor:pointer; font-weight:700; }
+    .tab-bar button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .status { color:var(--muted); font-size:.9rem; margin-top:8px; min-height:20px; }
+    .status.error { color:var(--danger); }
+    .mono { font-family:ui-monospace,monospace; font-size:.8rem; }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { background:var(--surface); border-radius:14px; padding:24px 28px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,.28); color:var(--text); }
+    .modal-card h3 { margin:0 0 10px; }
+    .modal-card label { font-size:.85rem; font-weight:700; display:block; margin-top:10px; }
+    .modal-card input, .modal-card textarea { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); margin-top:3px; box-sizing:border-box; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row" style="justify-content:space-between; margin-bottom:14px;">
+      <div>
+        <h1 id="title">League Settings</h1>
+        <div class="muted" id="subtitle"></div>
+      </div>
+      <div class="row">
+        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">🌙</button>
+        <a class="btn ghost" id="backToLeague" href="#">← League</a>
+      </div>
+    </div>
+
+    <!-- General settings -->
+    <div class="card">
+      <h2 style="margin-bottom:12px;">General Settings</h2>
+      <div class="stack">
+        <div>
+          <label for="settingName">League name</label>
+          <input id="settingName" type="text" maxlength="80">
+        </div>
+        <div>
+          <label for="settingDesc">Description</label>
+          <textarea id="settingDesc" maxlength="300" rows="3"></textarea>
+        </div>
+        <div class="row">
+          <input id="settingAutoAccept" type="checkbox" style="width:auto;">
+          <label for="settingAutoAccept" style="margin:0;font-weight:700;">Auto-accept new members</label>
+        </div>
+        <button class="btn primary" id="saveSettingsBtn" type="button" style="align-self:flex-start;">Save settings</button>
+        <div class="status" id="settingsStatus"></div>
+      </div>
+    </div>
+
+    <!-- Member management -->
+    <div class="card">
+      <h2 style="margin-bottom:6px;">Member Management</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:.88rem;">Scrollable list (up to 10 visible at a time)</p>
+      <div class="member-mgmt" id="memberMgmt"><p class="muted">Loading…</p></div>
+    </div>
+
+    <!-- Invites -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+        <h2>Invites</h2>
+        <button class="btn confirm sm" id="newInviteBtn">+ New invite</button>
+      </div>
+      <div class="tab-bar">
+        <button class="active" id="tabActive">Active</button>
+        <button id="tabUsed">Used / Expired</button>
+      </div>
+      <div id="inviteList" class="stack" style="gap:6px;"></div>
+    </div>
+
+    <!-- Ban list -->
+    <div class="card">
+      <h2 style="margin-bottom:8px;">🚫 Banned Players</h2>
+      <div id="banList" class="stack" style="gap:6px;"></div>
+    </div>
+
+    <div class="status" id="globalStatus"></div>
+  </div>
+
+  <!-- Ban Modal -->
+  <div class="modal-backdrop" id="banModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Ban player</h3>
+      <p class="muted" id="banModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <label for="banReasonInput">Reason (optional)</label>
+      <input id="banReasonInput" type="text" maxlength="300" placeholder="e.g. repeated no-show">
+      <div class="row" style="margin-top:16px;">
+        <button class="btn danger" id="banConfirmBtn" type="button">Ban</button>
+        <button class="btn ghost" id="banCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Penalty Modal -->
+  <div class="modal-backdrop" id="penaltyModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Apply penalty</h3>
+      <p class="muted" id="penaltyModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <label for="penaltyUntilInput">Expires on</label>
+      <input id="penaltyUntilInput" type="datetime-local">
+      <label for="penaltyReasonInput">Reason (optional)</label>
+      <input id="penaltyReasonInput" type="text" maxlength="300" placeholder="e.g. late cancellation">
+      <div class="row" style="margin-top:16px;">
+        <button class="btn confirm" id="penaltyConfirmBtn" type="button">Apply</button>
+        <button class="btn ghost" id="penaltyCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Dark mode
+    (function(){
+      const s = localStorage.getItem("rs_theme");
+      if (s !== "light") document.documentElement.setAttribute("data-theme","dark");
+    })();
+    document.addEventListener("DOMContentLoaded", function(){
+      const btn = document.getElementById("darkModeToggle");
+      function upd(){ btn.textContent = document.documentElement.getAttribute("data-theme")==="dark"?"☀️":"🌙"; }
+      upd();
+      btn.addEventListener("click", function(){
+        const d = document.documentElement.getAttribute("data-theme")==="dark";
+        if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+        else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+        upd();
+      });
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const leagueId = Number(params.get("id") || 0);
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+
+    document.getElementById("backToLeague").href = `./league.html?id=${leagueId}`;
+
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function show(msg, kind, elId="globalStatus"){
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = msg;
+      el.className = kind ? `status ${kind}` : "status";
+    }
+
+    async function apiFetch(path, options){
+      const headers = Object.assign({}, options?.headers || {});
+      const token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if (!res.ok) throw new Error(body?.detail || "Request failed");
+      return body;
+    }
+
+    let detail = null;
+    let allInvites = [];
+    let bans = [];
+    let inviteTab = "active";
+    let pendingBanUserId = null;
+    let pendingPenaltyUserId = null;
+
+    var WHISTLE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
+    function roleIcon(role){ return role === "owner" ? "🤵" : role === "admin" ? WHISTLE : "👕"; }
+    function roleLabel(role){ return role === "owner" ? "Manager" : role === "admin" ? "Referee" : "Member"; }
+    function formatDate(iso){ if (!iso) return "-"; const d = new Date(iso); return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" }); }
+
+    function renderMembers(){
+      if (!detail) return;
+      const el = document.getElementById("memberMgmt");
+      const members = detail.members || [];
+      if (!members.length){ el.innerHTML = '<p class="muted">No members.</p>'; return; }
+      el.innerHTML = members.map(m => {
+        const isOwner = m.role === "owner";
+        const sinceDate = formatDate(m.joined_at || m.created_at);
+        const promoteLabel = m.role === "member" ? "🦺 Make Referee" : m.role === "admin" ? "👕 Demote" : "";
+        const promoteRole = m.role === "member" ? "admin" : "member";
+        return `<div class="member-row">
+          <span title="${esc(roleLabel(m.role))}">${roleIcon(m.role)}</span>
+          <span class="mr-name">${esc(m.display_name || m.username)}</span>
+          <span class="mr-since">since ${sinceDate}</span>
+          <div class="mr-actions">
+            ${!isOwner && promoteLabel ? `<button class="btn ghost sm roleBtn" data-user="${m.user_id}" data-role="${promoteRole}" title="${promoteLabel}">${promoteLabel}</button>` : ""}
+            ${!isOwner ? `<button class="btn ghost sm penaltyTriggerBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Penalty">🟨</button>` : ""}
+            ${!isOwner ? `<button class="btn danger sm banTriggerBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Ban">🟥</button>` : ""}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderInvites(){
+      const el = document.getElementById("inviteList");
+      const now = Date.now();
+      const filtered = inviteTab === "active"
+        ? allInvites.filter(i => !i.expired && (i.max_uses === null || i.use_count < i.max_uses))
+        : allInvites.filter(i => i.expired || (i.max_uses !== null && i.use_count >= i.max_uses));
+      if (!filtered.length){ el.innerHTML = `<p class="muted">No ${inviteTab} invites.</p>`; return; }
+      el.innerHTML = filtered.map(i => `
+        <div class="invite-row">
+          <div class="row" style="justify-content:space-between;">
+            <span class="mono">${esc(i.code || i.invite_url)}</span>
+            <span class="pill">${esc(i.use_count)}/${i.max_uses ?? "∞"} uses</span>
+          </div>
+          <div class="muted" style="font-size:.78rem;">
+            Created by ${esc(i.creator_username || "?")} on ${formatDate(i.created_at)}
+            ${i.accepted_by_username ? ` · Accepted by ${esc(i.accepted_by_username)}` : ""}
+          </div>
+          <div class="row" style="margin-top:4px; gap:6px;">
+            <button class="btn ghost sm copyInvite" data-url="${esc(i.invite_url || i.code)}">Copy link</button>
+            ${inviteTab === "active" ? `<button class="btn danger sm cancelInviteBtn" data-id="${i.id}">Cancel</button>` : ""}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderBans(){
+      const el = document.getElementById("banList");
+      if (!bans.length){ el.innerHTML = '<p class="muted">No banned players.</p>'; return; }
+      el.innerHTML = bans.map(b => `
+        <div class="ban-row">
+          <div>
+            <strong>${esc(b.username)}</strong>
+            ${b.penalty_reason ? `<div class="muted" style="font-size:.82rem;">${esc(b.penalty_reason)}</div>` : ""}
+          </div>
+          <button class="btn ghost sm unbanBtn" data-user="${b.user_id}">Unban</button>
+        </div>
+      `).join("");
+    }
+
+    async function load(){
+      if (!leagueId){ show("Missing league id.", "error"); return; }
+      if (!getToken()){ show("Please sign in first.", "error"); return; }
+      try {
+        const [det, invItems, banItems] = await Promise.all([
+          apiFetch(`/leagues/${leagueId}`),
+          apiFetch(`/leagues/${leagueId}/invites`).catch(() => []),
+          apiFetch(`/leagues/${leagueId}/bans`).catch(() => []),
+        ]);
+        detail = det;
+        allInvites = Array.isArray(invItems) ? invItems : (invItems?.invites || []);
+        bans = Array.isArray(banItems) ? banItems : [];
+
+        const lg = detail.league;
+        document.getElementById("title").textContent = `Settings — ${lg.name}`;
+        document.getElementById("subtitle").textContent = `${lg.football_type} · ${lg.goal_size}`;
+        document.getElementById("settingName").value = lg.name || "";
+        document.getElementById("settingDesc").value = lg.description || "";
+        document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
+
+        renderMembers();
+        renderInvites();
+        renderBans();
+      } catch(e){
+        show(e.message || "Failed to load.", "error");
+      }
+    }
+
+    // Tab switching
+    document.getElementById("tabActive").addEventListener("click", () => {
+      inviteTab = "active";
+      document.getElementById("tabActive").classList.add("active");
+      document.getElementById("tabUsed").classList.remove("active");
+      renderInvites();
+    });
+    document.getElementById("tabUsed").addEventListener("click", () => {
+      inviteTab = "used";
+      document.getElementById("tabUsed").classList.add("active");
+      document.getElementById("tabActive").classList.remove("active");
+      renderInvites();
+    });
+
+    // Save settings
+    document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
+      const payload = {
+        name: document.getElementById("settingName").value.trim() || null,
+        description: document.getElementById("settingDesc").value.trim() || null,
+        auto_accept_members: document.getElementById("settingAutoAccept").checked,
+      };
+      try {
+        await apiFetch(`/leagues/${leagueId}/settings`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        show("Settings saved.", "", "settingsStatus");
+        await load();
+      } catch(e){ show(e.message || "Failed.", "error", "settingsStatus"); }
+    });
+
+    // New invite
+    document.getElementById("newInviteBtn").addEventListener("click", async () => {
+      try {
+        await apiFetch(`/leagues/${leagueId}/invites`, { method: "POST" });
+        await load();
+        show("Invite created.");
+      } catch(e){ show(e.message || "Failed.", "error"); }
+    });
+
+    // Ban modal
+    document.getElementById("banCancelBtn").addEventListener("click", () => {
+      document.getElementById("banModal").style.display = "none";
+      pendingBanUserId = null;
+    });
+    document.getElementById("banConfirmBtn").addEventListener("click", async () => {
+      if (!pendingBanUserId) return;
+      const reason = document.getElementById("banReasonInput").value.trim() || null;
+      try {
+        await apiFetch(`/leagues/${leagueId}/members/${pendingBanUserId}/ban`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
+        document.getElementById("banModal").style.display = "none";
+        pendingBanUserId = null;
+        await load();
+        show("Player banned.");
+      } catch(e){ show(e.message || "Failed.", "error"); }
+    });
+
+    // Penalty modal
+    document.getElementById("penaltyCancelBtn").addEventListener("click", () => {
+      document.getElementById("penaltyModal").style.display = "none";
+      pendingPenaltyUserId = null;
+    });
+    document.getElementById("penaltyConfirmBtn").addEventListener("click", async () => {
+      if (!pendingPenaltyUserId) return;
+      const until = document.getElementById("penaltyUntilInput").value;
+      const reason = document.getElementById("penaltyReasonInput").value.trim() || null;
+      if (!until){ show("Please set a penalty end date.", "error"); return; }
+      try {
+        await apiFetch(`/leagues/${leagueId}/members/${pendingPenaltyUserId}/penalty`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ until, reason }),
+        });
+        document.getElementById("penaltyModal").style.display = "none";
+        pendingPenaltyUserId = null;
+        await load();
+        show("Penalty applied.");
+      } catch(e){ show(e.message || "Failed.", "error"); }
+    });
+
+    // Delegated body click handler
+    document.body.addEventListener("click", async (e) => {
+      const roleBtn = e.target.closest(".roleBtn");
+      if (roleBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/members/${roleBtn.dataset.user}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: roleBtn.dataset.role }),
+          });
+          await load(); show("Role updated.");
+        } catch(err){ show(err.message || "Failed.", "error"); }
+        return;
+      }
+      const banBtn = e.target.closest(".banTriggerBtn");
+      if (banBtn) {
+        pendingBanUserId = Number(banBtn.dataset.user);
+        document.getElementById("banReasonInput").value = "";
+        document.getElementById("banModalSubtitle").textContent = `Banning: ${banBtn.dataset.name}`;
+        document.getElementById("banModal").style.display = "flex";
+        return;
+      }
+      const penaltyBtn = e.target.closest(".penaltyTriggerBtn");
+      if (penaltyBtn) {
+        pendingPenaltyUserId = Number(penaltyBtn.dataset.user);
+        document.getElementById("penaltyReasonInput").value = "";
+        document.getElementById("penaltyUntilInput").value = "";
+        document.getElementById("penaltyModalSubtitle").textContent = `Penalizing: ${penaltyBtn.dataset.name}`;
+        document.getElementById("penaltyModal").style.display = "flex";
+        return;
+      }
+      const unbanBtn = e.target.closest(".unbanBtn");
+      if (unbanBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/bans/${unbanBtn.dataset.user}`, { method: "DELETE" });
+          await load(); show("Player unbanned.");
+        } catch(err){ show(err.message || "Failed.", "error"); }
+        return;
+      }
+      const copyBtn = e.target.closest(".copyInvite");
+      if (copyBtn) {
+        try { await navigator.clipboard.writeText(copyBtn.dataset.url); show("Copied!"); }
+        catch { show("Copy failed.", "error"); }
+        return;
+      }
+      const cancelBtn = e.target.closest(".cancelInviteBtn");
+      if (cancelBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/invites/${cancelBtn.dataset.id}`, { method: "DELETE" });
+          await load(); show("Invite cancelled.");
+        } catch(err){ show(err.message || "Failed.", "error"); }
+        return;
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

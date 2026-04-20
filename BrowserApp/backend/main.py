@@ -219,6 +219,12 @@ class LeagueBanPayload(BaseModel):
     reason: str | None = Field(default=None, max_length=300)
 
 
+class UpdateProfilePayload(BaseModel):
+    display_name: str | None = Field(default=None, max_length=100)
+    name: str | None = Field(default=None, max_length=100)
+    surname: str | None = Field(default=None, max_length=100)
+
+
 class LeaguePenaltyPayload(BaseModel):
     until: str = Field(description="ISO datetime when penalty expires")
     reason: str | None = Field(default=None, max_length=300)
@@ -1735,6 +1741,58 @@ def get_lobby(current_user: sqlite3.Row = Depends(resolve_current_user)) -> Lobb
         leagues=leagues,
         invites=invites,
     )
+
+
+@app.patch("/users/me", response_model=MessageOut)
+def update_own_profile(
+    payload: UpdateProfilePayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    updates: list[str] = []
+    params: list = []
+    if payload.display_name is not None:
+        updates.append("display_name = ?")
+        params.append(payload.display_name.strip() or None)
+    if payload.name is not None:
+        updates.append("name = ?")
+        params.append(payload.name.strip())
+    if payload.surname is not None:
+        updates.append("surname = ?")
+        params.append(payload.surname.strip())
+    if not updates:
+        return MessageOut(detail="Nothing to update.")
+    params.append(int(current_user["id"]))
+    with get_conn() as conn:
+        conn.execute(f"UPDATE users SET {', '.join(updates)}, updated_at = ? WHERE id = ?",
+                     [*params[:-1], utc_now_iso(), params[-1]])
+        conn.commit()
+    return MessageOut(detail="Profile updated.")
+
+
+@app.post("/leagues/{league_id}/leave", response_model=MessageOut)
+def leave_league(
+    league_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        membership = conn.execute(
+            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
+        if membership is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You are not in this league.")
+        if membership["role"] == "owner":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Owners cannot leave their own league. Transfer ownership or delete the league.",
+            )
+        conn.execute(
+            "DELETE FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        )
+        conn.commit()
+    return MessageOut(detail="You have left the league.")
 
 
 @app.post("/leagues", response_model=LeagueOut, status_code=status.HTTP_201_CREATED)

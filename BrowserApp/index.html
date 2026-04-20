@@ -67,10 +67,8 @@
         }
 
         .hero {
-            padding: 40px 32px 28px;
-            background:
-                linear-gradient(135deg, rgba(246, 252, 248, 0.92), rgba(230, 245, 236, 0.8)),
-                linear-gradient(90deg, rgba(31, 138, 76, 0.07), transparent);
+            padding: 20px 32px 20px;
+            background: var(--panel-strong);
             border-bottom: 1px solid var(--line);
         }
 
@@ -92,8 +90,9 @@
 
         h1 {
             margin: 0;
-            font-size: clamp(2.6rem, 6vw, 4.7rem);
-            line-height: 0.94;
+            font-size: clamp(2.0rem, 4vw, 3.2rem);
+            line-height: 0.97;
+            color: var(--text);
         }
 
         .hero-copy {
@@ -824,6 +823,77 @@
             transition: border-color 0.12s;
         }
         .assist-player-btn:hover { border-color: var(--accent); }
+
+        /* ── Account Settings Drawer ──────────────────── */
+        .acct-drawer {
+            position: fixed;
+            top: 0; right: 0;
+            width: min(400px, 100vw);
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 90;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+            overflow: hidden;
+        }
+        .acct-drawer.open { transform: translateX(0); }
+        .acct-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-strong);
+        }
+        .acct-drawer-header h3 { margin: 0; font-size: 1.05rem; color: var(--text); }
+        .acct-drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+        .acct-section { margin-bottom: 22px; }
+        .acct-section h4 { margin: 0 0 10px; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+        .acct-input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); font: inherit; color: var(--text); box-sizing: border-box; }
+        .league-leave-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 0.88rem;
+        }
+        .league-leave-row:last-child { border-bottom: none; }
+
+        /* ── Compact league table ──────────────────── */
+        .league-table { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+        .league-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px;
+            background: var(--card);
+            border-bottom: 1px solid var(--line);
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--text);
+            transition: background 0.1s;
+            font-size: 0.9rem;
+        }
+        .league-row:last-child { border-bottom: none; }
+        .league-row:hover { background: var(--panel-strong); }
+        .lr-role { font-size: 1.1rem; flex-shrink: 0; width: 22px; text-align: center; }
+        .lr-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lr-chip { font-size: 0.75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+        .lr-chip strong { color: var(--text); }
+
+        /* ── Upcoming matches list ──────────────────── */
+        .upcoming-match-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--card);
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+        .umr-info { flex: 1; min-width: 0; }
+        .umr-league { font-size: 0.75rem; color: var(--muted); }
+        .umr-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .umr-meta { font-size: 0.75rem; color: var(--muted); }
+        .umr-actions { display: flex; gap: 5px; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -833,15 +903,15 @@
                 <div>
                     <p class="eyebrow" id="eyebrowText" style="cursor:default;user-select:none;">RSTRating</p>
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
-                    <p class="hero-copy" id="heroCopy">Register once, join leagues by invitation, and manage casual football groups from a single lobby.</p>
                 </div>
                 <div class="actions">
                     <button class="notif-bell" id="notifBellButton" type="button" title="Notifications" aria-label="Notifications" style="display:none;">
                         🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
                     </button>
-                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" style="padding:9px 14px;">🌙</button>
-                    <button class="danger" id="logoutButton" type="button" aria-disabled="true">Sign out</button>
-                    <a class="ghost" href="./">Reload</a>
+                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings" style="display:none;padding:9px 12px;font-size:1rem;">⚙</button>
+                    <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" style="padding:9px 12px;">🌙</button>
+                    <button class="ghost" id="refreshLobbyBtn" type="button" title="Refresh" style="display:none;padding:9px 12px;font-size:1.1rem;">↺</button>
+                    <button class="danger" id="logoutButton" type="button" aria-disabled="true" style="padding:9px 14px;">Sign out</button>
                 </div>
             </div>
         </section>
@@ -960,6 +1030,7 @@
 
             <section class="lobby-shell" id="lobbyShell">
                 <div class="lobby-grid">
+                    <!-- LEFT: compact league list -->
                     <div class="stack">
                         <section class="invite-preview-card" id="inviteLobbyCard" style="display: none;">
                             <h2 class="section-title">Invitation ready</h2>
@@ -969,82 +1040,42 @@
                         </section>
 
                         <section class="panel-card">
-                            <h2 class="section-title" id="welcomeTitle">Welcome</h2>
-                            <p class="subtle" id="welcomeSubtitle">Your league lobby is where you create groups, manage admins, and handle invitation links.</p>
-                            <div class="overview-grid">
-                                <div class="overview-card">
-                                    <span class="overview-label">Joined Leagues</span>
-                                    <span class="overview-value" id="leagueCountValue">0</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Manageable Leagues</span>
-                                    <span class="overview-value" id="managedLeagueCountValue">0</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Active Invites</span>
-                                    <span class="overview-value" id="inviteCountValue">0</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Global Rating</span>
-                                    <span class="overview-value" id="globalRatingValue">1000</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Attendance</span>
-                                    <span class="overview-value" id="attendanceValue">0</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Wins</span>
-                                    <span class="overview-value" id="winsValue">0</span>
-                                </div>
-                                <div class="overview-card">
-                                    <span class="overview-label">Goals / Assists</span>
-                                    <span class="overview-value" id="gaValue">0 / 0</span>
-                                </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                                <h2 class="section-title" style="margin:0;" id="welcomeTitle">Welcome</h2>
+                                <a class="button" href="./create_league.html" style="padding:7px 14px;font-size:0.85rem;">+ New league</a>
                             </div>
-                        </section>
-
-                        <section class="panel-card">
-                            <h2 class="section-title">League-specific ratings</h2>
-                            <p class="subtle">Current player stats by league. Match timelines can be added in a later step.</p>
-                            <div class="league-list" id="leagueStatsList"></div>
-                        </section>
-
-                        <section class="panel-card">
-                            <h2 class="section-title">Your leagues</h2>
-                            <p class="subtle">Open league details to inspect members, issue invites, and manage admins.</p>
-                            <div class="league-list" id="leagueList"></div>
+                            <p class="subtle" id="welcomeSubtitle" style="margin-top:6px;"></p>
+                            <div id="leagueTable" class="league-table" style="margin-top:12px;">
+                                <p class="hint" style="padding:8px 0;">Loading leagues…</p>
+                            </div>
                         </section>
                     </div>
 
+                    <!-- RIGHT: upcoming matches + quick actions -->
                     <div class="stack">
                         <section class="panel-card">
-                            <h2 class="section-title">Add League</h2>
-                            <p class="subtle">Create league on a dedicated page.</p>
-                            <div class="actions" style="margin-top: 12px;">
-                                <a class="button" id="openCreateLeaguePageButton" href="./create_league.html">+ Add league</a>
-                                <a class="ghost" href="./discover.html">Find nearby leagues</a>
+                            <h2 class="section-title">Upcoming Matches</h2>
+                            <div id="upcomingMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                                <p class="hint">Loading…</p>
                             </div>
                         </section>
 
                         <section class="panel-card">
                             <h2 class="section-title">Join by Invite Code</h2>
-                            <p class="subtle">Use a permanent invite code from league admins.</p>
-                            <form class="stack" id="joinByCodeForm" style="margin-top: 12px;">
-                                <label for="inviteCodeInput">Invite code</label>
-                                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="e.g. A1B2C3" required>
+                            <form class="stack" id="joinByCodeForm" style="margin-top: 8px;">
+                                <input id="inviteCodeInput" name="inviteCode" type="text" minlength="4" maxlength="16" placeholder="Invite code (e.g. A1B2C3)" required>
                                 <button class="button" type="submit">Join league</button>
                             </form>
                         </section>
 
                         <section class="panel-card" id="backupSection" style="display: none;">
                             <h2 class="section-title">Backup all data</h2>
-                            <p class="subtle">Admin only: includes accounts, leagues, memberships, invites, and league player stats.</p>
+                            <p class="subtle">Admin only: accounts, leagues, memberships, invites, stats.</p>
                             <div class="actions" style="margin-top: 14px;">
                                 <button class="button" id="downloadBackupButton" type="button">Download backup</button>
                                 <button class="ghost" id="restoreBackupButton" type="button">Restore backup</button>
                             </div>
                             <input id="backupFileInput" type="file" accept=".json" hidden>
-                            <p class="footer-note">Because the free Render plan uses temporary storage, regular downloads are still the safe option.</p>
                         </section>
 
                         <details class="dev-tools" id="devToolsSection" style="display: none;">
@@ -1073,6 +1104,31 @@
         <div class="notif-list" id="notifList"><p class="hint" style="padding:16px;">No notifications yet.</p></div>
     </div>
     <div class="notif-backdrop" id="notifBackdrop" style="display:none;"></div>
+
+    <!-- Account Settings Drawer -->
+    <div class="acct-drawer" id="acctDrawer" aria-hidden="true">
+        <div class="notif-drawer-header">
+            <h3>Account Settings</h3>
+            <button class="icon-button" id="closeAcctDrawerBtn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
+            <div>
+                <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">—</strong></p>
+            </div>
+            <form id="updateProfileForm" class="stack" style="gap:8px;">
+                <label for="acctDisplayName">Display name</label>
+                <input id="acctDisplayName" type="text" placeholder="Your display name" maxlength="40">
+                <button class="button" type="submit" style="align-self:flex-start;padding:7px 16px;">Save</button>
+                <p class="hint" id="acctUpdateMsg" style="display:none;"></p>
+            </form>
+            <div>
+                <h4 style="margin:0 0 8px;font-size:0.95rem;">Your leagues</h4>
+                <div id="acctLeagueList" style="display:flex;flex-direction:column;gap:6px;">
+                    <p class="hint">Loading…</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Match Overlay -->
     <div class="match-overlay" id="matchOverlay" style="display:none;">
@@ -1117,7 +1173,7 @@
         // ── Dark mode ────────────────────────────
         (function() {
             const saved = localStorage.getItem("rs_theme");
-            if (saved === "dark") document.documentElement.setAttribute("data-theme", "dark");
+            if (saved !== "light") document.documentElement.setAttribute("data-theme", "dark");
         })();
         document.addEventListener("DOMContentLoaded", function() {
             const btn = document.getElementById("darkModeToggle");
@@ -1534,44 +1590,77 @@
         }
 
         function renderLeagueList() {
+            const el = document.getElementById("leagueTable");
+            if (!el) return;
             if (!lobbyState.leagues.length) {
-                leagueList.innerHTML = '<div class="empty-card">You are not in any leagues yet. Create one or open an invitation link to join.</div>';
+                el.innerHTML = '<p class="hint" style="padding:8px 0;">You are not in any leagues yet.</p>';
                 return;
             }
-
-            leagueList.innerHTML = lobbyState.leagues.map((league) => {
-                const canManage = league.member_role === "owner" || league.member_role === "admin";
+            const WHISTLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
+            const roleIcon = r => r === "owner" ? "🤵" : r === "admin" ? WHISTLE : "👕";
+            el.innerHTML = lobbyState.leagues.map(league => {
+                const stats = (lobbyState.league_player_stats || []).find(s => s.league_id === league.id);
+                const rating = stats ? Math.round(stats.rating) : "—";
                 return `
-                    <article class="league-card">
-                        <div class="league-head">
-                            <div>
-                                <h3 class="league-name">${escapeHtml(league.name)}</h3>
-                                <div class="pill">${escapeHtml(league.football_type)} | ${escapeHtml(league.goal_size)}</div>
-                            </div>
-                            <div class="pill">${escapeHtml(league.member_role)}</div>
-                        </div>
-                        <p class="subtle">${escapeHtml(league.description || "No description yet.")}</p>
-                        <div class="meta-grid">
-                            <div class="meta-block">
-                                <span class="meta-label">Owner</span>
-                                <span class="meta-value">${escapeHtml(league.owner_username)}</span>
-                            </div>
-                            <div class="meta-block">
-                                <span class="meta-label">Members</span>
-                                <span class="meta-value">${escapeHtml(league.member_count)}</span>
-                            </div>
-                            <div class="meta-block">
-                                <span class="meta-label">Created</span>
-                                <span class="meta-value">${escapeHtml(league.created_at.slice(0, 10))}</span>
-                            </div>
-                        </div>
-                        <div class="card-actions" style="margin-top: 14px;">
-                            <a class="ghost" href="./league.html?id=${league.id}">Open league page</a>
-                            ${canManage ? `<a class="button" href="./create_match.html?league_id=${league.id}">+ Add match</a>` : ""}
-                        </div>
-                    </article>
-                `;
+                <div class="league-row" data-league-id="${league.id}">
+                    <span class="lr-role" title="${escapeHtml(league.member_role)}">${roleIcon(league.member_role)}</span>
+                    <span class="lr-name">${escapeHtml(league.name)}</span>
+                    <span class="lr-chip">👥 ${league.member_count}</span>
+                    <span class="lr-chip">★ ${rating}</span>
+                </div>`;
             }).join("");
+            el.querySelectorAll(".league-row").forEach(row => {
+                row.addEventListener("click", () => {
+                    window.location.href = `./league.html?id=${row.dataset.leagueId}`;
+                });
+            });
+        }
+
+        async function renderUpcomingMatches() {
+            const panel = document.getElementById("upcomingMatchesPanel");
+            if (!panel || !lobbyState.leagues.length) return;
+            let upcoming = [];
+            for (const league of lobbyState.leagues) {
+                try {
+                    const matches = await apiFetch(`/leagues/${league.id}/matches`);
+                    const now = Date.now();
+                    matches.filter(m => m.status === "scheduled" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
+                        .forEach(m => upcoming.push({ ...m, _leagueName: league.name }));
+                } catch (e) { /* skip */ }
+            }
+            if (!upcoming.length) {
+                panel.innerHTML = '<p class="hint">No upcoming matches.</p>';
+                return;
+            }
+            upcoming.sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+            panel.innerHTML = upcoming.slice(0, 8).map(m => {
+                const dt = new Date(m.scheduled_at);
+                const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                const regCount = m.registration_count ?? m.registrations?.length ?? "?";
+                return `<div class="upcoming-match-row" data-match-id="${m.id}">
+                    <div class="umr-info">
+                        <span class="umr-league">${escapeHtml(m._leagueName)}</span>
+                        <span class="umr-date">${dateStr}</span>
+                    </div>
+                    <div class="umr-actions">
+                        <span class="lr-chip">👥 ${regCount}</span>
+                        <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
+                        <button class="button umr-reg-btn" type="button" data-match-id="${m.id}" data-league-id="${m.league_id}" style="padding:4px 10px;font-size:0.8rem;">Register</button>
+                    </div>
+                </div>`;
+            }).join("");
+            panel.querySelectorAll(".umr-info-btn").forEach(btn => {
+                btn.addEventListener("click", () => loadMatchDetail(Number(btn.dataset.matchId)));
+            });
+            panel.querySelectorAll(".umr-reg-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    try {
+                        await apiFetch(`/matches/${btn.dataset.matchId}/register`, { method: "POST" });
+                        showStatus("Registered!", "ok");
+                        await renderUpcomingMatches();
+                    } catch (e) { showStatus(e.message || "Failed.", "error"); }
+                });
+            });
         }
 
         function attachMatchFormListeners(leagueId, league) {
@@ -1614,7 +1703,7 @@
                 logoutButton.disabled = true;
                 logoutButton.style.opacity = "0.45";
                 logoutButton.setAttribute("aria-disabled", "true");
-                heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
+                if (heroCopy) heroCopy.textContent = "Preview mode: live read-only match tracking with score, events, registrations, and summary updates.";
                 return;
             }
 
@@ -1630,13 +1719,17 @@
 
             const bellButton = document.getElementById("notifBellButton");
             if (bellButton) bellButton.style.display = signedIn ? "inline-flex" : "none";
+            const acctBtn = document.getElementById("acctSettingsBtn");
+            if (acctBtn) acctBtn.style.display = signedIn ? "inline-flex" : "none";
+            const refreshBtn = document.getElementById("refreshLobbyBtn");
+            if (refreshBtn) refreshBtn.style.display = signedIn ? "inline-flex" : "none";
 
             renderInviteEntry();
 
             if (!signedIn) {
                 // clear notification poll
                 if (notifPollInterval) { clearInterval(notifPollInterval); notifPollInterval = null; }
-                heroCopy.textContent = inviteTokenFromUrl
+                if (heroCopy) heroCopy.textContent = inviteTokenFromUrl
                     ? "Invitation detected. Sign in or register, then accept it directly."
                     : "Register once, join leagues by invitation, and manage casual football groups from a single lobby.";
                 return;
@@ -1650,11 +1743,9 @@
 
             const displayName = currentUser.display_name || currentUser.name || currentUser.username;
             welcomeTitle.textContent = "Welcome, " + displayName;
-            welcomeSubtitle.textContent = `${currentUser.name} ${currentUser.surname} can belong to any number of leagues. Owners can promote admins and share invite links.`;
-            heroCopy.textContent = "Signed in. Your lobby shows league membership, member management, full backup, and invitation links.";
-            renderLobbyOverview();
-            renderLeagueStatsList();
+            welcomeSubtitle.textContent = `Member of ${lobbyState.leagues.length} league(s). Click a row to open it.`;
             renderLeagueList();
+            renderUpcomingMatches();
         }
 
         async function refreshAndRender() {
@@ -1847,6 +1938,78 @@
             renderAppState();
             showStatus("You have been signed out.", "ok");
         });
+
+        // Refresh button
+        const refreshLobbyBtn = document.getElementById("refreshLobbyBtn");
+        if (refreshLobbyBtn) refreshLobbyBtn.addEventListener("click", refreshAndRender);
+
+        // Account settings drawer
+        const acctSettingsBtn = document.getElementById("acctSettingsBtn");
+        const acctDrawer = document.getElementById("acctDrawer");
+        const closeAcctDrawerBtn = document.getElementById("closeAcctDrawerBtn");
+        function openAcctDrawer() {
+            if (!acctDrawer) return;
+            acctDrawer.classList.add("open");
+            acctDrawer.setAttribute("aria-hidden", "false");
+            // Fill in current user info
+            const uname = document.getElementById("acctUsername");
+            if (uname && currentUser) uname.textContent = currentUser.username || currentUser.name;
+            const dispInput = document.getElementById("acctDisplayName");
+            if (dispInput && currentUser) dispInput.value = currentUser.display_name || currentUser.name || "";
+            renderAcctLeagueList();
+        }
+        function closeAcctDrawer() {
+            if (!acctDrawer) return;
+            acctDrawer.classList.remove("open");
+            acctDrawer.setAttribute("aria-hidden", "true");
+        }
+        if (acctSettingsBtn) acctSettingsBtn.addEventListener("click", openAcctDrawer);
+        if (closeAcctDrawerBtn) closeAcctDrawerBtn.addEventListener("click", closeAcctDrawer);
+
+        function renderAcctLeagueList() {
+            const list = document.getElementById("acctLeagueList");
+            if (!list) return;
+            if (!lobbyState.leagues.length) {
+                list.innerHTML = '<p class="hint">No leagues.</p>';
+                return;
+            }
+            list.innerHTML = lobbyState.leagues.map(l => `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:0.9rem;">${escapeHtml(l.name)}</span>
+                    ${l.member_role !== "owner" ? `<button class="ghost" data-leave-id="${l.id}" data-leave-name="${escapeHtml(l.name)}" style="padding:4px 10px;font-size:0.8rem;color:var(--danger);">Leave</button>` : '<span class="hint" style="font-size:0.75rem;">Manager</span>'}
+                </div>`).join("");
+            list.querySelectorAll("[data-leave-id]").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    if (!confirm(`Leave ${btn.dataset.leaveName}?`)) return;
+                    try {
+                        await apiFetch(`/leagues/${btn.dataset.leaveId}/leave`, { method: "POST" });
+                        showStatus("Left league.", "ok");
+                        await refreshAndRender();
+                        renderAcctLeagueList();
+                    } catch (e) { showStatus(e.message || "Failed.", "error"); }
+                });
+            });
+        }
+
+        const updateProfileForm = document.getElementById("updateProfileForm");
+        if (updateProfileForm) {
+            updateProfileForm.addEventListener("submit", async e => {
+                e.preventDefault();
+                const msg = document.getElementById("acctUpdateMsg");
+                const displayName = document.getElementById("acctDisplayName").value.trim();
+                try {
+                    await apiFetch("/users/me", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ display_name: displayName })
+                    });
+                    if (currentUser) currentUser.display_name = displayName;
+                    if (msg) { msg.textContent = "Saved!"; msg.style.display = "block"; setTimeout(() => msg.style.display = "none", 2000); }
+                } catch (e) {
+                    if (msg) { msg.textContent = e.message || "Failed."; msg.style.display = "block"; }
+                }
+            });
+        }
 
         resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -2103,6 +2266,17 @@
         document.getElementById("notifList").addEventListener("click", async (event) => {
             const item = event.target.closest(".notif-item");
             if (!item) return;
+            const notifId = item.dataset.notifId;
+            // Mark as read on click
+            if (item.classList.contains("unread") && notifId) {
+                try {
+                    await apiFetch(`/notifications/${notifId}/read`, { method: "PATCH" });
+                    item.classList.remove("unread");
+                    const n = lobbyState.notifications.find(x => String(x.id) === String(notifId));
+                    if (n) n.read = true;
+                    updateNotifBadge();
+                } catch (e) { /* ignore */ }
+            }
             const matchId = item.dataset.matchId;
             if (matchId) {
                 closeNotifDrawer();

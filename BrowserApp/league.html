@@ -18,50 +18,42 @@
       --surface:#1a2e22; --border:rgba(180,220,195,.18);
     }
     body { margin:0; font-family:Georgia,"Times New Roman",serif; background:var(--bg); color:var(--text); min-height:100vh; }
-    .wrap { max-width:1080px; margin:24px auto; padding:0 16px; }
+    .wrap { max-width:1100px; margin:24px auto; padding:0 16px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
     .grid { display:grid; grid-template-columns:2fr 1fr; gap:14px; }
-    @media (max-width:900px){ .grid { grid-template-columns:1fr; } }
+    @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
     h1,h2,h3 { margin:0; }
     .muted { color:var(--muted); }
     .btn { border:none; border-radius:9px; padding:8px 13px; font:inherit; font-size:.88rem; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:opacity .12s; }
     .btn:hover { opacity:.85; }
     .btn.primary { background:var(--accent); color:#fff; }
     .btn.confirm { background:var(--success); color:#fff; }
-    .btn.danger { background:var(--danger); color:#fff; }
+    .btn.danger-btn { background:var(--danger); color:#fff; }
     .btn.ghost { border:1px solid var(--line); background:var(--card); color:var(--text); }
     .btn.sm { padding:5px 9px; font-size:.78rem; }
     .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:rgba(31,138,76,.1); border:1px solid var(--line); font-size:.8rem; color:var(--accent-dark); font-weight:700; }
-    .role-badge {
-      display:inline-flex; align-items:center; justify-content:center;
-      width:22px; height:22px; border-radius:6px; font-size:.75rem; font-weight:800;
-      background:var(--accent); color:#fff; flex-shrink:0;
-    }
-    .role-badge.admin { background:#0369a1; }
-    .role-badge.member { background:#64748b; }
-    .list { display:flex; flex-direction:column; gap:6px; }
     .item { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--card); }
-    /* Compact member row */
-    .member-row {
-      display:flex; align-items:center; gap:10px;
-      border:1px solid var(--line); border-radius:9px; padding:8px 10px;
-      background:var(--card); font-size:.9rem;
-    }
-    .member-row .member-name { font-weight:700; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .member-row .member-stats { color:var(--muted); font-size:.78rem; white-space:nowrap; }
-    .member-row .member-actions { display:flex; gap:5px; flex-shrink:0; }
+    .list { display:flex; flex-direction:column; gap:6px; }
+    .member-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .member-table th { text-align:left; padding:6px 8px; color:var(--muted); font-size:.78rem; font-weight:700; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap; }
+    .member-table th:hover { color:var(--accent); }
+    .member-table th.sorted { color:var(--accent); }
+    .member-table td { padding:7px 8px; border-bottom:1px solid var(--line); }
+    .member-table tr:last-child td { border-bottom:none; }
+    .member-table tr:hover td { background:rgba(31,138,76,.05); }
+    .mt-role { font-size:1.1rem; }
+    .mt-name { font-weight:700; }
+    .match-item { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--card); margin-bottom:6px; }
+    .announce-item { padding:8px 10px; border-left:3px solid var(--accent); margin-bottom:6px; background:var(--card); border-radius:0 8px 8px 0; }
+    .announce-item.unread { border-left-color:var(--danger); }
+    .announce-title { font-weight:700; font-size:.88rem; }
+    .announce-msg { font-size:.82rem; color:var(--muted); margin-top:2px; }
+    .announce-time { font-size:.72rem; color:var(--muted); margin-top:3px; }
     .status { min-height:20px; color:var(--muted); margin-top:8px; font-size:.9rem; }
     .status.error { color:var(--danger); }
-    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.82rem; }
-    /* Modal */
-    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
-    .modal-card { background:var(--surface); border-radius:14px; padding:24px 28px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,.28); color:var(--text); }
-    .modal-card h3 { margin:0 0 10px; }
-    .modal-card label { font-size:.85rem; font-weight:700; display:block; margin-top:10px; }
-    .modal-card input, .modal-card textarea, .modal-card select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); margin-top:3px; box-sizing:border-box; }
-    .settings-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
-    .settings-row label { margin:0; flex:1; }
+    .reg-open { background:var(--accent); color:#fff; }
+    .reg-opens-label { font-size:.78rem; color:var(--muted); }
   </style>
 </head>
 <body>
@@ -72,17 +64,26 @@
         <div class="muted" id="subtitle">Loading...</div>
       </div>
       <div class="row">
-        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">🌙</button>
-        <a class="btn ghost" href="./index.html">← Lobby</a>
-        <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Add match</a>
+        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">&#x1F319;</button>
+        <a class="btn ghost" href="./index.html">&#x2190; Lobby</a>
+        <a class="btn ghost sm" id="settingsBtn" href="#" style="display:none;" title="Manager settings">&#x1F4CB; Settings</a>
+        <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Match</a>
       </div>
     </div>
 
     <div class="grid">
+      <!-- LEFT -->
       <div>
         <div class="card">
           <h2 style="margin-bottom:10px;">Matches</h2>
-          <div id="matches" class="list"></div>
+          <div id="lastMatchSection" style="display:none; margin-bottom:14px;">
+            <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Last played</div>
+            <div id="lastMatch"></div>
+          </div>
+          <div>
+            <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Scheduled</div>
+            <div id="upcomingMatches"><p class="muted">No upcoming matches.</p></div>
+          </div>
         </div>
 
         <div class="card">
@@ -90,48 +91,39 @@
             <h2>Members</h2>
             <span id="memberCount" class="muted" style="font-size:.85rem;"></span>
           </div>
-          <div id="members" class="list"></div>
+          <div style="overflow-x:auto;">
+            <table class="member-table" id="memberTable">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th data-col="name">Name</th>
+                  <th data-col="goals">G</th>
+                  <th data-col="assists">A</th>
+                  <th data-col="winrate">Win%</th>
+                  <th data-col="mmr">MMR</th>
+                  <th data-col="rating" class="sorted">Rating &#x25BC;</th>
+                </tr>
+              </thead>
+              <tbody id="memberTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" id="joinReqCard" style="display:none;">
+          <h3 style="margin-bottom:8px;">Join Requests</h3>
+          <div id="joinReqList" class="list"></div>
         </div>
       </div>
 
+      <!-- RIGHT -->
       <div>
         <div class="card">
           <h3 style="margin-bottom:8px;">League info</h3>
-          <div id="meta" class="muted"></div>
+          <div id="meta" class="muted" style="font-size:.88rem;line-height:1.9;"></div>
         </div>
-
-        <!-- Settings panel (admin/owner only) -->
-        <div class="card" id="settingsCard" style="display:none;">
-          <h3 style="margin-bottom:10px;">⚙ League Settings</h3>
-          <div class="list" style="gap:10px;">
-            <div>
-              <label style="font-size:.85rem;font-weight:700;" for="settingName">Name</label>
-              <input id="settingName" type="text" maxlength="80" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);margin-top:3px;box-sizing:border-box;">
-            </div>
-            <div>
-              <label style="font-size:.85rem;font-weight:700;" for="settingDesc">Description</label>
-              <textarea id="settingDesc" maxlength="300" rows="3" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);margin-top:3px;box-sizing:border-box;resize:vertical;"></textarea>
-            </div>
-            <div class="settings-row">
-              <label for="settingAutoAccept" style="font-size:.85rem;font-weight:700;flex:1;margin:0;">Auto-accept new members</label>
-              <input id="settingAutoAccept" type="checkbox" style="width:auto;margin:0;">
-            </div>
-            <button class="btn primary" id="saveSettingsBtn" type="button">Save settings</button>
-          </div>
-        </div>
-
-        <div class="card" id="inviteCard" style="display:none;">
-          <h3 style="margin-bottom:8px;">Invites</h3>
-          <div class="row" style="margin-bottom:10px;">
-            <button class="btn confirm" id="newInviteBtn" type="button">Create invite</button>
-          </div>
-          <div id="invites" class="list"></div>
-        </div>
-
-        <!-- Ban list (owner/admin) -->
-        <div class="card" id="banListCard" style="display:none;">
-          <h3 style="margin-bottom:8px;">🚫 Banned players</h3>
-          <div id="banList" class="list"></div>
+        <div class="card">
+          <h3 style="margin-bottom:8px;">&#x1F4E2; Announcements</h3>
+          <div id="announcements"><p class="muted" style="font-size:.85rem;">No announcements.</p></div>
         </div>
       </div>
     </div>
@@ -139,393 +131,196 @@
     <div id="status" class="status"></div>
   </div>
 
-  <!-- Ban Modal -->
-  <div class="modal-backdrop" id="banModal" style="display:none;">
-    <div class="modal-card">
-      <h3>Ban player</h3>
-      <p class="muted" id="banModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
-      <label for="banReasonInput">Reason (optional)</label>
-      <input id="banReasonInput" type="text" maxlength="300" placeholder="e.g. repeated no-show">
-      <div class="row" style="margin-top:16px;">
-        <button class="btn danger" id="banConfirmBtn" type="button">Ban &amp; kick</button>
-        <button class="btn ghost" id="banCancelBtn" type="button">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Penalty Modal -->
-  <div class="modal-backdrop" id="penaltyModal" style="display:none;">
-    <div class="modal-card">
-      <h3>Apply penalty</h3>
-      <p class="muted" id="penaltyModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
-      <label for="penaltyUntilInput">Penalty expires on</label>
-      <input id="penaltyUntilInput" type="datetime-local">
-      <label for="penaltyReasonInput" style="margin-top:8px;">Reason (optional)</label>
-      <input id="penaltyReasonInput" type="text" maxlength="300" placeholder="e.g. late cancellation">
-      <div class="row" style="margin-top:16px;">
-        <button class="btn confirm" id="penaltyConfirmBtn" type="button">Apply penalty</button>
-        <button class="btn ghost" id="penaltyCancelBtn" type="button">Cancel</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    // Dark mode
     (function(){
-      const s = localStorage.getItem("rs_theme");
-      if (s === "dark") document.documentElement.setAttribute("data-theme","dark");
+      if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark");
     })();
-    document.addEventListener("DOMContentLoaded", function(){
-      const btn = document.getElementById("darkModeToggle");
-      function upd(){ btn.textContent = document.documentElement.getAttribute("data-theme")==="dark"?"☀️":"🌙"; }
+    document.addEventListener("DOMContentLoaded",function(){
+      var btn=document.getElementById("darkModeToggle");
+      function upd(){ btn.textContent=document.documentElement.getAttribute("data-theme")==="dark"?"\u2600\uFE0F":"\uD83C\uDF19"; }
       upd();
-      btn.addEventListener("click", function(){
-        const d = document.documentElement.getAttribute("data-theme")==="dark";
-        if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
-        else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+      btn.addEventListener("click",function(){
+        var d=document.documentElement.getAttribute("data-theme")==="dark";
+        if(d){document.documentElement.removeAttribute("data-theme");localStorage.setItem("rs_theme","light");}
+        else{document.documentElement.setAttribute("data-theme","dark");localStorage.setItem("rs_theme","dark");}
         upd();
       });
     });
 
-    const params = new URLSearchParams(window.location.search);
-    const leagueId = Number(params.get("id") || 0);
-    const TOKEN_KEY = "rs_access_token";
-    const API_BASE_KEY = "rs_api_base_override";
-    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+    var params=new URLSearchParams(window.location.search);
+    var leagueId=Number(params.get("id")||0);
+    var TOKEN_KEY="rs_access_token", API_BASE_KEY="rs_api_base_override";
+    var DEFAULT_API_BASE="https://rstrating-accounts-api.onrender.com";
+    var statusEl=document.getElementById("status");
+    var titleEl=document.getElementById("title");
+    var subtitleEl=document.getElementById("subtitle");
+    var addMatchBtn=document.getElementById("addMatchBtn");
+    var settingsBtn=document.getElementById("settingsBtn");
 
-    const statusEl = document.getElementById("status");
-    const titleEl = document.getElementById("title");
-    const subtitleEl = document.getElementById("subtitle");
-    const membersEl = document.getElementById("members");
-    const memberCountEl = document.getElementById("memberCount");
-    const matchesEl = document.getElementById("matches");
-    const metaEl = document.getElementById("meta");
-    const inviteCardEl = document.getElementById("inviteCard");
-    const invitesEl = document.getElementById("invites");
-    const addMatchBtn = document.getElementById("addMatchBtn");
-    const settingsCard = document.getElementById("settingsCard");
-    const banListCard = document.getElementById("banListCard");
-    const banListEl = document.getElementById("banList");
+    var detail=null, matches=[], joinRequests=[];
+    var sortCol="rating", sortDir=-1;
 
-    let detail = null;
-    let matches = [];
-    let joinRequests = [];
-    let bans = [];
+    function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
+    function getToken(){return localStorage.getItem(TOKEN_KEY)||"";}
+    function getApiBase(){return(localStorage.getItem(API_BASE_KEY)||DEFAULT_API_BASE).trim();}
+    function show(msg,kind){statusEl.textContent=msg;statusEl.className=kind?"status "+kind:"status";}
+    var WHISTLE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
+    function roleIcon(r){return r==="owner"?"\uD83E\uDD35":r==="admin"?WHISTLE:"\uD83D\uDC55";}
+    function roleLabel(r){return r==="owner"?"Manager":r==="admin"?"Referee":"Member";}
+    function fmtDate(iso){if(!iso)return"-";return new Date(iso).toLocaleString();}
+    function fmtShort(iso){if(!iso)return"-";var d=new Date(iso);return d.toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});}
+    function relTime(iso){if(!iso)return"";var diff=Date.now()-new Date(iso).getTime();if(diff<60000)return"just now";if(diff<3600000)return Math.floor(diff/60000)+"m ago";if(diff<86400000)return Math.floor(diff/3600000)+"h ago";return Math.floor(diff/86400000)+"d ago";}
 
-    // pending modal action
-    let pendingBanUserId = null;
-    let pendingPenaltyUserId = null;
-
-    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
-    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
-    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
-    function show(msg, kind){ statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
-
-    async function apiFetch(path, options){
-      const headers = Object.assign({}, options?.headers || {});
-      const token = getToken();
-      if (token) headers.Authorization = "Bearer " + token;
-      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
-      let body = null; try { body = await res.json(); } catch {}
-      if (!res.ok) throw new Error(body?.detail || "Request failed");
+    async function apiFetch(path,options){
+      var headers=Object.assign({},options&&options.headers||{});
+      var token=getToken();
+      if(token)headers.Authorization="Bearer "+token;
+      var res=await fetch(getApiBase()+path,Object.assign({},options||{},{headers}));
+      var body=null;try{body=await res.json();}catch(e){}
+      if(!res.ok)throw new Error((body&&body.detail)||"Request failed");
       return body;
     }
 
-    function formatIso(iso){
-      if (!iso) return "-";
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return iso;
-      return d.toLocaleString();
+    function canManage(){var r=detail&&detail.league&&detail.league.member_role;return r==="owner"||r==="admin";}
+
+    function renderMeta(){
+      var lg=detail.league;
+      document.getElementById("meta").innerHTML=
+        "<div><strong>Manager:</strong> "+esc(lg.owner_username)+"</div>"+
+        "<div><strong>Region:</strong> "+esc(lg.region||"-")+"</div>"+
+        "<div><strong>Type:</strong> "+esc(lg.football_type)+" / "+esc(lg.goal_size)+"</div>"+
+        "<div><strong>Join:</strong> "+(lg.auto_accept_members?"Auto-accept":"Request only")+"</div>"+
+        "<div><strong>Members:</strong> "+esc(lg.member_count)+"</div>"+
+        "<div><strong>Created:</strong> "+esc((lg.created_at||"").slice(0,10))+"</div>";
     }
 
-    function canManage(){
-      const role = detail?.league?.member_role;
-      return role === "owner" || role === "admin";
-    }
-    function canOwner(){ return detail?.league?.member_role === "owner"; }
+    function renderMatches(){
+      var now=Date.now();
+      var completed=matches.filter(function(m){return m.status==="completed"||m.status==="finished";})
+        .sort(function(a,b){return new Date(b.scheduled_at)-new Date(a.scheduled_at);});
+      var upcoming=matches.filter(function(m){return m.status==="scheduled"&&m.scheduled_at&&new Date(m.scheduled_at).getTime()>now;})
+        .sort(function(a,b){return new Date(a.scheduled_at)-new Date(b.scheduled_at);});
 
-    function getRoleBadgeClass(role){
-      if (role === "owner") return "role-badge";
-      if (role === "admin") return "role-badge admin";
-      return "role-badge member";
+      var lastSec=document.getElementById("lastMatchSection");
+      var lastEl=document.getElementById("lastMatch");
+      if(completed.length){
+        var mt=completed[0];
+        lastSec.style.display="block";
+        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mt.score_a||"?")+" \u2013 "+esc(mt.score_b||"?")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
+      } else {
+        lastSec.style.display="none";
+      }
+
+      var upEl=document.getElementById("upcomingMatches");
+      if(!upcoming.length){upEl.innerHTML="<p class=\"muted\">No scheduled matches.</p>";return;}
+      upEl.innerHTML=upcoming.map(function(mt){
+        var regOpens=mt.registration_opens_at?new Date(mt.registration_opens_at):null;
+        var regIsOpen=!regOpens||regOpens.getTime()<=now;
+        var regCount=mt.registration_count||mt.registered_count||"?";
+        var regBtn="";
+        if(regIsOpen){
+          if(mt.is_registered){regBtn="<button class=\"btn ghost sm unregBtn\" data-match=\""+mt.id+"\">Unregister</button>";}
+          else{regBtn="<button class=\"btn sm reg-open regBtn\" data-match=\""+mt.id+"\">Register</button>";}
+        }else{
+          regBtn="<span class=\"reg-opens-label\">Opens "+fmtShort(mt.registration_opens_at)+"</span>";
+        }
+        return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">\uD83D\uDC65 "+regCount+"/"+esc(mt.max_participants)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a>"+regBtn+"</div></div>";
+      }).join("");
     }
-    function getRoleLetter(role){
-      if (role === "owner") return "C";
-      if (role === "admin") return "A";
-      return "M";
+
+    function renderMembers(){
+      var members=(detail.members||[]).slice();
+      members.sort(function(a,b){
+        var va,vb;
+        if(sortCol==="name"){va=(a.display_name||a.username||"").toLowerCase();vb=(b.display_name||b.username||"").toLowerCase();}
+        else if(sortCol==="goals"){va=Number(a.goals||0);vb=Number(b.goals||0);}
+        else if(sortCol==="assists"){va=Number(a.assists||0);vb=Number(b.assists||0);}
+        else if(sortCol==="winrate"){va=a.attendance>0?a.wins/a.attendance:0;vb=b.attendance>0?b.wins/b.attendance:0;}
+        else if(sortCol==="mmr"){va=Number(a.mmr||a.rating||0);vb=Number(b.mmr||b.rating||0);}
+        else{va=Number(a.rating||0);vb=Number(b.rating||0);}
+        if(va<vb)return sortDir;if(va>vb)return -sortDir;return 0;
+      });
+      document.getElementById("memberTbody").innerHTML=members.map(function(m){
+        var wr=m.attendance>0?Math.round(100*m.wins/m.attendance):0;
+        return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td>"+esc(m.mmr?Math.round(m.mmr):"-")+"</td><td>"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
+      }).join("");
+      document.getElementById("memberCount").textContent=members.length+" member"+(members.length!==1?"s":"");
+      var labels={name:"Name",goals:"G",assists:"A",winrate:"Win%",mmr:"MMR",rating:"Rating"};
+      document.querySelectorAll(".member-table th[data-col]").forEach(function(th){
+        var lbl=labels[th.dataset.col]||th.dataset.col;
+        if(th.dataset.col===sortCol){th.classList.add("sorted");th.textContent=lbl+(sortDir===-1?" \u25BC":" \u25B2");}
+        else{th.classList.remove("sorted");th.textContent=lbl;}
+      });
+    }
+
+    function renderJoinRequests(){
+      var card=document.getElementById("joinReqCard");
+      var list=document.getElementById("joinReqList");
+      if(!canManage()||!joinRequests.length){card.style.display="none";return;}
+      card.style.display="block";
+      list.innerHTML=joinRequests.map(function(r){
+        return "<div class=\"item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(r.display_name||r.username)+"</strong><span class=\"pill\">pending</span></div><div class=\"muted\" style=\"font-size:.82rem;\">@"+esc(r.username)+" &middot; "+esc(new Date(r.requested_at).toLocaleString())+"</div>"+(r.message?"<div class=\"muted\">"+esc(r.message)+"</div>":"")+"<div class=\"row\" style=\"margin-top:6px;\"><button class=\"btn confirm sm joinReqDecision\" data-id=\""+r.id+"\" data-decision=\"accept\">Accept</button><button class=\"btn danger-btn sm joinReqDecision\" data-id=\""+r.id+"\" data-decision=\"reject\">Reject</button></div></div>";
+      }).join("");
+    }
+
+    function renderAnnouncements(notifs){
+      var el=document.getElementById("announcements");
+      if(!notifs||!notifs.length){el.innerHTML="<p class=\"muted\" style=\"font-size:.85rem;\">No announcements.</p>";return;}
+      el.innerHTML=notifs.slice(0,10).map(function(n){
+        return "<div class=\"announce-item "+(n.read?"":"unread")+"\"><div class=\"announce-title\">"+esc(n.title)+"</div><div class=\"announce-msg\">"+esc(n.message)+"</div><div class=\"announce-time\">"+relTime(n.created_at)+"</div></div>";
+      }).join("");
     }
 
     function render(){
-      if (!detail) return;
-      const lg = detail.league;
-      titleEl.textContent = lg.name;
-      subtitleEl.textContent = `${lg.football_type} · ${lg.goal_size} · Your role: ${lg.member_role}`;
-      memberCountEl.textContent = `${detail.members.length} member${detail.members.length !== 1 ? "s" : ""}`;
-
-      metaEl.innerHTML = `
-        <div><strong>Owner:</strong> ${esc(lg.owner_username)}</div>
-        <div><strong>Region:</strong> ${esc(lg.region || "Unknown")}</div>
-        <div><strong>Invite code:</strong> <span class="mono">${esc(lg.invite_code || "-")}</span></div>
-        <div><strong>Members:</strong> ${esc(lg.member_count)}</div>
-        <div><strong>Created:</strong> ${esc((lg.created_at||"").slice(0,10))}</div>
-        <div><strong>Description:</strong> ${esc(lg.description || "-")}</div>
-        <div><strong>Join mode:</strong> ${lg.auto_accept_members ? "Auto-accept" : "Request only"}</div>
-      `;
-
-      addMatchBtn.style.display = canManage() ? "inline-flex" : "none";
-      addMatchBtn.href = `./create_match.html?league_id=${lg.id}`;
-
-      // Settings card
-      if (canManage()) {
-        settingsCard.style.display = "block";
-        document.getElementById("settingName").value = lg.name || "";
-        document.getElementById("settingDesc").value = lg.description || "";
-        document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
-      } else {
-        settingsCard.style.display = "none";
-      }
-
-      // Members (compact rows)
-      membersEl.innerHTML = detail.members.length ? detail.members.map(m => {
-        const badgeClass = getRoleBadgeClass(m.role);
-        const badgeLetter = getRoleLetter(m.role);
-        let actionBtns = "";
-        if (canManage() && m.role !== "owner") {
-          const promoteLabel = m.role === "member" ? "→ Admin" : "→ Member";
-          const promoteRole = m.role === "member" ? "admin" : "member";
-          actionBtns += `<button class="btn ghost sm roleBtn" title="${promoteLabel}" data-user="${m.user_id}" data-role="${promoteRole}">${promoteLabel}</button>`;
-          actionBtns += `<button class="btn ghost sm penaltyTriggerBtn" title="Penalty" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}">⏱ Penalty</button>`;
-          actionBtns += `<button class="btn danger sm banTriggerBtn" title="Ban" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}">🚫 Ban</button>`;
-        }
-        return `<div class="member-row">
-          <span class="${badgeClass}" title="${esc(m.role)}">${badgeLetter}</span>
-          <span class="member-name" title="@${esc(m.username)}">${esc(m.display_name || m.username)}</span>
-          <span class="member-stats">⭐${esc(m.rating)} · A:${esc(m.attendance)} W:${esc(m.wins)} G:${esc(m.goals)} As:${esc(m.assists)}</span>
-          <div class="member-actions">${actionBtns}</div>
-        </div>`;
-      }).join("") : '<div class="item muted">No members.</div>';
-
-      // Matches
-      matchesEl.innerHTML = matches.length ? matches.map(mt => {
-        const previewHref = `./preview.html?token=${encodeURIComponent(mt.preview_token)}`;
-        return `<div class="item">
-          <div class="row" style="justify-content:space-between;">
-            <strong>${esc(mt.title)}</strong><span class="pill">${esc(mt.status)}</span>
-          </div>
-          <div class="muted">${esc(formatIso(mt.scheduled_at))} ${mt.location ? "· " + esc(mt.location) : ""}</div>
-          <div class="muted">Score ${esc(mt.score_a)} - ${esc(mt.score_b)} · Reg ${esc(mt.registered_count)}/${esc(mt.max_participants)}</div>
-          <div class="row" style="margin-top:8px;">
-            <a class="btn ghost sm" href="./match.html?id=${mt.id}">Match page</a>
-            <a class="btn ghost sm" href="${previewHref}">Preview</a>
-          </div>
-        </div>`;
-      }).join("") : '<div class="item muted">No matches yet.</div>';
-
-      // Invites
-      if (canManage()) {
-        inviteCardEl.style.display = "block";
-        invitesEl.innerHTML = (detail.invites || []).length ? detail.invites.map(inv => `
-          <div class="item">
-            <div class="muted" style="font-size:.8rem;">Created ${esc(formatIso(inv.created_at))} · uses ${esc(inv.use_count)}/${esc(inv.max_uses)}</div>
-            <div class="mono">${esc(inv.invite_url)}</div>
-            <div class="row" style="margin-top:8px;"><button class="btn ghost sm copyInvite" data-url="${esc(inv.invite_url)}">Copy link</button></div>
-          </div>
-        `).join("") : '<div class="item muted">No invites yet.</div>';
-      } else {
-        inviteCardEl.style.display = "none";
-      }
-
-      // Join Requests
-      if (canManage()) {
-        let reqCard = document.getElementById("joinReqCard");
-        if (!reqCard) {
-          reqCard = document.createElement("div");
-          reqCard.className = "card";
-          reqCard.id = "joinReqCard";
-          reqCard.innerHTML = `<h3 style="margin-bottom:8px;">Join Requests</h3><div id="joinReqList" class="list"></div>`;
-          inviteCardEl.parentElement.appendChild(reqCard);
-        }
-        const reqList = document.getElementById("joinReqList");
-        reqList.innerHTML = joinRequests.length ? joinRequests.map(r => `
-          <div class="item">
-            <div class="row" style="justify-content:space-between;"><strong>${esc(r.display_name || r.username)}</strong><span class="pill">pending</span></div>
-            <div class="muted">@${esc(r.username)} · ${esc(new Date(r.requested_at).toLocaleString())}</div>
-            ${r.message ? `<div class="muted">${esc(r.message)}</div>` : ""}
-            <div class="row" style="margin-top:8px;">
-              <button class="btn confirm sm joinReqDecision" data-id="${r.id}" data-decision="accept">Accept</button>
-              <button class="btn danger sm joinReqDecision" data-id="${r.id}" data-decision="reject">Reject</button>
-            </div>
-          </div>
-        `).join("") : '<div class="item muted">No pending requests.</div>';
-      }
-
-      // Ban list
-      if (canManage()) {
-        banListCard.style.display = "block";
-        banListEl.innerHTML = bans.length ? bans.map(b => `
-          <div class="item">
-            <div class="row" style="justify-content:space-between;">
-              <strong>${esc(b.username)}</strong>
-              <button class="btn ghost sm unbanBtn" data-user="${b.user_id}">Unban</button>
-            </div>
-            ${b.penalty_reason ? `<div class="muted">${esc(b.penalty_reason)}</div>` : ""}
-          </div>
-        `).join("") : '<div class="item muted">No banned players.</div>';
-      } else {
-        banListCard.style.display = "none";
-      }
+      if(!detail)return;
+      var lg=detail.league;
+      titleEl.textContent=lg.name;
+      subtitleEl.textContent=lg.football_type+" \u00B7 "+lg.goal_size+" \u00B7 "+roleLabel(lg.member_role)+" "+roleIcon(lg.member_role);
+      addMatchBtn.style.display=canManage()?"inline-flex":"none";
+      addMatchBtn.href="./create_match.html?league_id="+lg.id;
+      settingsBtn.style.display=canManage()?"inline-flex":"none";
+      settingsBtn.href="./league_settings.html?id="+lg.id;
+      renderMeta();renderMatches();renderMembers();renderJoinRequests();
     }
+
+    document.getElementById("memberTable").addEventListener("click",function(e){
+      var th=e.target.closest("th[data-col]");
+      if(!th)return;
+      var col=th.dataset.col;
+      if(sortCol===col)sortDir=-sortDir;
+      else{sortCol=col;sortDir=col==="name"?1:-1;}
+      renderMembers();
+    });
+
+    document.body.addEventListener("click",async function(e){
+      var regBtn=e.target.closest(".regBtn");
+      if(regBtn){try{await apiFetch("/matches/"+regBtn.dataset.match+"/register",{method:"POST"});await load();show("Registered!");}catch(err){show(err.message||"Failed.","error");}return;}
+      var unregBtn=e.target.closest(".unregBtn");
+      if(unregBtn){try{await apiFetch("/matches/"+unregBtn.dataset.match+"/unregister",{method:"DELETE"});await load();show("Unregistered.");}catch(err){show(err.message||"Failed.","error");}return;}
+      var reqBtn=e.target.closest(".joinReqDecision");
+      if(reqBtn){try{await apiFetch("/leagues/"+leagueId+"/join-requests/"+Number(reqBtn.dataset.id),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision:reqBtn.dataset.decision})});await load();show("Request "+reqBtn.dataset.decision+"ed.");}catch(err){show(err.message||"Failed.","error");}return;}
+    });
 
     async function load(){
-      if (!leagueId) { show("Missing league id.", "error"); return; }
-      if (!getToken()) { show("Please log in from lobby first.", "error"); return; }
-      try {
-        const tasks = [
-          apiFetch(`/leagues/${leagueId}`, { method: "GET" }),
-          apiFetch(`/leagues/${leagueId}/matches`, { method: "GET" }),
-          apiFetch(`/leagues/${leagueId}/join-requests`, { method: "GET" }).catch(() => []),
-          apiFetch(`/leagues/${leagueId}/bans`, { method: "GET" }).catch(() => []),
-        ];
-        const result = await Promise.all(tasks);
-        detail = result[0];
-        matches = result[1];
-        joinRequests = Array.isArray(result[2]) ? result[2] : [];
-        bans = Array.isArray(result[3]) ? result[3] : [];
+      if(!leagueId){show("Missing league id.","error");return;}
+      if(!getToken()){show("Please log in from lobby first.","error");return;}
+      try{
+        var results=await Promise.all([
+          apiFetch("/leagues/"+leagueId),
+          apiFetch("/leagues/"+leagueId+"/matches"),
+          apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
+          apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
+        ]);
+        detail=results[0];
+        matches=Array.isArray(results[1])?results[1]:[];
+        joinRequests=Array.isArray(results[2])?results[2]:[];
         render();
-      } catch (err) {
-        show(err.message || "Failed loading league.", "error");
+        var notifs=Array.isArray(results[3])?results[3]:(results[3]&&results[3].items||[]);
+        renderAnnouncements(notifs);
+      }catch(err){
+        show(err.message||"Failed loading league.","error");
       }
     }
-
-    document.getElementById("newInviteBtn").addEventListener("click", async () => {
-      try {
-        await apiFetch(`/leagues/${leagueId}/invites`, { method: "POST" });
-        await load();
-        show("Invite created.");
-      } catch (err) { show(err.message || "Failed.", "error"); }
-    });
-
-    document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
-      const payload = {
-        name: document.getElementById("settingName").value.trim() || null,
-        description: document.getElementById("settingDesc").value.trim() || null,
-        auto_accept_members: document.getElementById("settingAutoAccept").checked,
-      };
-      try {
-        await apiFetch(`/leagues/${leagueId}/settings`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        await load();
-        show("Settings saved.");
-      } catch (err) { show(err.message || "Failed.", "error"); }
-    });
-
-    // Ban modal
-    document.getElementById("banCancelBtn").addEventListener("click", () => {
-      document.getElementById("banModal").style.display = "none";
-      pendingBanUserId = null;
-    });
-    document.getElementById("banConfirmBtn").addEventListener("click", async () => {
-      if (!pendingBanUserId) return;
-      const reason = document.getElementById("banReasonInput").value.trim() || null;
-      try {
-        await apiFetch(`/leagues/${leagueId}/members/${pendingBanUserId}/ban`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason }),
-        });
-        document.getElementById("banModal").style.display = "none";
-        pendingBanUserId = null;
-        await load();
-        show("Player banned.");
-      } catch (err) { show(err.message || "Failed.", "error"); }
-    });
-
-    // Penalty modal
-    document.getElementById("penaltyCancelBtn").addEventListener("click", () => {
-      document.getElementById("penaltyModal").style.display = "none";
-      pendingPenaltyUserId = null;
-    });
-    document.getElementById("penaltyConfirmBtn").addEventListener("click", async () => {
-      if (!pendingPenaltyUserId) return;
-      const until = document.getElementById("penaltyUntilInput").value;
-      const reason = document.getElementById("penaltyReasonInput").value.trim() || null;
-      if (!until) { show("Please select a penalty end date.", "error"); return; }
-      try {
-        await apiFetch(`/leagues/${leagueId}/members/${pendingPenaltyUserId}/penalty`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ until, reason }),
-        });
-        document.getElementById("penaltyModal").style.display = "none";
-        pendingPenaltyUserId = null;
-        await load();
-        show("Penalty applied.");
-      } catch (err) { show(err.message || "Failed.", "error"); }
-    });
-
-    document.body.addEventListener("click", async (e) => {
-      const copyBtn = e.target.closest(".copyInvite");
-      if (copyBtn) {
-        try { await navigator.clipboard.writeText(copyBtn.dataset.url); show("Copied."); }
-        catch { show("Copy failed.", "error"); }
-        return;
-      }
-      const roleBtn = e.target.closest(".roleBtn");
-      if (roleBtn) {
-        try {
-          await apiFetch(`/leagues/${leagueId}/members/${roleBtn.dataset.user}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role: roleBtn.dataset.role }),
-          });
-          await load();
-          show("Role updated.");
-        } catch (err) { show(err.message || "Failed.", "error"); }
-        return;
-      }
-      const banBtn = e.target.closest(".banTriggerBtn");
-      if (banBtn) {
-        pendingBanUserId = Number(banBtn.dataset.user);
-        document.getElementById("banReasonInput").value = "";
-        document.getElementById("banModalSubtitle").textContent = `Banning: ${banBtn.dataset.name}`;
-        document.getElementById("banModal").style.display = "flex";
-        return;
-      }
-      const penaltyBtn = e.target.closest(".penaltyTriggerBtn");
-      if (penaltyBtn) {
-        pendingPenaltyUserId = Number(penaltyBtn.dataset.user);
-        document.getElementById("penaltyReasonInput").value = "";
-        document.getElementById("penaltyUntilInput").value = "";
-        document.getElementById("penaltyModalSubtitle").textContent = `Penalizing: ${penaltyBtn.dataset.name}`;
-        document.getElementById("penaltyModal").style.display = "flex";
-        return;
-      }
-      const unbanBtn = e.target.closest(".unbanBtn");
-      if (unbanBtn) {
-        try {
-          await apiFetch(`/leagues/${leagueId}/bans/${unbanBtn.dataset.user}`, { method: "DELETE" });
-          await load();
-          show("Player unbanned.");
-        } catch (err) { show(err.message || "Failed.", "error"); }
-        return;
-      }
-      const reqBtn = e.target.closest(".joinReqDecision");
-      if (reqBtn) {
-        try {
-          await apiFetch(`/leagues/${leagueId}/join-requests/${Number(reqBtn.dataset.id)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ decision: reqBtn.dataset.decision }),
-          });
-          await load();
-          show(`Join request ${reqBtn.dataset.decision}ed.`);
-        } catch (err) { show(err.message || "Failed.", "error"); }
-        return;
-      }
-    });
 
     load();
   </script>
