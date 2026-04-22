@@ -864,26 +864,90 @@ def ensure_admin_account() -> None:
 
 
 def ensure_sample_matches() -> None:
-    """Seed example matches once when leagues exist but matches table is empty."""
-    with get_conn() as conn:
-        existing_match_count = int(conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0])
-        if existing_match_count > 0:
-            return
+    """Seed richer demo matches and registrations for demo leagues.
 
+    Rules:
+    - Demo leagues (with demo% members) should have at least 6 matches.
+    - Seeded matches include both past (completed) and future (upcoming/registration_open).
+    - Every demo user should be registered for at least one match.
+    """
+    with get_conn() as conn:
         leagues = conn.execute(
-            "SELECT id, name, owner_id FROM leagues ORDER BY id LIMIT 8"
+            """
+            SELECT l.id, l.name, l.owner_id
+            FROM leagues AS l
+            WHERE EXISTS (
+                SELECT 1
+                FROM league_memberships AS lm
+                JOIN users AS u ON u.id = lm.user_id
+                WHERE lm.league_id = l.id
+                  AND LOWER(u.username) LIKE 'demo%'
+            )
+            ORDER BY l.id
+            """
         ).fetchall()
         if not leagues:
             return
 
         now = utc_now()
         created_at = utc_now_iso()
-        seeded = 0
+        seeded_matches = 0
+
+        def create_match(
+            league_id: int,
+            owner_id: int,
+            title: str,
+            scheduled_at: str,
+            registration_opens_at: str | None,
+            status: str,
+            score_a: int,
+            score_b: int,
+            started_at: str | None,
+            ended_at: str | None,
+            notes: str,
+        ) -> int:
+            cursor = conn.execute(
+                """
+                INSERT INTO matches (
+                    league_id, title, location, scheduled_at, registration_opens_at,
+                    max_participants, notes, status, team_a, team_b, score_a, score_b,
+                    started_at, ended_at, created_by, created_at, updated_at, preview_token
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    league_id,
+                    title,
+                    "Main field",
+                    scheduled_at,
+                    registration_opens_at,
+                    14,
+                    notes,
+                    status,
+                    int(score_a),
+                    int(score_b),
+                    started_at,
+                    ended_at,
+                    owner_id,
+                    created_at,
+                    created_at,
+                    secrets.token_urlsafe(16),
+                ),
+            )
+            return int(cursor.lastrowid)
 
         for league in leagues:
             league_id = int(league["id"])
             owner_id = int(league["owner_id"])
             league_name = str(league["name"])
+
+            existing_count = int(
+                conn.execute("SELECT COUNT(*) FROM matches WHERE league_id = ?", (league_id,)).fetchone()[0]
+            )
+            target_count = 6
+            to_create = max(0, target_count - existing_count)
+            if to_create <= 0:
+                continue
 
             templates = [
                 {
@@ -930,40 +994,163 @@ def ensure_sample_matches() -> None:
                     "ended_at": None,
                     "notes": "Sample scheduled match",
                 },
+                {
+                    "title": f"{league_name} Sunday Cup",
+                    "scheduled_at": (now + timedelta(days=12)).isoformat(),
+                    "registration_opens_at": (now + timedelta(days=9)).isoformat(),
+                    "status": "upcoming",
+                    "score_a": 0,
+                    "score_b": 0,
+                    "started_at": None,
+                    "ended_at": None,
+                    "notes": "Sample scheduled cup fixture",
+                },
+                {
+                    "title": f"{league_name} Last Sunday Replay",
+                    "scheduled_at": (now - timedelta(days=17)).isoformat(),
+                    "registration_opens_at": (now - timedelta(days=20)).isoformat(),
+                    "status": "completed",
+                    "score_a": 4,
+                    "score_b": 3,
+                    "started_at": (now - timedelta(days=17, hours=-1)).isoformat(),
+                    "ended_at": (now - timedelta(days=17, hours=-2)).isoformat(),
+                    "notes": "Sample classic match",
+                },
             ]
 
-            for item in templates:
+            for i in range(to_create):
+                item = templates[i % len(templates)]
+                create_match(
+                    league_id=league_id,
+                    owner_id=owner_id,
+                    title=item["title"],
+                    scheduled_at=item["scheduled_at"],
+                    registration_opens_at=item["registration_opens_at"],
+                    status=item["status"],
+                    score_a=int(item["score_a"]),
+                    score_b=int(item["score_b"]),
+                    started_at=item["started_at"],
+                    ended_at=item["ended_at"],
+                    notes=item["notes"],
+                )
+                seeded_matches += 1
+
+        # Ensure demo users appear in at least one match registration.
+        demo_users = conn.execute(
+            "SELECT id FROM users WHERE LOWER(username) LIKE 'demo%' ORDER BY id"
+        ).fetchall()
+
+        for user in demo_users:
+            user_id = int(user["id"])
+            has_any = conn.execute(
+                """
+                SELECT 1
+                FROM match_registrations AS mr
+                JOIN matches AS m ON m.id = mr.match_id
+                JOIN league_memberships AS lm ON lm.league_id = m.league_id AND lm.user_id = mr.user_id
+                WHERE mr.user_id = ?
+                LIMIT 1
+                """,
+                (user_id,),
+            ).fetchone()
+            if has_any is not None:
+                continue
+
+            league_row = conn.execute(
+                "SELECT league_id FROM league_memberships WHERE user_id = ? ORDER BY league_id LIMIT 1",
+                (user_id,),
+            ).fetchone()
+            if league_row is None:
+                continue
+            league_id = int(league_row["league_id"])
+
+            match_row = conn.execute(
+                "SELECT id FROM matches WHERE league_id = ? ORDER BY scheduled_at ASC LIMIT 1",
+                (league_id,),
+            ).fetchone()
+            if match_row is None:
+                continue
+            match_id = int(match_row["id"])
+
+            existing_reg = conn.execute(
+                "SELECT 1 FROM match_registrations WHERE match_id = ? AND user_id = ?",
+                (match_id, user_id),
+            ).fetchone()
+            if existing_reg is not None:
+                continue
+
+            position = int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM match_registrations WHERE match_id = ?",
+                    (match_id,),
+                ).fetchone()[0]
+            ) + 1
+            conn.execute(
+                """
+                INSERT INTO match_registrations (match_id, user_id, status, position, registered_at, offered_at)
+                VALUES (?, ?, 'registered', ?, ?, NULL)
+                """,
+                (match_id, user_id, position, created_at),
+            )
+
+        # Also register demo members into upcoming/open matches they belong to (up to max participants).
+        candidate_matches = conn.execute(
+            """
+            SELECT id, league_id, max_participants
+            FROM matches
+            WHERE status IN ('upcoming', 'registration_open')
+            ORDER BY scheduled_at ASC
+            """
+        ).fetchall()
+        for m in candidate_matches:
+            match_id = int(m["id"])
+            league_id = int(m["league_id"])
+            max_participants = int(m["max_participants"])
+            current_registered = int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM match_registrations WHERE match_id = ? AND status = 'registered'",
+                    (match_id,),
+                ).fetchone()[0]
+            )
+            if current_registered >= max_participants:
+                continue
+
+            demo_members = conn.execute(
+                """
+                SELECT lm.user_id
+                FROM league_memberships AS lm
+                JOIN users AS u ON u.id = lm.user_id
+                WHERE lm.league_id = ? AND LOWER(u.username) LIKE 'demo%'
+                ORDER BY lm.user_id
+                """,
+                (league_id,),
+            ).fetchall()
+            for member in demo_members:
+                if current_registered >= max_participants:
+                    break
+                user_id = int(member["user_id"])
+                already = conn.execute(
+                    "SELECT 1 FROM match_registrations WHERE match_id = ? AND user_id = ?",
+                    (match_id, user_id),
+                ).fetchone()
+                if already is not None:
+                    continue
+                position = int(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM match_registrations WHERE match_id = ?",
+                        (match_id,),
+                    ).fetchone()[0]
+                ) + 1
                 conn.execute(
                     """
-                    INSERT INTO matches (
-                        league_id, title, location, scheduled_at, registration_opens_at,
-                        max_participants, notes, status, team_a, team_b, score_a, score_b,
-                        started_at, ended_at, created_by, created_at, updated_at, preview_token
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO match_registrations (match_id, user_id, status, position, registered_at, offered_at)
+                    VALUES (?, ?, 'registered', ?, ?, NULL)
                     """,
-                    (
-                        league_id,
-                        item["title"],
-                        "Main field",
-                        item["scheduled_at"],
-                        item["registration_opens_at"],
-                        14,
-                        item["notes"],
-                        item["status"],
-                        int(item["score_a"]),
-                        int(item["score_b"]),
-                        item["started_at"],
-                        item["ended_at"],
-                        owner_id,
-                        created_at,
-                        created_at,
-                        secrets.token_urlsafe(16),
-                    ),
+                    (match_id, user_id, position, created_at),
                 )
-                seeded += 1
+                current_registered += 1
 
-        if seeded:
+        if seeded_matches or demo_users:
             conn.commit()
 
 
