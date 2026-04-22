@@ -863,6 +863,110 @@ def ensure_admin_account() -> None:
         conn.commit()
 
 
+def ensure_sample_matches() -> None:
+    """Seed example matches once when leagues exist but matches table is empty."""
+    with get_conn() as conn:
+        existing_match_count = int(conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0])
+        if existing_match_count > 0:
+            return
+
+        leagues = conn.execute(
+            "SELECT id, name, owner_id FROM leagues ORDER BY id LIMIT 8"
+        ).fetchall()
+        if not leagues:
+            return
+
+        now = utc_now()
+        created_at = utc_now_iso()
+        seeded = 0
+
+        for league in leagues:
+            league_id = int(league["id"])
+            owner_id = int(league["owner_id"])
+            league_name = str(league["name"])
+
+            templates = [
+                {
+                    "title": f"{league_name} Weekly Friendly",
+                    "scheduled_at": (now - timedelta(days=10)).isoformat(),
+                    "registration_opens_at": (now - timedelta(days=13)).isoformat(),
+                    "status": "completed",
+                    "score_a": 3,
+                    "score_b": 2,
+                    "started_at": (now - timedelta(days=10, hours=-1)).isoformat(),
+                    "ended_at": (now - timedelta(days=10, hours=-2)).isoformat(),
+                    "notes": "Sample past match",
+                },
+                {
+                    "title": f"{league_name} Midweek Match",
+                    "scheduled_at": (now - timedelta(days=4)).isoformat(),
+                    "registration_opens_at": (now - timedelta(days=7)).isoformat(),
+                    "status": "completed",
+                    "score_a": 1,
+                    "score_b": 1,
+                    "started_at": (now - timedelta(days=4, hours=-1)).isoformat(),
+                    "ended_at": (now - timedelta(days=4, hours=-2)).isoformat(),
+                    "notes": "Sample completed draw",
+                },
+                {
+                    "title": f"{league_name} Weekend Fixture",
+                    "scheduled_at": (now + timedelta(days=3)).isoformat(),
+                    "registration_opens_at": (now + timedelta(days=1)).isoformat(),
+                    "status": "registration_open",
+                    "score_a": 0,
+                    "score_b": 0,
+                    "started_at": None,
+                    "ended_at": None,
+                    "notes": "Sample upcoming match (registration open)",
+                },
+                {
+                    "title": f"{league_name} Next Week Clash",
+                    "scheduled_at": (now + timedelta(days=8)).isoformat(),
+                    "registration_opens_at": (now + timedelta(days=6)).isoformat(),
+                    "status": "upcoming",
+                    "score_a": 0,
+                    "score_b": 0,
+                    "started_at": None,
+                    "ended_at": None,
+                    "notes": "Sample scheduled match",
+                },
+            ]
+
+            for item in templates:
+                conn.execute(
+                    """
+                    INSERT INTO matches (
+                        league_id, title, location, scheduled_at, registration_opens_at,
+                        max_participants, notes, status, team_a, team_b, score_a, score_b,
+                        started_at, ended_at, created_by, created_at, updated_at, preview_token
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        league_id,
+                        item["title"],
+                        "Main field",
+                        item["scheduled_at"],
+                        item["registration_opens_at"],
+                        14,
+                        item["notes"],
+                        item["status"],
+                        int(item["score_a"]),
+                        int(item["score_b"]),
+                        item["started_at"],
+                        item["ended_at"],
+                        owner_id,
+                        created_at,
+                        created_at,
+                        secrets.token_urlsafe(16),
+                    ),
+                )
+                seeded += 1
+
+        if seeded:
+            conn.commit()
+
+
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
@@ -1255,6 +1359,7 @@ app.add_middleware(
 def startup() -> None:
     init_db()
     ensure_admin_account()
+    ensure_sample_matches()
 
 
 @app.get("/health")

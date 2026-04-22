@@ -5,19 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Match | RSTRating</title>
   <style>
-    :root { --bg:#e9f7ef; --panel:#fff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); }
-    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,#f3fbf6,#def0e6); color:var(--text); }
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f3faf6; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --success:#26a957; --danger:#ef6f66; --line:rgba(231,245,238,.2); --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; }
+    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
     .wrap { max-width:980px; margin:24px auto; padding:0 16px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
     h1,h2,h3 { margin:0; }
     .muted { color:var(--muted); }
     .btn { border:none; border-radius:9px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
     .btn.primary{ background:var(--accent); color:#fff; }
     .btn.confirm{ background:var(--success); color:#fff; }
     .btn.danger{ background:var(--danger); color:#fff; }
-    .btn.ghost{ background:#f3faf6; border:1px solid var(--line); color:var(--text); }
-    .pill { display:inline-flex; padding:3px 9px; border-radius:8px; background:#ebf7ef; border:1px solid var(--line); font-size:.82rem; }
+    .btn.ghost{ background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .pill { display:inline-flex; padding:3px 9px; border-radius:8px; background:var(--pill); border:1px solid var(--line); font-size:.82rem; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
     .list { display:flex; flex-direction:column; gap:8px; }
@@ -36,6 +37,7 @@
         <div id="sub" class="muted">Loading...</div>
       </div>
       <div class="row">
+        <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
         <a class="btn ghost" id="leagueLink" href="./index.html">Back to league</a>
         <a class="btn ghost" id="previewLink" href="#">Open preview page</a>
       </div>
@@ -75,6 +77,32 @@
   </div>
 
   <script>
+    (function(){
+      if (localStorage.getItem("rs_theme") !== "light") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+
+    (function(){
+      const btn = document.getElementById("darkModeToggle");
+      if (!btn) return;
+      const sync = () => {
+        btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
+      };
+      sync();
+      btn.addEventListener("click", () => {
+        const dark = document.documentElement.getAttribute("data-theme") === "dark";
+        if (dark) {
+          document.documentElement.removeAttribute("data-theme");
+          localStorage.setItem("rs_theme", "light");
+        } else {
+          document.documentElement.setAttribute("data-theme", "dark");
+          localStorage.setItem("rs_theme", "dark");
+        }
+        sync();
+      });
+    })();
+
     const params = new URLSearchParams(window.location.search);
     const matchId = Number(params.get("id") || 0);
     const TOKEN_KEY = "rs_access_token";
