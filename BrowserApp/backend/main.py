@@ -2430,6 +2430,17 @@ def create_league_invite(
     )
 
 
+@app.get("/leagues/{league_id}/invites", response_model=list[LeagueInviteOut])
+def list_league_invites(
+    league_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> list[LeagueInviteOut]:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        rows = fetch_league_invites(conn, league_id)
+    return [serialize_invite(row) for row in rows]
+
+
 @app.get("/league-invites/{token}", response_model=InvitePreviewOut)
 def preview_league_invite(token: str) -> InvitePreviewOut:
     with get_conn() as conn:

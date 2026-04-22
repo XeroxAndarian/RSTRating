@@ -14,8 +14,12 @@
     h1 { margin:0 0 6px; }
     .sub { color:var(--muted); margin:0 0 20px; }
     label { display:block; margin:12px 0 6px; font-weight:700; }
-    input, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+    input, select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; box-sizing:border-box; background:var(--panel-soft); color:var(--text); }
     textarea { min-height:90px; resize:vertical; }
+    .mode-row { display:flex; gap:8px; margin-bottom:4px; flex-wrap:wrap; }
+    .mode-chip { border:1px solid var(--line); background:var(--panel-soft); color:var(--text); border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
+    .mode-chip.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .hint { color:var(--muted); font-size:.88rem; margin:6px 0 4px; }
     .row { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
     .btn { border:none; border-radius:9px; padding:11px 16px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
     .btn.primary { background:var(--accent); color:#fff; }
@@ -34,10 +38,18 @@
       <h1>Create Match</h1>
       <p class="sub" id="leagueInfo">Loading league...</p>
       <form id="form">
-        <label for="presetSelect">Preset (optional)</label>
-        <select id="presetSelect" name="presetSelect">
-          <option value="">Custom match (no preset)</option>
-        </select>
+        <label>Match setup</label>
+        <div class="mode-row" id="modeRow">
+          <button type="button" class="mode-chip active" data-mode="custom">Custom</button>
+          <button type="button" class="mode-chip" data-mode="preset">Use preset</button>
+        </div>
+        <div id="presetPickerWrap" style="display:none;">
+          <label for="presetSelect">Choose preset</label>
+          <select id="presetSelect" name="presetSelect">
+            <option value="">Select a preset</option>
+          </select>
+          <p class="hint">Preset values fill the form automatically. You can still edit everything before creating.</p>
+        </div>
 
         <label for="title">Match title</label>
         <input id="title" name="title" maxlength="100" required>
@@ -101,10 +113,20 @@
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
     const statusEl = document.getElementById("status");
     let currentLeague = null;
+    let setupMode = "custom";
+    let availablePresets = [];
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+    function setSetupMode(mode) {
+      setupMode = mode === "preset" ? "preset" : "custom";
+      const wrap = document.getElementById("presetPickerWrap");
+      if (wrap) wrap.style.display = setupMode === "preset" ? "block" : "none";
+      document.querySelectorAll("#modeRow .mode-chip").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === setupMode);
+      });
+    }
 
     async function apiFetch(path, options) {
       const headers = Object.assign({}, options?.headers || {});
@@ -128,6 +150,7 @@
         document.getElementById("leagueInfo").textContent = `League: ${detail.league.name}`;
 
         const presets = Array.isArray(detail.league.match_presets) ? detail.league.match_presets : [];
+        availablePresets = presets;
         const presetSelect = document.getElementById("presetSelect");
         const form = document.getElementById("form");
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -171,7 +194,7 @@
           if (regOpen) form.registration_opens_at.value = regOpen;
         };
         if (presetSelect) {
-          presetSelect.innerHTML = '<option value="">Custom match (no preset)</option>' + presets.map((p, i) => `<option value="${i}">${(p.name || `Preset ${i + 1}`)}</option>`).join("");
+          presetSelect.innerHTML = '<option value="">Select a preset</option>' + presets.map((p, i) => `<option value="${i}">${(p.name || `Preset ${i + 1}`)}</option>`).join("");
           presetSelect.addEventListener("change", () => {
             const idx = Number(presetSelect.value);
             if (!Number.isFinite(idx) || idx < 0 || idx >= presets.length) return;
@@ -180,7 +203,12 @@
 
           if (Number.isFinite(presetParam) && presetParam >= 0 && presetParam < presets.length) {
             presetSelect.value = String(presetParam);
+            setSetupMode("preset");
             applyPreset(presets[presetParam]);
+          } else if (!presets.length) {
+            const presetBtn = document.querySelector('#modeRow .mode-chip[data-mode="preset"]');
+            if (presetBtn) presetBtn.setAttribute("disabled", "disabled");
+            setSetupMode("custom");
           }
         }
       } catch (err) {
@@ -211,6 +239,21 @@
       } catch (err) {
         show(err.message || "Failed to create match.", "error");
       }
+    });
+
+    document.querySelectorAll("#modeRow .mode-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.hasAttribute("disabled")) return;
+        setSetupMode(btn.dataset.mode || "custom");
+        if (setupMode === "preset") {
+          const presetSelect = document.getElementById("presetSelect");
+          const firstPresetAvailable = availablePresets.length > 0;
+          if (presetSelect && firstPresetAvailable && !presetSelect.value) {
+            presetSelect.value = "0";
+            presetSelect.dispatchEvent(new Event("change"));
+          }
+        }
+      });
     });
   </script>
 </body>
