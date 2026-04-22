@@ -43,6 +43,8 @@
     .member-row .mr-actions { display:flex; gap:4px; }
     .invite-row { display:flex; flex-direction:column; gap:3px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
     .ban-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+    .discipline-row { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); }
+    .discipline-meta { font-size:.78rem; color:var(--muted); margin-top:2px; }
     .tab-bar { display:flex; gap:4px; margin-bottom:10px; }
     .tab-bar button { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:8px; padding:5px 14px; font:inherit; font-size:.85rem; cursor:pointer; font-weight:700; }
     .tab-bar button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
@@ -167,6 +169,19 @@
       <div class="member-mgmt" id="memberMgmt"><p class="muted">Loading…</p></div>
     </div>
 
+    <!-- Discipline -->
+    <div class="card">
+      <h2 style="margin-bottom:6px;">Discipline</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:.88rem;">Quick overview of bans and penalties with direct actions.</p>
+      <div class="tab-bar" style="margin-bottom:8px;">
+        <button class="active" id="disciplineFilterAll" type="button">All</button>
+        <button id="disciplineFilterBanned" type="button">Banned</button>
+        <button id="disciplineFilterPenalized" type="button">Penalized</button>
+        <button id="disciplineFilterClean" type="button">Clean</button>
+      </div>
+      <div id="disciplineList" class="stack" style="gap:6px;"></div>
+    </div>
+
     <!-- Invites -->
     <div class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:8px;">
@@ -216,6 +231,18 @@
       <div class="row" style="margin-top:16px;">
         <button class="btn confirm" id="penaltyConfirmBtn" type="button">Apply</button>
         <button class="btn ghost" id="penaltyCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discipline History Modal -->
+  <div class="modal-backdrop" id="disciplineModal" style="display:none;">
+    <div class="modal-card" style="max-width:560px;">
+      <h3>Discipline history</h3>
+      <p class="muted" id="disciplineModalSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <div id="disciplineHistoryList" class="stack" style="max-height:320px;overflow:auto;gap:8px;"></div>
+      <div class="row" style="margin-top:16px;">
+        <button class="btn ghost" id="disciplineCloseBtn" type="button">Close</button>
       </div>
     </div>
   </div>
@@ -270,9 +297,63 @@
     let allInvites = [];
     let bans = [];
     let inviteTab = "active";
+    let disciplineFilter = "all";
     let pendingBanUserId = null;
     let pendingPenaltyUserId = null;
     let matchPresets = [];
+
+    function setDisciplineFilter(nextFilter) {
+      disciplineFilter = nextFilter;
+      const ids = ["disciplineFilterAll", "disciplineFilterBanned", "disciplineFilterPenalized", "disciplineFilterClean"];
+      ids.forEach((id) => document.getElementById(id)?.classList.remove("active"));
+      const activeId = nextFilter === "banned"
+        ? "disciplineFilterBanned"
+        : nextFilter === "penalized"
+          ? "disciplineFilterPenalized"
+          : nextFilter === "clean"
+            ? "disciplineFilterClean"
+            : "disciplineFilterAll";
+      document.getElementById(activeId)?.classList.add("active");
+      renderDiscipline();
+    }
+
+    async function openDisciplineHistory(userId, userLabel) {
+      const modal = document.getElementById("disciplineModal");
+      const subtitle = document.getElementById("disciplineModalSubtitle");
+      const list = document.getElementById("disciplineHistoryList");
+      if (!modal || !subtitle || !list) return;
+      subtitle.textContent = `Player: ${userLabel}`;
+      list.innerHTML = '<p class="muted">Loading...</p>';
+      modal.style.display = "flex";
+      try {
+        const rows = await apiFetch(`/leagues/${leagueId}/members/${userId}/discipline-history`);
+        if (!Array.isArray(rows) || !rows.length) {
+          list.innerHTML = '<p class="muted">No history records yet.</p>';
+          return;
+        }
+        const actionLabel = (a) => {
+          if (a === "ban") return "Ban";
+          if (a === "unban") return "Unban";
+          if (a === "penalty_set") return "Penalty applied";
+          if (a === "penalty_removed") return "Penalty removed";
+          return a;
+        };
+        list.innerHTML = rows.map(r => {
+          const actor = r.actor_display_name || r.actor_username || "system";
+          const when = new Date(r.created_at).toLocaleString();
+          return `
+            <div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);">
+              <div style="font-weight:700;">${esc(actionLabel(r.action))}</div>
+              <div class="muted" style="font-size:.82rem;">${esc(when)} · by ${esc(actor)}</div>
+              ${r.penalty_until ? `<div class="muted" style="font-size:.82rem;">Until: ${esc(new Date(r.penalty_until).toLocaleString())}</div>` : ""}
+              ${r.reason ? `<div class="muted" style="font-size:.82rem;">Reason: ${esc(r.reason)}</div>` : ""}
+            </div>
+          `;
+        }).join("");
+      } catch (err) {
+        list.innerHTML = `<p class="muted">${esc(err.message || "Failed to load history.")}</p>`;
+      }
+    }
 
     function roleIcon(role){ return role === "owner" ? "🤵" : role === "admin" ? "👮" : "👕"; }
     function roleLabel(role){ return role === "owner" ? "Manager" : role === "admin" ? "Referee" : "Member"; }
@@ -367,13 +448,18 @@
         const sinceDate = formatDate(m.joined_at || m.created_at);
         const promoteLabel = m.role === "member" ? "👮 Make Referee" : m.role === "admin" ? "👕 Demote" : "";
         const promoteRole = m.role === "member" ? "admin" : "member";
+        const penaltyText = m.penalty_until
+          ? `🟨 Penalized until ${new Date(m.penalty_until).toLocaleString()}${m.penalty_reason ? ` (${esc(m.penalty_reason)})` : ""}`
+          : "";
         return `<div class="member-row">
           <span title="${esc(roleLabel(m.role))}">${roleIcon(m.role)}</span>
-          <span class="mr-name">${esc(m.display_name || m.username)}</span>
+          <span class="mr-name">${esc(m.display_name || m.username)}${penaltyText ? `<div class="muted" style="font-size:.76rem;font-weight:600;">${penaltyText}</div>` : ""}</span>
           <span class="mr-since">since ${sinceDate}</span>
           <div class="mr-actions">
             ${!isOwner && promoteLabel ? `<button class="btn ghost sm roleBtn" data-user="${m.user_id}" data-role="${promoteRole}" title="${promoteLabel}">${promoteLabel}</button>` : ""}
             ${!isOwner ? `<button class="btn ghost sm penaltyTriggerBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Penalty">🟨</button>` : ""}
+            ${!isOwner && m.penalty_until ? `<button class="btn ghost sm removePenaltyBtn" data-user="${m.user_id}" title="Remove penalty">Remove penalty</button>` : ""}
+            <button class="btn ghost sm historyBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="History">📜</button>
             ${!isOwner ? `<button class="btn ghost sm banTriggerBtn red-card-btn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Ban">🟥</button>` : ""}
           </div>
         </div>`;
@@ -382,10 +468,16 @@
 
     function renderInvites(){
       const el = document.getElementById("inviteList");
-      const now = Date.now();
+      const isExpired = (invite) => {
+        if (typeof invite.expired === "boolean") return invite.expired;
+        if (!invite.expires_at) return false;
+        const dt = new Date(invite.expires_at);
+        if (Number.isNaN(dt.getTime())) return false;
+        return dt.getTime() <= Date.now();
+      };
       const filtered = inviteTab === "active"
-        ? allInvites.filter(i => !i.expired && (i.max_uses === null || i.use_count < i.max_uses))
-        : allInvites.filter(i => i.expired || (i.max_uses !== null && i.use_count >= i.max_uses));
+        ? allInvites.filter(i => !isExpired(i) && (i.max_uses === null || i.use_count < i.max_uses))
+        : allInvites.filter(i => isExpired(i) || (i.max_uses !== null && i.use_count >= i.max_uses));
       if (!filtered.length){ el.innerHTML = `<p class="muted">No ${inviteTab} invites.</p>`; return; }
       el.innerHTML = filtered.map(i => `
         <div class="invite-row">
@@ -411,12 +503,98 @@
       el.innerHTML = bans.map(b => `
         <div class="ban-row">
           <div>
-            <strong>${esc(b.username)}</strong>
+            <strong>${esc(b.display_name || b.username)}</strong>${b.display_name ? ` <span class="muted" style="font-size:.82rem;">(@${esc(b.username)})</span>` : ""}
             ${b.penalty_reason ? `<div class="muted" style="font-size:.82rem;">${esc(b.penalty_reason)}</div>` : ""}
           </div>
-          <button class="btn ghost sm unbanBtn" data-user="${b.user_id}">Unban</button>
+          <div class="row" style="margin-top:0;gap:6px;">
+            <button class="btn ghost sm historyBtn" data-user="${b.user_id}" data-name="${esc(b.display_name || b.username)}">📜 History</button>
+            <button class="btn ghost sm unbanBtn" data-user="${b.user_id}">Unban</button>
+          </div>
         </div>
       `).join("");
+    }
+
+    function renderDiscipline() {
+      const el = document.getElementById("disciplineList");
+      if (!el) return;
+      const members = Array.isArray(detail?.members) ? detail.members : [];
+      const merged = new Map();
+      members.forEach((m) => {
+        merged.set(m.user_id, {
+          user_id: m.user_id,
+          username: m.username,
+          display_name: m.display_name,
+          role: m.role,
+          is_banned: false,
+          penalty_until: m.penalty_until || null,
+          penalty_reason: m.penalty_reason || null,
+          ban_reason: null,
+        });
+      });
+      (bans || []).forEach((b) => {
+        const existing = merged.get(b.user_id) || {
+          user_id: b.user_id,
+          username: b.username,
+          display_name: b.display_name,
+          role: "member",
+          is_banned: false,
+          penalty_until: null,
+          penalty_reason: null,
+          ban_reason: null,
+        };
+        existing.is_banned = true;
+        existing.ban_reason = b.penalty_reason || null;
+        if (!existing.display_name && b.display_name) existing.display_name = b.display_name;
+        if (!existing.username && b.username) existing.username = b.username;
+        merged.set(b.user_id, existing);
+      });
+
+      const now = Date.now();
+      const rows = Array.from(merged.values())
+        .map((p) => {
+          const penaltyTs = p.penalty_until ? new Date(p.penalty_until).getTime() : Number.NaN;
+          const penalized = Number.isFinite(penaltyTs) && penaltyTs > now;
+          return { ...p, penalized };
+        })
+        .filter((p) => {
+          if (disciplineFilter === "banned") return p.is_banned;
+          if (disciplineFilter === "penalized") return !p.is_banned && p.penalized;
+          if (disciplineFilter === "clean") return !p.is_banned && !p.penalized;
+          return true;
+        })
+        .sort((a, b) => (a.display_name || a.username || "").localeCompare(b.display_name || b.username || ""));
+
+      if (!rows.length) {
+        el.innerHTML = '<p class="muted">No players in this filter.</p>';
+        return;
+      }
+
+      el.innerHTML = rows.map((p) => {
+        const label = p.is_banned ? "🚫 Banned" : p.penalized ? "🟨 Penalized" : "✅ Clean";
+        const sub = p.is_banned
+          ? (p.ban_reason ? `Reason: ${esc(p.ban_reason)}` : "No ban reason")
+          : p.penalized
+            ? `Until ${esc(new Date(p.penalty_until).toLocaleString())}${p.penalty_reason ? ` · ${esc(p.penalty_reason)}` : ""}`
+            : "No active sanctions";
+        const name = esc(p.display_name || p.username || `User ${p.user_id}`);
+        const uname = p.display_name && p.username ? ` <span class="muted">(@${esc(p.username)})</span>` : "";
+        const canSanction = p.role !== "owner";
+        return `
+          <div class="discipline-row">
+            <div>
+              <div style="font-weight:700;">${name}${uname}</div>
+              <div class="discipline-meta">${label} · ${sub}</div>
+            </div>
+            <div class="row" style="margin-top:0;gap:6px;justify-content:flex-end;">
+              <button class="btn ghost sm historyBtn" data-user="${p.user_id}" data-name="${esc(p.display_name || p.username || "Player")}">📜</button>
+              ${p.is_banned ? `<button class="btn ghost sm unbanBtn" data-user="${p.user_id}">Unban</button>` : ""}
+              ${!p.is_banned && canSanction ? `<button class="btn ghost sm penaltyTriggerBtn" data-user="${p.user_id}" data-name="${esc(p.display_name || p.username || "Player")}">🟨 Penalty</button>` : ""}
+              ${!p.is_banned && p.penalized && canSanction ? `<button class="btn ghost sm removePenaltyBtn" data-user="${p.user_id}">Remove penalty</button>` : ""}
+              ${!p.is_banned && canSanction ? `<button class="btn ghost sm banTriggerBtn red-card-btn" data-user="${p.user_id}" data-name="${esc(p.display_name || p.username || "Player")}">🟥 Ban</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     async function load(){
@@ -444,6 +622,7 @@
         renderSettingsPresetList();
 
         renderMembers();
+        renderDiscipline();
         renderInvites();
         renderBans();
       } catch(e){
@@ -464,6 +643,11 @@
       document.getElementById("tabActive").classList.remove("active");
       renderInvites();
     });
+
+    document.getElementById("disciplineFilterAll")?.addEventListener("click", () => setDisciplineFilter("all"));
+    document.getElementById("disciplineFilterBanned")?.addEventListener("click", () => setDisciplineFilter("banned"));
+    document.getElementById("disciplineFilterPenalized")?.addEventListener("click", () => setDisciplineFilter("penalized"));
+    document.getElementById("disciplineFilterClean")?.addEventListener("click", () => setDisciplineFilter("clean"));
 
     // Save settings
     document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
@@ -559,6 +743,9 @@
       document.getElementById("penaltyModal").style.display = "none";
       pendingPenaltyUserId = null;
     });
+    document.getElementById("disciplineCloseBtn")?.addEventListener("click", () => {
+      document.getElementById("disciplineModal").style.display = "none";
+    });
     document.getElementById("penaltyConfirmBtn").addEventListener("click", async () => {
       if (!pendingPenaltyUserId) return;
       const until = document.getElementById("penaltyUntilInput").value;
@@ -604,6 +791,22 @@
         document.getElementById("penaltyUntilInput").value = "";
         document.getElementById("penaltyModalSubtitle").textContent = `Penalizing: ${penaltyBtn.dataset.name}`;
         document.getElementById("penaltyModal").style.display = "flex";
+        return;
+      }
+      const removePenaltyBtn = e.target.closest(".removePenaltyBtn");
+      if (removePenaltyBtn) {
+        try {
+          await apiFetch(`/leagues/${leagueId}/members/${removePenaltyBtn.dataset.user}/penalty`, { method: "DELETE" });
+          await load();
+          show("Penalty removed.");
+        } catch (err) {
+          show(err.message || "Failed.", "error");
+        }
+        return;
+      }
+      const historyBtn = e.target.closest(".historyBtn");
+      if (historyBtn) {
+        await openDisciplineHistory(Number(historyBtn.dataset.user), historyBtn.dataset.name || "Player");
         return;
       }
       const unbanBtn = e.target.closest(".unbanBtn");

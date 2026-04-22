@@ -239,9 +239,21 @@ class LeaguePenaltyPayload(BaseModel):
 class LeagueMemberStatusOut(BaseModel):
     user_id: int
     username: str
+    display_name: str | None = None
     is_banned: bool
     penalty_until: str | None
     penalty_reason: str | None
+
+
+class LeagueDisciplineHistoryOut(BaseModel):
+    id: int
+    user_id: int
+    action: str
+    reason: str | None
+    penalty_until: str | None
+    created_at: str
+    actor_username: str | None
+    actor_display_name: str | None
 
 
 class JoinLeagueByCodePayload(BaseModel):
@@ -301,11 +313,14 @@ class LeagueInviteOut(BaseModel):
     league_id: int
     league_name: str
     token: str
+    creator_username: str | None = None
+    accepted_by_username: str | None = None
     created_at: str
     expires_at: str | None
     max_uses: int
     use_count: int
     revoked: int
+    expired: bool = False
     invite_url: str
 
 
@@ -320,6 +335,8 @@ class LeagueMemberOut(BaseModel):
     goals: int
     assists: int
     rating: float
+    penalty_until: str | None = None
+    penalty_reason: str | None = None
 
 
 class LeagueDetailOut(BaseModel):
@@ -660,6 +677,7 @@ def init_db() -> None:
             )
             """
         )
+        ensure_column(conn, "league_invites", "accepted_by_user_id", "INTEGER")
 
         conn.execute(
             """
@@ -831,6 +849,24 @@ def init_db() -> None:
                 FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY(imposed_by) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_discipline_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                reason TEXT,
+                penalty_until TEXT,
+                actor_user_id INTEGER,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(actor_user_id) REFERENCES users(id) ON DELETE SET NULL
             )
             """
         )
@@ -1296,16 +1332,29 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
 
 def serialize_invite(row: sqlite3.Row) -> LeagueInviteOut:
     token = str(row["token"])
+    expires_at_raw = row["expires_at"]
+    expired = False
+    if expires_at_raw:
+        try:
+            expires_dt = datetime.fromisoformat(str(expires_at_raw))
+            if expires_dt.tzinfo is None:
+                expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+            expired = utc_now() > expires_dt
+        except ValueError:
+            expired = False
     return LeagueInviteOut(
         id=int(row["id"]),
         league_id=int(row["league_id"]),
         league_name=str(row["league_name"]),
         token=token,
+        creator_username=(str(row["creator_username"]) if "creator_username" in row.keys() and row["creator_username"] is not None else None),
+        accepted_by_username=(str(row["accepted_by_username"]) if "accepted_by_username" in row.keys() and row["accepted_by_username"] is not None else None),
         created_at=str(row["created_at"]),
-        expires_at=row["expires_at"],
+        expires_at=expires_at_raw,
         max_uses=int(row["max_uses"]),
         use_count=int(row["use_count"]),
         revoked=int(row["revoked"]),
+        expired=expired,
         invite_url=build_invite_url(token),
     )
 
@@ -1322,6 +1371,8 @@ def serialize_member(row: sqlite3.Row) -> LeagueMemberOut:
         goals=int(row["goals"] or 0),
         assists=int(row["assists"] or 0),
         rating=float(row["rating"] or DEFAULT_GLOBAL_RATING),
+        penalty_until=(str(row["penalty_until"]) if "penalty_until" in row.keys() and row["penalty_until"] is not None else None),
+        penalty_reason=(str(row["penalty_reason"]) if "penalty_reason" in row.keys() and row["penalty_reason"] is not None else None),
     )
 
 
@@ -1458,6 +1509,8 @@ def fetch_manageable_invites(conn: sqlite3.Connection, user_id: int) -> list[sql
             li.league_id,
             l.name AS league_name,
             li.token,
+            creator.username AS creator_username,
+            accepted.username AS accepted_by_username,
             li.created_at,
             li.expires_at,
             li.max_uses,
@@ -1465,6 +1518,8 @@ def fetch_manageable_invites(conn: sqlite3.Connection, user_id: int) -> list[sql
             li.revoked
         FROM league_invites AS li
         JOIN leagues AS l ON l.id = li.league_id
+        JOIN users AS creator ON creator.id = li.created_by_user_id
+        LEFT JOIN users AS accepted ON accepted.id = li.accepted_by_user_id
         JOIN league_memberships AS lm ON lm.league_id = l.id AND lm.user_id = ?
         WHERE lm.role IN ('owner', 'admin') AND li.revoked = 0
         ORDER BY li.created_at DESC
@@ -1486,10 +1541,16 @@ def fetch_league_members(conn: sqlite3.Connection, league_id: int) -> list[sqlit
             COALESCE(lps.wins, 0) AS wins,
             COALESCE(lps.goals, 0) AS goals,
             COALESCE(lps.assists, 0) AS assists,
-            COALESCE(lps.rating, 1000) AS rating
+            COALESCE(lps.rating, 1000) AS rating,
+            lp.penalty_until,
+            lp.reason AS penalty_reason
         FROM league_memberships AS lm
         JOIN users AS u ON u.id = lm.user_id
         LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+        LEFT JOIN league_penalties AS lp
+            ON lp.league_id = lm.league_id
+           AND lp.user_id = lm.user_id
+           AND datetime(lp.penalty_until) > datetime('now')
         WHERE lm.league_id = ?
         ORDER BY CASE lm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.username
         """,
@@ -1500,14 +1561,45 @@ def fetch_league_members(conn: sqlite3.Connection, league_id: int) -> list[sqlit
 def fetch_league_invites(conn: sqlite3.Connection, league_id: int) -> list[sqlite3.Row]:
     return conn.execute(
         """
-        SELECT li.id, li.league_id, l.name AS league_name, li.token, li.created_at, li.expires_at, li.max_uses, li.use_count, li.revoked
+        SELECT
+            li.id,
+            li.league_id,
+            l.name AS league_name,
+            li.token,
+            creator.username AS creator_username,
+            accepted.username AS accepted_by_username,
+            li.created_at,
+            li.expires_at,
+            li.max_uses,
+            li.use_count,
+            li.revoked
         FROM league_invites AS li
         JOIN leagues AS l ON l.id = li.league_id
+        JOIN users AS creator ON creator.id = li.created_by_user_id
+        LEFT JOIN users AS accepted ON accepted.id = li.accepted_by_user_id
         WHERE li.league_id = ? AND li.revoked = 0
         ORDER BY li.created_at DESC
         """,
         (league_id,),
     ).fetchall()
+
+
+def add_discipline_history(
+    conn: sqlite3.Connection,
+    league_id: int,
+    user_id: int,
+    action: str,
+    actor_user_id: int | None,
+    reason: str | None = None,
+    penalty_until: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO league_discipline_history (league_id, user_id, action, reason, penalty_until, actor_user_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (league_id, user_id, action, reason, penalty_until, actor_user_id, utc_now_iso()),
+    )
 
 
 def require_membership(conn: sqlite3.Connection, league_id: int, user_id: int) -> sqlite3.Row:
@@ -2260,6 +2352,14 @@ def ban_member(
             """,
             (league_id, member_user_id, int(current_user["id"]), payload.reason, utc_now_iso()),
         )
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=member_user_id,
+            action="ban",
+            actor_user_id=int(current_user["id"]),
+            reason=payload.reason,
+        )
         conn.commit()
     return MessageOut(detail="Member banned and removed from the league.")
 
@@ -2276,9 +2376,18 @@ def unban_member(
             "DELETE FROM league_bans WHERE league_id = ? AND user_id = ?",
             (league_id, user_id),
         )
-        conn.commit()
         if result.rowcount == 0:
+            conn.rollback()
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No ban found for this user.")
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=user_id,
+            action="unban",
+            actor_user_id=int(current_user["id"]),
+            reason=None,
+        )
+        conn.commit()
     return MessageOut(detail="User unbanned.")
 
 
@@ -2317,6 +2426,15 @@ def set_member_penalty(
             """,
             (league_id, member_user_id, until_dt.isoformat(), payload.reason, int(current_user["id"]), utc_now_iso()),
         )
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=member_user_id,
+            action="penalty_set",
+            actor_user_id=int(current_user["id"]),
+            reason=payload.reason,
+            penalty_until=until_dt.isoformat(),
+        )
         conn.commit()
     return MessageOut(detail="Penalty applied.")
 
@@ -2329,12 +2447,67 @@ def remove_member_penalty(
 ) -> MessageOut:
     with get_conn() as conn:
         require_league_manager(conn, league_id, int(current_user["id"]))
+        existing = conn.execute(
+            "SELECT penalty_until, reason FROM league_penalties WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        ).fetchone()
         conn.execute(
             "DELETE FROM league_penalties WHERE league_id = ? AND user_id = ?",
             (league_id, member_user_id),
         )
+        if existing is not None:
+            add_discipline_history(
+                conn,
+                league_id=league_id,
+                user_id=member_user_id,
+                action="penalty_removed",
+                actor_user_id=int(current_user["id"]),
+                reason=existing["reason"],
+                penalty_until=existing["penalty_until"],
+            )
         conn.commit()
     return MessageOut(detail="Penalty removed.")
+
+
+@app.get("/leagues/{league_id}/members/{member_user_id}/discipline-history", response_model=list[LeagueDisciplineHistoryOut])
+def member_discipline_history(
+    league_id: int,
+    member_user_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> list[LeagueDisciplineHistoryOut]:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        rows = conn.execute(
+            """
+            SELECT
+                h.id,
+                h.user_id,
+                h.action,
+                h.reason,
+                h.penalty_until,
+                h.created_at,
+                actor.username AS actor_username,
+                actor.display_name AS actor_display_name
+            FROM league_discipline_history h
+            LEFT JOIN users AS actor ON actor.id = h.actor_user_id
+            WHERE h.league_id = ? AND h.user_id = ?
+            ORDER BY h.created_at DESC, h.id DESC
+            """,
+            (league_id, member_user_id),
+        ).fetchall()
+    return [
+        LeagueDisciplineHistoryOut(
+            id=int(r["id"]),
+            user_id=int(r["user_id"]),
+            action=str(r["action"]),
+            reason=r["reason"],
+            penalty_until=r["penalty_until"],
+            created_at=str(r["created_at"]),
+            actor_username=(str(r["actor_username"]) if r["actor_username"] is not None else None),
+            actor_display_name=(str(r["actor_display_name"]) if r["actor_display_name"] is not None else None),
+        )
+        for r in rows
+    ]
 
 
 @app.get("/leagues/{league_id}/bans", response_model=list[LeagueMemberStatusOut])
@@ -2346,7 +2519,7 @@ def list_bans(
         require_league_manager(conn, league_id, int(current_user["id"]))
         rows = conn.execute(
             """
-            SELECT u.id AS user_id, u.username,
+            SELECT u.id AS user_id, u.username, u.display_name,
                    1 AS is_banned, NULL AS penalty_until, lb.reason AS penalty_reason
             FROM league_bans lb
             JOIN users u ON u.id = lb.user_id
@@ -2359,6 +2532,7 @@ def list_bans(
         LeagueMemberStatusOut(
             user_id=r["user_id"],
             username=r["username"],
+            display_name=r["display_name"],
             is_banned=True,
             penalty_until=None,
             penalty_reason=r["penalty_reason"],
@@ -2421,11 +2595,14 @@ def create_league_invite(
         league_id=league_id,
         league_name=str(league["name"]),
         token=token,
+        creator_username=str(current_user["username"]),
+        accepted_by_username=None,
         created_at=created_at,
         expires_at=expires_at,
         max_uses=max_uses,
         use_count=0,
         revoked=0,
+        expired=False,
         invite_url=build_invite_url(token),
     )
 
@@ -2439,6 +2616,24 @@ def list_league_invites(
         require_league_manager(conn, league_id, int(current_user["id"]))
         rows = fetch_league_invites(conn, league_id)
     return [serialize_invite(row) for row in rows]
+
+
+@app.delete("/leagues/{league_id}/invites/{invite_id}", response_model=MessageOut)
+def cancel_league_invite(
+    league_id: int,
+    invite_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        result = conn.execute(
+            "UPDATE league_invites SET revoked = 1 WHERE id = ? AND league_id = ? AND revoked = 0",
+            (invite_id, league_id),
+        )
+        conn.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    return MessageOut(detail="Invite cancelled.")
 
 
 @app.get("/league-invites/{token}", response_model=InvitePreviewOut)
@@ -2500,8 +2695,8 @@ def accept_league_invite(payload: InviteAcceptPayload, current_user: sqlite3.Row
                 (league_id, user_id, float(current_user["global_rating"] or DEFAULT_GLOBAL_RATING)),
             )
             conn.execute(
-                "UPDATE league_invites SET use_count = use_count + 1 WHERE id = ?",
-                (int(invite["id"]),),
+                "UPDATE league_invites SET use_count = use_count + 1, accepted_by_user_id = ? WHERE id = ?",
+                (user_id, int(invite["id"])),
             )
             conn.commit()
 
