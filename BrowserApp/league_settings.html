@@ -82,6 +82,56 @@
           <textarea id="settingDesc" maxlength="300" rows="3"></textarea>
         </div>
         <div class="row">
+          <div style="flex:1;min-width:180px;">
+            <label for="settingFeeType">Fee type</label>
+            <select id="settingFeeType" class="acct-input" style="height:38px;">
+              <option value="none">No fee</option>
+              <option value="yearly">Yearly</option>
+              <option value="monthly">Monthly</option>
+              <option value="per_attendance">Price per attendance</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label for="settingFeeValue">Fee value</label>
+            <input id="settingFeeValue" type="number" min="0" step="0.01" class="acct-input" placeholder="0.00">
+          </div>
+        </div>
+        <div>
+          <label style="margin-bottom:6px;">Match presets</label>
+          <div class="row" style="margin-top:4px;">
+            <input id="presetNameInput" type="text" class="acct-input" maxlength="80" placeholder="Preset name" style="flex:2;min-width:160px;">
+            <select id="presetDayInput" class="acct-input" style="flex:1;min-width:120px;height:38px;">
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+            <input id="presetTimeInput" type="time" class="acct-input" style="flex:1;min-width:110px;">
+          </div>
+          <div class="row" style="margin-top:6px;">
+            <select id="presetRegDayInput" class="acct-input" style="flex:1;min-width:120px;height:38px;">
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+            <input id="presetRegTimeInput" type="time" class="acct-input" style="flex:1;min-width:110px;">
+            <input id="presetMaxInput" type="number" min="2" max="200" class="acct-input" placeholder="Max players" style="flex:1;min-width:110px;">
+          </div>
+          <div class="row" style="margin-top:6px;">
+            <input id="presetLocationInput" type="text" class="acct-input" maxlength="200" placeholder="Location" style="flex:1;min-width:160px;">
+            <input id="presetNotesInput" type="text" class="acct-input" maxlength="300" placeholder="Description" style="flex:2;min-width:180px;">
+            <button class="btn ghost sm" id="addPresetBtn" type="button">+ Add preset</button>
+          </div>
+          <div id="settingsPresetList" class="stack" style="gap:6px; margin-top:8px;"></div>
+        </div>
+        <div class="row">
           <input id="settingAutoAccept" type="checkbox" style="width:auto;">
           <label for="settingAutoAccept" style="margin:0;font-weight:700;">Auto-accept new members</label>
         </div>
@@ -201,11 +251,39 @@
     let inviteTab = "active";
     let pendingBanUserId = null;
     let pendingPenaltyUserId = null;
+    let matchPresets = [];
 
     var WHISTLE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
     function roleIcon(role){ return role === "owner" ? "🤵" : role === "admin" ? WHISTLE : "👕"; }
     function roleLabel(role){ return role === "owner" ? "Manager" : role === "admin" ? "Referee" : "Member"; }
     function formatDate(iso){ if (!iso) return "-"; const d = new Date(iso); return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" }); }
+
+    function renderSettingsPresetList(){
+      const list = document.getElementById("settingsPresetList");
+      if (!list) return;
+      if (!matchPresets.length){
+        list.innerHTML = '<p class="muted" style="margin:0;font-size:.85rem;">No presets configured.</p>';
+        return;
+      }
+      list.innerHTML = matchPresets.map((p, idx) => `
+        <div class="row" style="justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
+          <div>
+            <div style="font-weight:700;">${esc(p.name || "Preset")}</div>
+            <div class="muted" style="font-size:.82rem;">${esc(p.day || "-")} ${esc(p.time || "-")} · opens ${esc(p.registration_day || "-")} ${esc(p.registration_time || "-")} · max ${esc(p.max_participants || "-")}${p.location ? " · " + esc(p.location) : ""}</div>
+          </div>
+          <button class="btn ghost sm removePresetBtn" type="button" data-idx="${idx}">Remove</button>
+        </div>
+      `).join("");
+      list.querySelectorAll(".removePresetBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.idx);
+          if (Number.isFinite(i) && i >= 0) {
+            matchPresets.splice(i, 1);
+            renderSettingsPresetList();
+          }
+        });
+      });
+    }
 
     function renderMembers(){
       if (!detail) return;
@@ -288,6 +366,10 @@
         document.getElementById("settingName").value = lg.name || "";
         document.getElementById("settingDesc").value = lg.description || "";
         document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
+        document.getElementById("settingFeeType").value = lg.fee_type || "none";
+        document.getElementById("settingFeeValue").value = Number(lg.fee_value || 0);
+        matchPresets = Array.isArray(lg.match_presets) ? lg.match_presets : [];
+        renderSettingsPresetList();
 
         renderMembers();
         renderInvites();
@@ -317,6 +399,9 @@
         name: document.getElementById("settingName").value.trim() || null,
         description: document.getElementById("settingDesc").value.trim() || null,
         auto_accept_members: document.getElementById("settingAutoAccept").checked,
+        fee_type: document.getElementById("settingFeeType").value,
+        fee_value: Number(document.getElementById("settingFeeValue").value) || 0,
+        match_presets: matchPresets,
       };
       try {
         await apiFetch(`/leagues/${leagueId}/settings`, {
@@ -337,6 +422,34 @@
         show("Invite created.");
       } catch(e){ show(e.message || "Failed.", "error"); }
     });
+
+    const addPresetBtn = document.getElementById("addPresetBtn");
+    if (addPresetBtn) {
+      addPresetBtn.addEventListener("click", () => {
+        const name = document.getElementById("presetNameInput").value.trim();
+        const day = document.getElementById("presetDayInput").value;
+        const time = document.getElementById("presetTimeInput").value;
+        const regDay = document.getElementById("presetRegDayInput").value;
+        const regTime = document.getElementById("presetRegTimeInput").value;
+        const maxParticipants = Number(document.getElementById("presetMaxInput").value) || 16;
+        const location = document.getElementById("presetLocationInput").value.trim();
+        const notes = document.getElementById("presetNotesInput").value.trim();
+        if (!name) { show("Preset name is required.", "error"); return; }
+        if (!time || !regTime) { show("Preset and registration time are required.", "error"); return; }
+        matchPresets.push({
+          name,
+          day,
+          time,
+          registration_day: regDay,
+          registration_time: regTime,
+          max_participants: maxParticipants,
+          location: location || null,
+          notes: notes || null,
+        });
+        renderSettingsPresetList();
+        show("Preset added.");
+      });
+    }
 
     // Ban modal
     document.getElementById("banCancelBtn").addEventListener("click", () => {

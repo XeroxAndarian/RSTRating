@@ -204,6 +204,9 @@ class LeagueCreatePayload(BaseModel):
     goal_size: str = Field(pattern=r"^(small|medium|large)$")
     region: str = Field(min_length=2, max_length=64)
     description: str | None = Field(default=None, max_length=300)
+    fee_type: str = Field(default="none", pattern=r"^(none|yearly|monthly|per_attendance)$")
+    fee_value: float | None = Field(default=None, ge=0)
+    match_presets: list[dict] = Field(default_factory=list)
 
 
 class LeagueSettingsPayload(BaseModel):
@@ -213,6 +216,9 @@ class LeagueSettingsPayload(BaseModel):
     football_type: str | None = Field(default=None, pattern=r"^(outdoor|indoor)$")
     goal_size: str | None = Field(default=None, pattern=r"^(small|medium|large)$")
     auto_accept_members: bool | None = None
+    fee_type: str | None = Field(default=None, pattern=r"^(none|yearly|monthly|per_attendance)$")
+    fee_value: float | None = Field(default=None, ge=0)
+    match_presets: list[dict] | None = None
 
 
 class LeagueBanPayload(BaseModel):
@@ -285,6 +291,9 @@ class LeagueOut(BaseModel):
     member_count: int
     created_at: str
     auto_accept_members: bool
+    fee_type: str
+    fee_value: float
+    match_presets: list[dict]
 
 
 class LeagueInviteOut(BaseModel):
@@ -565,6 +574,9 @@ def init_db() -> None:
                 region TEXT NOT NULL DEFAULT 'Unknown',
                 invite_code TEXT,
                 description TEXT,
+                fee_type TEXT NOT NULL DEFAULT 'none',
+                fee_value REAL NOT NULL DEFAULT 0,
+                match_presets_json TEXT NOT NULL DEFAULT '[]',
                 owner_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -577,6 +589,9 @@ def init_db() -> None:
         ensure_column(conn, "leagues", "goal_size", "TEXT NOT NULL DEFAULT '5x2'")
         ensure_column(conn, "leagues", "region", "TEXT NOT NULL DEFAULT 'Unknown'")
         ensure_column(conn, "leagues", "invite_code", "TEXT")
+        ensure_column(conn, "leagues", "fee_type", "TEXT NOT NULL DEFAULT 'none'")
+        ensure_column(conn, "leagues", "fee_value", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "leagues", "match_presets_json", "TEXT NOT NULL DEFAULT '[]'")
 
         rows = conn.execute("SELECT id, sport, football_type FROM leagues").fetchall()
         for row in rows:
@@ -934,6 +949,8 @@ def ensure_sample_matches() -> None:
                     secrets.token_urlsafe(16),
                 ),
             )
+            if cursor.lastrowid is None:
+                raise RuntimeError("Could not create sample match")
             return int(cursor.lastrowid)
 
         for league in leagues:
@@ -1249,6 +1266,14 @@ def serialize_user_stats(row: sqlite3.Row) -> UserStatsOut:
 
 
 def serialize_league(row: sqlite3.Row) -> LeagueOut:
+    raw_presets = row["match_presets_json"] if "match_presets_json" in row.keys() else "[]"
+    try:
+        match_presets = json.loads(str(raw_presets or "[]"))
+        if not isinstance(match_presets, list):
+            match_presets = []
+    except (ValueError, TypeError):
+        match_presets = []
+
     return LeagueOut(
         id=int(row["id"]),
         name=str(row["name"]),
@@ -1263,6 +1288,9 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
         member_count=int(row["member_count"]),
         created_at=str(row["created_at"]),
         auto_accept_members=bool(row["auto_accept_members"]) if row["auto_accept_members"] is not None else True,
+        fee_type=str(row["fee_type"] or "none"),
+        fee_value=float(row["fee_value"] or 0),
+        match_presets=match_presets,
     )
 
 
@@ -1334,6 +1362,9 @@ def fetch_league_for_user(conn: sqlite3.Connection, league_id: int, user_id: int
             l.region,
             l.invite_code,
             l.description,
+            l.fee_type,
+            l.fee_value,
+            l.match_presets_json,
             l.owner_id,
             l.created_at,
             l.auto_accept_members,
@@ -1364,6 +1395,9 @@ def fetch_user_leagues(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.R
             l.region,
             l.invite_code,
             l.description,
+            l.fee_type,
+            l.fee_value,
+            l.match_presets_json,
             l.owner_id,
             l.created_at,
             l.auto_accept_members,
@@ -2094,8 +2128,8 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
     with get_conn() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, owner_id, created_at, updated_at)
-            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, fee_type, fee_value, match_presets_json, owner_id, created_at, updated_at)
+            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.name.strip(),
@@ -2104,6 +2138,9 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
                 payload.region.strip(),
                 secrets.token_hex(3).upper(),
                 payload.description.strip() if payload.description else None,
+                payload.fee_type,
+                float(payload.fee_value or 0),
+                json.dumps(payload.match_presets or []),
                 user_id,
                 created_at,
                 created_at,
@@ -2172,6 +2209,15 @@ def update_league_settings(
         if payload.auto_accept_members is not None:
             updates.append("auto_accept_members = ?")
             params.append(1 if payload.auto_accept_members else 0)
+        if payload.fee_type is not None:
+            updates.append("fee_type = ?")
+            params.append(payload.fee_type)
+        if payload.fee_value is not None:
+            updates.append("fee_value = ?")
+            params.append(float(payload.fee_value))
+        if payload.match_presets is not None:
+            updates.append("match_presets_json = ?")
+            params.append(json.dumps(payload.match_presets))
         if not updates:
             return MessageOut(detail="Nothing to update.")
         params.append(league_id)

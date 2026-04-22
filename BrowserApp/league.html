@@ -54,6 +54,7 @@
     .status.error { color:var(--danger); }
     .reg-open { background:var(--accent); color:#fff; }
     .reg-opens-label { font-size:.78rem; color:var(--muted); }
+    .preset-quick { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
   </style>
 </head>
 <body>
@@ -76,6 +77,7 @@
       <div>
         <div class="card">
           <h2 style="margin-bottom:10px;">Matches</h2>
+          <div id="presetQuick" class="preset-quick" style="display:none;"></div>
           <div id="lastMatchSection" style="display:none; margin-bottom:14px;">
             <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Last played</div>
             <div id="lastMatch"></div>
@@ -200,6 +202,19 @@
         .sort(function(a,b){return new Date(b.scheduled_at)-new Date(a.scheduled_at);});
       var upcoming=matches.filter(function(m){return m.status==="scheduled"&&m.scheduled_at&&new Date(m.scheduled_at).getTime()>now;})
         .sort(function(a,b){return new Date(a.scheduled_at)-new Date(b.scheduled_at);});
+
+      var presetQuick=document.getElementById("presetQuick");
+      var presets=(detail&&detail.league&&Array.isArray(detail.league.match_presets))?detail.league.match_presets:[];
+      if(canManage()&&presets.length){
+        presetQuick.style.display="flex";
+        presetQuick.innerHTML=presets.map(function(p,i){
+          var nm=esc((p&&p.name)||("Preset "+(i+1)));
+          return "<a class=\"btn ghost sm\" href=\"./create_match.html?league_id="+leagueId+"&preset="+i+"\">+ "+nm+"</a>";
+        }).join("");
+      }else{
+        presetQuick.style.display="none";
+        presetQuick.innerHTML="";
+      }
 
       var lastSec=document.getElementById("lastMatchSection");
       var lastEl=document.getElementById("lastMatch");

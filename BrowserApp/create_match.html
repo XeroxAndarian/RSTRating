@@ -33,6 +33,11 @@
       <h1>Create Match</h1>
       <p class="sub" id="leagueInfo">Loading league...</p>
       <form id="form">
+        <label for="presetSelect">Preset (optional)</label>
+        <select id="presetSelect" name="presetSelect">
+          <option value="">Custom match (no preset)</option>
+        </select>
+
         <label for="title">Match title</label>
         <input id="title" name="title" maxlength="100" required>
 
@@ -89,10 +94,12 @@
 
     const params = new URLSearchParams(window.location.search);
     const leagueId = Number(params.get("league_id") || 0);
+    const presetParam = Number(params.get("preset") || "");
     const TOKEN_KEY = "rs_access_token";
     const API_BASE_KEY = "rs_api_base_override";
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
     const statusEl = document.getElementById("status");
+    let currentLeague = null;
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -116,7 +123,54 @@
       if (!leagueId || !getToken()) return;
       try {
         const detail = await apiFetch(`/leagues/${leagueId}`, { method: "GET" });
+        currentLeague = detail.league;
         document.getElementById("leagueInfo").textContent = `League: ${detail.league.name}`;
+
+        const presets = Array.isArray(detail.league.match_presets) ? detail.league.match_presets : [];
+        const presetSelect = document.getElementById("presetSelect");
+        const form = document.getElementById("form");
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayIndex = d => {
+          const i = days.findIndex(x => x.toLowerCase() === String(d || "").toLowerCase());
+          return i >= 0 ? i : null;
+        };
+        const nextDateTimeLocal = (weekday, hhmm) => {
+          const idxDay = dayIndex(weekday);
+          if (idxDay === null || !hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return "";
+          const now = new Date();
+          const d = new Date(now);
+          const delta = (idxDay - d.getDay() + 7) % 7;
+          d.setDate(d.getDate() + delta);
+          const [hh, mm] = hhmm.split(":").map(Number);
+          d.setHours(hh, mm, 0, 0);
+          if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 7);
+          const pad = n => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        const applyPreset = (p) => {
+          if (!form || !p) return;
+          form.title.value = p.name || form.title.value;
+          form.location.value = p.location || "";
+          form.max_participants.value = Number(p.max_participants || 16);
+          form.notes.value = p.notes || "";
+          const sched = nextDateTimeLocal(p.day, p.time);
+          const regOpen = nextDateTimeLocal(p.registration_day, p.registration_time);
+          if (sched) form.scheduled_at.value = sched;
+          if (regOpen) form.registration_opens_at.value = regOpen;
+        };
+        if (presetSelect) {
+          presetSelect.innerHTML = '<option value="">Custom match (no preset)</option>' + presets.map((p, i) => `<option value="${i}">${(p.name || `Preset ${i + 1}`)}</option>`).join("");
+          presetSelect.addEventListener("change", () => {
+            const idx = Number(presetSelect.value);
+            if (!Number.isFinite(idx) || idx < 0 || idx >= presets.length) return;
+            applyPreset(presets[idx]);
+          });
+
+          if (Number.isFinite(presetParam) && presetParam >= 0 && presetParam < presets.length) {
+            presetSelect.value = String(presetParam);
+            applyPreset(presets[presetParam]);
+          }
+        }
       } catch (err) {
         show(err.message || "Could not load league.", "error");
       }

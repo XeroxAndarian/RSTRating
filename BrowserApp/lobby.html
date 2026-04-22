@@ -886,6 +886,12 @@
         .umr-info { flex: 1; min-width: 0; }
         .umr-league { font-size: 0.75rem; color: var(--muted); }
         .umr-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .umr-score {
+            font-size: 1.08rem;
+            font-weight: 700;
+            min-width: 64px;
+            text-align: right;
+        }
         .umr-meta { font-size: 0.75rem; color: var(--muted); }
         .umr-actions { display: flex; gap: 5px; flex-shrink: 0; }
 
@@ -1110,6 +1116,7 @@
             </div>
         </div>
     </div>
+    <div class="notif-backdrop" id="acctBackdrop" style="display:none;"></div>
 
     <!-- Match Overlay -->
     <div class="match-overlay" id="matchOverlay" style="display:none;">
@@ -1669,22 +1676,24 @@
                 return;
             }
             panel.innerHTML = recent.map(m => {
-                const dt = new Date(m.scheduled_at || m.created_at);
-                const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                const score = (m.score_a != null && m.score_b != null) ? `${m.score_a} – ${m.score_b}` : "";
+                const dt = new Date(m.started_at || m.scheduled_at || m.created_at);
+                const dateStr = dt.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                const score = (m.score_a != null && m.score_b != null) ? `${m.score_a} – ${m.score_b}` : "—";
                 return `<div class="upcoming-match-row" style="cursor:pointer;" data-match-id="${m.id}">
                     <div class="umr-info">
                         <span class="umr-league">${escapeHtml(m._leagueName)}</span>
                         <div class="umr-title">${escapeHtml(m.title || "Match")}</div>
-                        <span class="umr-meta">${dateStr}${score ? " · " + score : ""}</span>
+                        <span class="umr-meta">${dateStr}</span>
                     </div>
                     <div class="umr-actions">
-                        <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
+                        <span class="umr-title umr-score">${escapeHtml(score)}</span>
                     </div>
                 </div>`;
             }).join("");
-            panel.querySelectorAll(".umr-info-btn").forEach(btn => {
-                btn.addEventListener("click", () => loadMatchDetail(Number(btn.dataset.matchId)));
+            panel.querySelectorAll(".upcoming-match-row").forEach(row => {
+                row.addEventListener("click", () => {
+                    window.location.href = `./match.html?id=${Number(row.dataset.matchId)}`;
+                });
             });
         }
 
@@ -1988,11 +1997,13 @@
         // Account settings drawer
         const acctSettingsBtn = document.getElementById("acctSettingsBtn");
         const acctDrawer = document.getElementById("acctDrawer");
+        const acctBackdrop = document.getElementById("acctBackdrop");
         const closeAcctDrawerBtn = document.getElementById("closeAcctDrawerBtn");
         function openAcctDrawer() {
             if (!acctDrawer) return;
             acctDrawer.classList.add("open");
             acctDrawer.setAttribute("aria-hidden", "false");
+            if (acctBackdrop) acctBackdrop.style.display = "block";
             // Fill in current user info
             const uname = document.getElementById("acctUsername");
             if (uname && currentUser) uname.textContent = currentUser.username || currentUser.name;
@@ -2004,9 +2015,11 @@
             if (!acctDrawer) return;
             acctDrawer.classList.remove("open");
             acctDrawer.setAttribute("aria-hidden", "true");
+            if (acctBackdrop) acctBackdrop.style.display = "none";
         }
         if (acctSettingsBtn) acctSettingsBtn.addEventListener("click", openAcctDrawer);
         if (closeAcctDrawerBtn) closeAcctDrawerBtn.addEventListener("click", closeAcctDrawer);
+        if (acctBackdrop) acctBackdrop.addEventListener("click", closeAcctDrawer);
 
         function renderAcctLeagueList() {
             const list = document.getElementById("acctLeagueList");

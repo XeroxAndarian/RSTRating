@@ -55,6 +55,53 @@
         <label for="description">Description</label>
         <textarea id="description" name="description" maxlength="300" placeholder="Friday five-a-side..."></textarea>
 
+        <label for="fee_type">League fee type</label>
+        <select id="fee_type" name="fee_type">
+          <option value="none" selected>No fee</option>
+          <option value="yearly">Yearly</option>
+          <option value="monthly">Monthly</option>
+          <option value="per_attendance">Price per attendance</option>
+        </select>
+
+        <label for="fee_value">Fee value</label>
+        <input id="fee_value" name="fee_value" type="number" min="0" step="0.01" value="0" placeholder="0.00">
+
+        <label>Match presets (optional)</label>
+        <div class="card" style="padding:14px; margin-top:6px;">
+          <div class="stack" style="gap:8px;">
+            <input id="preset_name" type="text" maxlength="80" placeholder="Preset name (e.g. Thursday Night)">
+            <div class="row" style="margin-top:0;">
+              <select id="preset_day" style="flex:1;min-width:130px;">
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday" selected>Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+              <input id="preset_time" type="time" style="flex:1;min-width:120px;" value="20:00">
+            </div>
+            <div class="row" style="margin-top:0;">
+              <select id="preset_reg_day" style="flex:1;min-width:130px;">
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday" selected>Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+              <input id="preset_reg_time" type="time" style="flex:1;min-width:120px;" value="06:00">
+            </div>
+            <input id="preset_max" type="number" min="2" max="200" value="16" placeholder="Max number of players">
+            <input id="preset_location" type="text" maxlength="200" placeholder="Location (e.g. Hall A)">
+            <textarea id="preset_notes" maxlength="300" placeholder="Description / notes"></textarea>
+            <button class="btn ghost" id="addPresetBtn" type="button">+ Add preset</button>
+            <div id="presetList" class="stack" style="gap:6px;"></div>
+          </div>
+        </div>
+
         <div class="row">
           <button class="btn primary" type="submit">Create</button>
           <a class="btn ghost" href="./lobby.html">Back to lobby</a>
@@ -95,10 +142,40 @@
     const API_BASE_KEY = "rs_api_base_override";
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
     const statusEl = document.getElementById("status");
+    const presets = [];
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+
+    function escapeHtml(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+    function renderPresetList(){
+      const list = document.getElementById("presetList");
+      if (!list) return;
+      if (!presets.length){
+        list.innerHTML = '<p class="subtle" style="margin:0;">No presets added yet.</p>';
+        return;
+      }
+      list.innerHTML = presets.map((p, idx) => `
+        <div class="row" style="justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:0;">
+          <div>
+            <div style="font-weight:700;">${escapeHtml(p.name)}</div>
+            <div class="subtle" style="font-size:0.82rem;">${escapeHtml(p.day)} ${escapeHtml(p.time)} · opens ${escapeHtml(p.registration_day)} ${escapeHtml(p.registration_time)} · max ${escapeHtml(p.max_participants)}${p.location ? " · " + escapeHtml(p.location) : ""}</div>
+          </div>
+          <button class="btn ghost" type="button" data-remove-preset="${idx}" style="padding:6px 10px;">Remove</button>
+        </div>
+      `).join("");
+      list.querySelectorAll("[data-remove-preset]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.removePreset);
+          if (Number.isFinite(i) && i >= 0) {
+            presets.splice(i, 1);
+            renderPresetList();
+          }
+        });
+      });
+    }
 
     async function apiFetch(path, options) {
       const headers = Object.assign({}, options?.headers || {});
@@ -115,6 +192,41 @@
       show("Please log in from lobby first.", "error");
     }
 
+    const addPresetBtn = document.getElementById("addPresetBtn");
+    if (addPresetBtn) {
+      addPresetBtn.addEventListener("click", () => {
+        const name = document.getElementById("preset_name").value.trim();
+        const day = document.getElementById("preset_day").value;
+        const time = document.getElementById("preset_time").value;
+        const regDay = document.getElementById("preset_reg_day").value;
+        const regTime = document.getElementById("preset_reg_time").value;
+        const maxParticipants = Number(document.getElementById("preset_max").value) || 16;
+        const location = document.getElementById("preset_location").value.trim();
+        const notes = document.getElementById("preset_notes").value.trim();
+        if (!name) {
+          show("Preset name is required.", "error");
+          return;
+        }
+        if (!time || !regTime) {
+          show("Preset time and registration time are required.", "error");
+          return;
+        }
+        presets.push({
+          name,
+          day,
+          time,
+          registration_day: regDay,
+          registration_time: regTime,
+          max_participants: maxParticipants,
+          location: location || null,
+          notes: notes || null,
+        });
+        renderPresetList();
+        show("Preset added.", "");
+      });
+    }
+    renderPresetList();
+
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.currentTarget;
@@ -128,6 +240,9 @@
             goal_size: form.goal_size.value,
             region: form.region.value.trim(),
             description: form.description.value.trim() || null,
+            fee_type: form.fee_type.value,
+            fee_value: Number(form.fee_value.value) || 0,
+            match_presets: presets,
           }),
         });
         show("League created. Redirecting...", "");
