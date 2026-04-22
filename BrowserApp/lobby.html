@@ -46,7 +46,7 @@
         body {
             margin: 0;
             min-height: 100vh;
-            font-family: Georgia, "Times New Roman", serif;
+            font-family: "Roboto", "Segoe UI", sans-serif;
             color: var(--text);
             background:
                 radial-gradient(circle at 0% 0%, rgba(31, 138, 76, 0.18), transparent 24%),
@@ -1592,8 +1592,8 @@
                 el.innerHTML = '<p class="hint" style="padding:8px 0;">You are not in any leagues yet.</p>';
                 return;
             }
-            const WHISTLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
-            const roleIcon = r => r === "owner" ? "🤵" : r === "admin" ? WHISTLE : "👕";
+            const REF_JERSEY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" style="display:inline-block;vertical-align:middle;"><path d="M9 2h6l2 2 3 2-2 4-2-1v13H8V9l-2 1-2-4 3-2z" fill="#ffffff" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 2v20M14 2v20" stroke="currentColor" stroke-width="1.5"/></svg>';
+            const roleIcon = r => r === "owner" ? "🤵" : r === "admin" ? REF_JERSEY : "👕";
             el.innerHTML = lobbyState.leagues.map(league => {
                 const stats = (lobbyState.league_player_stats || []).find(s => s.league_id === league.id);
                 const rating = stats ? Math.round(stats.rating) : "—";

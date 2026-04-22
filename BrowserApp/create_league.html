@@ -7,13 +7,14 @@
   <style>
     :root { --bg:#e9f7ef; --panel:#ffffff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
     [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
-    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Roboto", "Segoe UI", sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
     .wrap { max-width:720px; margin:32px auto; padding:0 16px; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; }
     h1 { margin:0 0 6px; }
     .sub { color:var(--muted); margin:0 0 20px; }
     label { display:block; font-weight:700; margin:12px 0 6px; }
-    input, select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+    input, select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--panel-soft); color:var(--text); }
     textarea { min-height:90px; resize:vertical; }
     .row { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
     .btn { border:none; border-radius:9px; padding:11px 16px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
@@ -22,6 +23,9 @@
     .topbar { display:flex; justify-content:flex-end; margin-bottom:10px; }
     .status { margin-top:14px; min-height:20px; color:var(--muted); }
     .status.error { color:var(--danger); }
+    .stack { display:flex; flex-direction:column; }
+    .sub-card { margin-top:6px; border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel-soft); }
+    .subtle { color:var(--muted); }
   </style>
 </head>
 <body>
@@ -67,11 +71,15 @@
         <input id="fee_value" name="fee_value" type="number" min="0" step="0.01" value="0" placeholder="0.00">
 
         <label>Match presets (optional)</label>
-        <div class="card" style="padding:14px; margin-top:6px;">
-          <div class="stack" style="gap:8px;">
+        <div class="sub-card stack" style="gap:10px;">
+          <div id="presetList" class="stack" style="gap:8px;"></div>
+          <div class="row" style="margin-top:0;">
+            <button class="btn ghost" id="openPresetEditorBtn" type="button">+ Add preset</button>
+          </div>
+          <div id="presetEditor" class="stack" style="display:none;gap:8px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel);">
             <input id="preset_name" type="text" maxlength="80" placeholder="Preset name (e.g. Thursday Night)">
             <div class="row" style="margin-top:0;">
-              <select id="preset_day" style="flex:1;min-width:130px;">
+              <select id="preset_day" style="flex:1;min-width:150px;">
                 <option value="Monday">Monday</option>
                 <option value="Tuesday">Tuesday</option>
                 <option value="Wednesday">Wednesday</option>
@@ -80,25 +88,17 @@
                 <option value="Saturday">Saturday</option>
                 <option value="Sunday">Sunday</option>
               </select>
-              <input id="preset_time" type="time" style="flex:1;min-width:120px;" value="20:00">
+              <input id="preset_time" type="time" style="flex:1;min-width:150px;" value="20:00">
             </div>
-            <div class="row" style="margin-top:0;">
-              <select id="preset_reg_day" style="flex:1;min-width:130px;">
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday" selected>Thursday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
-                <option value="Sunday">Sunday</option>
-              </select>
-              <input id="preset_reg_time" type="time" style="flex:1;min-width:120px;" value="06:00">
-            </div>
+            <input id="preset_reg_hours" type="number" min="0" max="168" value="14" placeholder="Registration opens (hours before match)">
+            <div id="presetCalcText" class="subtle" style="font-size:0.9rem;">Registration start will be calculated automatically.</div>
             <input id="preset_max" type="number" min="2" max="200" value="16" placeholder="Max number of players">
             <input id="preset_location" type="text" maxlength="200" placeholder="Location (e.g. Hall A)">
             <textarea id="preset_notes" maxlength="300" placeholder="Description / notes"></textarea>
-            <button class="btn ghost" id="addPresetBtn" type="button">+ Add preset</button>
-            <div id="presetList" class="stack" style="gap:6px;"></div>
+            <div class="row" style="margin-top:0;">
+              <button class="btn primary" id="savePresetBtn" type="button">Save preset</button>
+              <button class="btn ghost" id="cancelPresetBtn" type="button">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -148,7 +148,58 @@
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
 
+    const DAY_TO_INDEX = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+
     function escapeHtml(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+    function nextOccurrence(day, time) {
+      const [hh, mm] = (time || "00:00").split(":").map(Number);
+      const now = new Date();
+      const when = new Date(now);
+      const targetDay = DAY_TO_INDEX[day];
+      if (!Number.isFinite(targetDay) || !Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+      const delta = (targetDay - now.getDay() + 7) % 7;
+      when.setDate(now.getDate() + delta);
+      when.setHours(hh, mm, 0, 0);
+      if (when <= now) when.setDate(when.getDate() + 7);
+      return when;
+    }
+
+    function computeRegistration(day, time, hoursBefore) {
+      const matchAt = nextOccurrence(day, time);
+      if (!matchAt) return null;
+      const regAt = new Date(matchAt.getTime() - Math.max(0, hoursBefore) * 3600000);
+      return {
+        registration_day: regAt.toLocaleDateString(undefined, { weekday: "long" }),
+        registration_time: regAt.toTimeString().slice(0, 5),
+        registration_display: regAt.toLocaleString(undefined, {
+          weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+        }),
+      };
+    }
+
+    function updatePresetCalculationText() {
+      const calc = document.getElementById("presetCalcText");
+      if (!calc) return;
+      const day = document.getElementById("preset_day")?.value;
+      const time = document.getElementById("preset_time")?.value;
+      const hours = Number(document.getElementById("preset_reg_hours")?.value || "0");
+      const info = computeRegistration(day, time, Number.isFinite(hours) ? hours : 0);
+      calc.textContent = info
+        ? `Registration opens: ${info.registration_display}`
+        : "Registration start will be calculated automatically.";
+    }
+
+    function clearPresetEditor() {
+      document.getElementById("preset_name").value = "";
+      document.getElementById("preset_day").value = "Thursday";
+      document.getElementById("preset_time").value = "20:00";
+      document.getElementById("preset_reg_hours").value = "14";
+      document.getElementById("preset_max").value = "16";
+      document.getElementById("preset_location").value = "";
+      document.getElementById("preset_notes").value = "";
+      updatePresetCalculationText();
+    }
 
     function renderPresetList(){
       const list = document.getElementById("presetList");
@@ -161,7 +212,7 @@
         <div class="row" style="justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:0;">
           <div>
             <div style="font-weight:700;">${escapeHtml(p.name)}</div>
-            <div class="subtle" style="font-size:0.82rem;">${escapeHtml(p.day)} ${escapeHtml(p.time)} · opens ${escapeHtml(p.registration_day)} ${escapeHtml(p.registration_time)} · max ${escapeHtml(p.max_participants)}${p.location ? " · " + escapeHtml(p.location) : ""}</div>
+            <div class="subtle" style="font-size:0.82rem;">${escapeHtml(p.day)} ${escapeHtml(p.time)} · opens ${escapeHtml(String(p.registration_hours_before ?? "0"))}h before (${escapeHtml(p.registration_day)} ${escapeHtml(p.registration_time)}) · max ${escapeHtml(p.max_participants)}${p.location ? " · " + escapeHtml(p.location) : ""}</div>
           </div>
           <button class="btn ghost" type="button" data-remove-preset="${idx}" style="padding:6px 10px;">Remove</button>
         </div>
@@ -192,14 +243,34 @@
       show("Please log in from lobby first.", "error");
     }
 
-    const addPresetBtn = document.getElementById("addPresetBtn");
-    if (addPresetBtn) {
-      addPresetBtn.addEventListener("click", () => {
+    const presetEditor = document.getElementById("presetEditor");
+    const openPresetEditorBtn = document.getElementById("openPresetEditorBtn");
+    const cancelPresetBtn = document.getElementById("cancelPresetBtn");
+    const savePresetBtn = document.getElementById("savePresetBtn");
+    const presetDayEl = document.getElementById("preset_day");
+    const presetTimeEl = document.getElementById("preset_time");
+    const presetHoursEl = document.getElementById("preset_reg_hours");
+
+    if (openPresetEditorBtn && presetEditor) {
+      openPresetEditorBtn.addEventListener("click", () => {
+        clearPresetEditor();
+        presetEditor.style.display = "flex";
+      });
+    }
+    if (cancelPresetBtn && presetEditor) {
+      cancelPresetBtn.addEventListener("click", () => {
+        presetEditor.style.display = "none";
+      });
+    }
+    [presetDayEl, presetTimeEl, presetHoursEl].forEach(el => {
+      if (el) el.addEventListener("input", updatePresetCalculationText);
+    });
+    if (savePresetBtn && presetEditor) {
+      savePresetBtn.addEventListener("click", () => {
         const name = document.getElementById("preset_name").value.trim();
         const day = document.getElementById("preset_day").value;
         const time = document.getElementById("preset_time").value;
-        const regDay = document.getElementById("preset_reg_day").value;
-        const regTime = document.getElementById("preset_reg_time").value;
+        const hoursBefore = Number(document.getElementById("preset_reg_hours").value || "0");
         const maxParticipants = Number(document.getElementById("preset_max").value) || 16;
         const location = document.getElementById("preset_location").value.trim();
         const notes = document.getElementById("preset_notes").value.trim();
@@ -207,24 +278,36 @@
           show("Preset name is required.", "error");
           return;
         }
-        if (!time || !regTime) {
-          show("Preset time and registration time are required.", "error");
+        if (!time) {
+          show("Preset time is required.", "error");
+          return;
+        }
+        if (!Number.isFinite(hoursBefore) || hoursBefore < 0) {
+          show("Hours before match must be 0 or more.", "error");
+          return;
+        }
+        const reg = computeRegistration(day, time, hoursBefore);
+        if (!reg) {
+          show("Unable to calculate registration start.", "error");
           return;
         }
         presets.push({
           name,
           day,
           time,
-          registration_day: regDay,
-          registration_time: regTime,
+          registration_hours_before: hoursBefore,
+          registration_day: reg.registration_day,
+          registration_time: reg.registration_time,
           max_participants: maxParticipants,
           location: location || null,
           notes: notes || null,
         });
         renderPresetList();
+        presetEditor.style.display = "none";
         show("Preset added.", "");
       });
     }
+    clearPresetEditor();
     renderPresetList();
 
     document.getElementById("form").addEventListener("submit", async (e) => {

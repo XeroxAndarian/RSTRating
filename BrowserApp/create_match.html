@@ -7,7 +7,7 @@
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
     [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
-    body { margin:0; font-family:Georgia, "Times New Roman", serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
+    body { margin:0; font-family:"Roboto", "Segoe UI", sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
     .wrap { max-width:760px; margin:32px auto; padding:0 16px; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; }
     h1 { margin:0 0 6px; }
@@ -147,6 +147,14 @@
           const pad = n => String(n).padStart(2, "0");
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         };
+        const subtractHoursLocal = (dateTimeLocal, hours) => {
+          if (!dateTimeLocal || !Number.isFinite(hours)) return "";
+          const d = new Date(dateTimeLocal);
+          if (Number.isNaN(d.getTime())) return "";
+          d.setHours(d.getHours() - Math.max(0, hours));
+          const pad = n => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
         const applyPreset = (p) => {
           if (!form || !p) return;
           form.title.value = p.name || form.title.value;
@@ -154,7 +162,10 @@
           form.max_participants.value = Number(p.max_participants || 16);
           form.notes.value = p.notes || "";
           const sched = nextDateTimeLocal(p.day, p.time);
-          const regOpen = nextDateTimeLocal(p.registration_day, p.registration_time);
+          const regHours = Number(p.registration_hours_before);
+          const regOpen = Number.isFinite(regHours)
+            ? subtractHoursLocal(sched, regHours)
+            : nextDateTimeLocal(p.registration_day, p.registration_time);
           if (sched) form.scheduled_at.value = sched;
           if (regOpen) form.registration_opens_at.value = regOpen;
         };

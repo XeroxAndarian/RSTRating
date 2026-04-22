@@ -17,7 +17,7 @@
       --success:#22c55e; --danger:#f87171; --line:rgba(180,220,195,.14);
       --surface:#1a2e22; --border:rgba(180,220,195,.18);
     }
-    body { margin:0; font-family:Georgia,"Times New Roman",serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    body { margin:0; font-family:"Roboto","Segoe UI",sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
     .wrap { max-width:900px; margin:24px auto; padding:0 16px; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
@@ -33,7 +33,7 @@
     .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:rgba(31,138,76,.1); border:1px solid var(--line); font-size:.8rem; color:var(--accent-dark); font-weight:700; }
     .stack { display:flex; flex-direction:column; gap:8px; }
     label { font-size:.85rem; font-weight:700; display:block; }
-    input[type=text], textarea, input[type=datetime-local] { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); box-sizing:border-box; }
+    input[type=text], input[type=time], input[type=number], select, textarea, input[type=datetime-local] { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); font:inherit; color:var(--text); box-sizing:border-box; }
     textarea { resize:vertical; }
     .member-mgmt { display:flex; flex-direction:column; gap:5px; max-height:470px; overflow-y:auto; margin-top:8px; }
     .member-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:var(--card); }
@@ -48,6 +48,8 @@
     .status { color:var(--muted); font-size:.9rem; margin-top:8px; min-height:20px; }
     .status.error { color:var(--danger); }
     .mono { font-family:ui-monospace,monospace; font-size:.8rem; }
+    .preset-editor { border:1px solid var(--line); border-radius:10px; padding:12px; background:var(--card); }
+    .red-card-btn { background:var(--card); border:1px solid var(--line); }
     /* Modal */
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
     .modal-card { background:var(--surface); border-radius:14px; padding:24px 28px; width:100%; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,.28); color:var(--text); }
@@ -98,38 +100,35 @@
         </div>
         <div>
           <label style="margin-bottom:6px;">Match presets</label>
-          <div class="row" style="margin-top:4px;">
-            <input id="presetNameInput" type="text" class="acct-input" maxlength="80" placeholder="Preset name" style="flex:2;min-width:160px;">
-            <select id="presetDayInput" class="acct-input" style="flex:1;min-width:120px;height:38px;">
-              <option value="Monday">Monday</option>
-              <option value="Tuesday">Tuesday</option>
-              <option value="Wednesday">Wednesday</option>
-              <option value="Thursday">Thursday</option>
-              <option value="Friday">Friday</option>
-              <option value="Saturday">Saturday</option>
-              <option value="Sunday">Sunday</option>
-            </select>
-            <input id="presetTimeInput" type="time" class="acct-input" style="flex:1;min-width:110px;">
-          </div>
-          <div class="row" style="margin-top:6px;">
-            <select id="presetRegDayInput" class="acct-input" style="flex:1;min-width:120px;height:38px;">
-              <option value="Monday">Monday</option>
-              <option value="Tuesday">Tuesday</option>
-              <option value="Wednesday">Wednesday</option>
-              <option value="Thursday">Thursday</option>
-              <option value="Friday">Friday</option>
-              <option value="Saturday">Saturday</option>
-              <option value="Sunday">Sunday</option>
-            </select>
-            <input id="presetRegTimeInput" type="time" class="acct-input" style="flex:1;min-width:110px;">
-            <input id="presetMaxInput" type="number" min="2" max="200" class="acct-input" placeholder="Max players" style="flex:1;min-width:110px;">
-          </div>
-          <div class="row" style="margin-top:6px;">
-            <input id="presetLocationInput" type="text" class="acct-input" maxlength="200" placeholder="Location" style="flex:1;min-width:160px;">
-            <input id="presetNotesInput" type="text" class="acct-input" maxlength="300" placeholder="Description" style="flex:2;min-width:180px;">
-            <button class="btn ghost sm" id="addPresetBtn" type="button">+ Add preset</button>
-          </div>
           <div id="settingsPresetList" class="stack" style="gap:6px; margin-top:8px;"></div>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn ghost sm" id="openPresetAddBtn" type="button">+ Add new preset</button>
+          </div>
+          <div id="presetEditor" class="stack preset-editor" style="display:none;gap:8px;margin-top:8px;">
+            <strong id="presetEditorTitle">Add preset</strong>
+            <input id="presetNameInput" type="text" maxlength="80" placeholder="Preset name">
+            <div class="row" style="margin-top:0;">
+              <select id="presetDayInput" style="flex:1;min-width:140px;">
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+              <input id="presetTimeInput" type="time" style="flex:1;min-width:140px;" value="20:00">
+            </div>
+            <input id="presetRegHoursInput" type="number" min="0" max="168" value="14" placeholder="Registration opens (hours before match)">
+            <div id="presetCalcText" class="muted" style="font-size:.86rem;">Registration start will be calculated automatically.</div>
+            <input id="presetMaxInput" type="number" min="2" max="200" value="16" placeholder="Max players">
+            <input id="presetLocationInput" type="text" maxlength="200" placeholder="Location">
+            <input id="presetNotesInput" type="text" maxlength="300" placeholder="Description">
+            <div class="row" style="margin-top:0;">
+              <button class="btn primary sm" id="savePresetBtn" type="button">Save preset</button>
+              <button class="btn ghost sm" id="cancelPresetBtn" type="button">Cancel</button>
+            </div>
+          </div>
         </div>
         <div class="row">
           <input id="settingAutoAccept" type="checkbox" style="width:auto;">
@@ -253,10 +252,74 @@
     let pendingPenaltyUserId = null;
     let matchPresets = [];
 
-    var WHISTLE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M5 12a7 7 0 1 0 14 0"/><path d="M3 9h4l2-4h8l1 3-11 5z"/></svg>';
-    function roleIcon(role){ return role === "owner" ? "🤵" : role === "admin" ? WHISTLE : "👕"; }
+    var REF_JERSEY='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" style="display:inline-block;vertical-align:middle;"><path d="M9 2h6l2 2 3 2-2 4-2-1v13H8V9l-2 1-2-4 3-2z" fill="#ffffff" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 2v20M14 2v20" stroke="currentColor" stroke-width="1.5"/></svg>';
+    function roleIcon(role){ return role === "owner" ? "🤵" : role === "admin" ? REF_JERSEY : "👕"; }
     function roleLabel(role){ return role === "owner" ? "Manager" : role === "admin" ? "Referee" : "Member"; }
     function formatDate(iso){ if (!iso) return "-"; const d = new Date(iso); return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" }); }
+
+    const DAY_TO_INDEX = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+    let editingPresetIndex = -1;
+
+    function nextOccurrence(day, time) {
+      const [hh, mm] = (time || "00:00").split(":").map(Number);
+      const now = new Date();
+      const when = new Date(now);
+      const targetDay = DAY_TO_INDEX[day];
+      if (!Number.isFinite(targetDay) || !Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+      const delta = (targetDay - now.getDay() + 7) % 7;
+      when.setDate(now.getDate() + delta);
+      when.setHours(hh, mm, 0, 0);
+      if (when <= now) when.setDate(when.getDate() + 7);
+      return when;
+    }
+
+    function computeRegistration(day, time, hoursBefore) {
+      const matchAt = nextOccurrence(day, time);
+      if (!matchAt) return null;
+      const regAt = new Date(matchAt.getTime() - Math.max(0, hoursBefore) * 3600000);
+      return {
+        registration_day: regAt.toLocaleDateString(undefined, { weekday: "long" }),
+        registration_time: regAt.toTimeString().slice(0, 5),
+        registration_display: regAt.toLocaleString(undefined, {
+          weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+        }),
+      };
+    }
+
+    function updatePresetCalcText() {
+      const day = document.getElementById("presetDayInput")?.value;
+      const time = document.getElementById("presetTimeInput")?.value;
+      const hours = Number(document.getElementById("presetRegHoursInput")?.value || "0");
+      const info = computeRegistration(day, time, Number.isFinite(hours) ? hours : 0);
+      const calc = document.getElementById("presetCalcText");
+      if (!calc) return;
+      calc.textContent = info ? `Registration opens: ${info.registration_display}` : "Registration start will be calculated automatically.";
+    }
+
+    function openPresetEditor(index) {
+      const editor = document.getElementById("presetEditor");
+      if (!editor) return;
+      const isEdit = Number.isFinite(index) && index >= 0;
+      editingPresetIndex = isEdit ? index : -1;
+      const p = isEdit ? (matchPresets[index] || {}) : {};
+      const hoursFallback = Number.isFinite(Number(p.registration_hours_before)) ? Number(p.registration_hours_before) : 14;
+      document.getElementById("presetEditorTitle").textContent = isEdit ? "Edit preset" : "Add preset";
+      document.getElementById("presetNameInput").value = p.name || "";
+      document.getElementById("presetDayInput").value = p.day || "Thursday";
+      document.getElementById("presetTimeInput").value = p.time || "20:00";
+      document.getElementById("presetRegHoursInput").value = String(hoursFallback);
+      document.getElementById("presetMaxInput").value = Number(p.max_participants || 16);
+      document.getElementById("presetLocationInput").value = p.location || "";
+      document.getElementById("presetNotesInput").value = p.notes || "";
+      editor.style.display = "flex";
+      updatePresetCalcText();
+    }
+
+    function closePresetEditor() {
+      const editor = document.getElementById("presetEditor");
+      if (editor) editor.style.display = "none";
+      editingPresetIndex = -1;
+    }
 
     function renderSettingsPresetList(){
       const list = document.getElementById("settingsPresetList");
@@ -269,11 +332,20 @@
         <div class="row" style="justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
           <div>
             <div style="font-weight:700;">${esc(p.name || "Preset")}</div>
-            <div class="muted" style="font-size:.82rem;">${esc(p.day || "-")} ${esc(p.time || "-")} · opens ${esc(p.registration_day || "-")} ${esc(p.registration_time || "-")} · max ${esc(p.max_participants || "-")}${p.location ? " · " + esc(p.location) : ""}</div>
+            <div class="muted" style="font-size:.82rem;">${esc(p.day || "-")} ${esc(p.time || "-")} · opens ${esc(String(p.registration_hours_before ?? "0"))}h before (${esc(p.registration_day || "-")} ${esc(p.registration_time || "-")}) · max ${esc(p.max_participants || "-")}${p.location ? " · " + esc(p.location) : ""}</div>
           </div>
-          <button class="btn ghost sm removePresetBtn" type="button" data-idx="${idx}">Remove</button>
+          <div class="row" style="margin-top:0;">
+            <button class="btn ghost sm editPresetBtn" type="button" data-idx="${idx}">Edit</button>
+            <button class="btn ghost sm removePresetBtn" type="button" data-idx="${idx}">Remove</button>
+          </div>
         </div>
       `).join("");
+      list.querySelectorAll(".editPresetBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.idx);
+          if (Number.isFinite(i) && i >= 0) openPresetEditor(i);
+        });
+      });
       list.querySelectorAll(".removePresetBtn").forEach(btn => {
         btn.addEventListener("click", () => {
           const i = Number(btn.dataset.idx);
@@ -302,7 +374,7 @@
           <div class="mr-actions">
             ${!isOwner && promoteLabel ? `<button class="btn ghost sm roleBtn" data-user="${m.user_id}" data-role="${promoteRole}" title="${promoteLabel}">${promoteLabel}</button>` : ""}
             ${!isOwner ? `<button class="btn ghost sm penaltyTriggerBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Penalty">🟨</button>` : ""}
-            ${!isOwner ? `<button class="btn danger sm banTriggerBtn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Ban">🟥</button>` : ""}
+            ${!isOwner ? `<button class="btn ghost sm banTriggerBtn red-card-btn" data-user="${m.user_id}" data-name="${esc(m.display_name || m.username)}" title="Ban">🟥</button>` : ""}
           </div>
         </div>`;
       }).join("");
@@ -368,7 +440,7 @@
         document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
         document.getElementById("settingFeeType").value = lg.fee_type || "none";
         document.getElementById("settingFeeValue").value = Number(lg.fee_value || 0);
-        matchPresets = Array.isArray(lg.match_presets) ? lg.match_presets : [];
+        matchPresets = Array.isArray(lg.match_presets) ? [...lg.match_presets] : [];
         renderSettingsPresetList();
 
         renderMembers();
@@ -423,33 +495,45 @@
       } catch(e){ show(e.message || "Failed.", "error"); }
     });
 
-    const addPresetBtn = document.getElementById("addPresetBtn");
-    if (addPresetBtn) {
-      addPresetBtn.addEventListener("click", () => {
-        const name = document.getElementById("presetNameInput").value.trim();
-        const day = document.getElementById("presetDayInput").value;
-        const time = document.getElementById("presetTimeInput").value;
-        const regDay = document.getElementById("presetRegDayInput").value;
-        const regTime = document.getElementById("presetRegTimeInput").value;
-        const maxParticipants = Number(document.getElementById("presetMaxInput").value) || 16;
-        const location = document.getElementById("presetLocationInput").value.trim();
-        const notes = document.getElementById("presetNotesInput").value.trim();
-        if (!name) { show("Preset name is required.", "error"); return; }
-        if (!time || !regTime) { show("Preset and registration time are required.", "error"); return; }
-        matchPresets.push({
-          name,
-          day,
-          time,
-          registration_day: regDay,
-          registration_time: regTime,
-          max_participants: maxParticipants,
-          location: location || null,
-          notes: notes || null,
-        });
-        renderSettingsPresetList();
+    document.getElementById("openPresetAddBtn")?.addEventListener("click", () => openPresetEditor(-1));
+    document.getElementById("cancelPresetBtn")?.addEventListener("click", closePresetEditor);
+    document.getElementById("savePresetBtn")?.addEventListener("click", () => {
+      const name = document.getElementById("presetNameInput").value.trim();
+      const day = document.getElementById("presetDayInput").value;
+      const time = document.getElementById("presetTimeInput").value;
+      const hoursBefore = Number(document.getElementById("presetRegHoursInput").value || "0");
+      const maxParticipants = Number(document.getElementById("presetMaxInput").value) || 16;
+      const location = document.getElementById("presetLocationInput").value.trim();
+      const notes = document.getElementById("presetNotesInput").value.trim();
+      if (!name) { show("Preset name is required.", "error"); return; }
+      if (!time) { show("Preset time is required.", "error"); return; }
+      if (!Number.isFinite(hoursBefore) || hoursBefore < 0) { show("Hours before match must be 0 or more.", "error"); return; }
+      const reg = computeRegistration(day, time, hoursBefore);
+      if (!reg) { show("Unable to calculate registration start.", "error"); return; }
+      const presetPayload = {
+        name,
+        day,
+        time,
+        registration_hours_before: hoursBefore,
+        registration_day: reg.registration_day,
+        registration_time: reg.registration_time,
+        max_participants: maxParticipants,
+        location: location || null,
+        notes: notes || null,
+      };
+      if (editingPresetIndex >= 0) {
+        matchPresets[editingPresetIndex] = presetPayload;
+        show("Preset updated.");
+      } else {
+        matchPresets.push(presetPayload);
         show("Preset added.");
-      });
-    }
+      }
+      closePresetEditor();
+      renderSettingsPresetList();
+    });
+    ["presetDayInput", "presetTimeInput", "presetRegHoursInput"].forEach(id => {
+      document.getElementById(id)?.addEventListener("input", updatePresetCalcText);
+    });
 
     // Ban modal
     document.getElementById("banCancelBtn").addEventListener("click", () => {
