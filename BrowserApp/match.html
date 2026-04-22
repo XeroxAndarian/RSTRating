@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Match | RSTRating</title>
   <style>
-    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f3faf6; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
-    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --success:#26a957; --danger:#ef6f66; --line:rgba(231,245,238,.2); --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; }
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f3faf6; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; --warn:#b06b11; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --success:#26a957; --danger:#ef6f66; --line:rgba(231,245,238,.2); --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; --warn:#f4b252; }
     body { margin:0; font-family:"Roboto", "Segoe UI", sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
     .wrap { max-width:980px; margin:24px auto; padding:0 16px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
@@ -19,6 +19,11 @@
     .btn.danger{ background:var(--danger); color:#fff; }
     .btn.ghost{ background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
     .pill { display:inline-flex; padding:3px 9px; border-radius:8px; background:var(--pill); border:1px solid var(--line); font-size:.82rem; }
+    .state-live { background:rgba(180,35,24,.14); border-color:rgba(180,35,24,.4); color:#b42318; }
+    [data-theme="dark"] .state-live { color:#ff9a90; }
+    .state-regopen { background:rgba(31,138,76,.16); border-color:rgba(31,138,76,.4); }
+    .state-upcoming, .state-regclosed, .state-finished, .state-completed, .state-cancelled { background:var(--pill); }
+    .state-cancelled { color:var(--danger); }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
     .list { display:flex; flex-direction:column; gap:8px; }
@@ -28,6 +33,17 @@
     .score { font-size:2rem; font-weight:700; }
     .status { min-height:20px; color:var(--muted); margin-top:8px; }
     .status.error { color:var(--danger); }
+    .teams-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:860px){ .teams-grid { grid-template-columns:1fr; } }
+    .team-card { border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--panel-soft); }
+    .team-player { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px dashed var(--line); }
+    .team-player:last-child { border-bottom:none; }
+    .warn { color:var(--warn); font-weight:700; }
+    .small { font-size:.85rem; }
+    .timer { font-weight:700; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+    .modal-card { width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+    .stack { display:flex; flex-direction:column; gap:8px; }
   </style>
 </head>
 <body>
@@ -51,7 +67,36 @@
         <span class="pill" id="state">upcoming</span>
       </div>
       <div class="muted" id="meta" style="margin-top:6px;"></div>
+      <div class="muted timer" id="timer" style="margin-top:6px;"></div>
       <div class="row" id="actions" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card" id="teamsCard" style="display:none;">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+        <h3>Teams</h3>
+        <div id="teamsSummary" class="small muted"></div>
+      </div>
+      <div id="balanceWarning" class="warn small" style="margin-bottom:8px;display:none;"></div>
+      <div class="teams-grid">
+        <div class="team-card">
+          <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+            <input id="teamAName" maxlength="60" placeholder="Team A" style="flex:1;min-width:120px;">
+            <button class="btn ghost" id="randA" type="button">Randomize</button>
+            <button class="btn primary" id="goalA" type="button" style="display:none;">Goal</button>
+          </div>
+          <div class="small muted" id="teamAStats"></div>
+          <div id="teamAList" class="list" style="margin-top:8px;"></div>
+        </div>
+        <div class="team-card">
+          <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+            <input id="teamBName" maxlength="60" placeholder="Team B" style="flex:1;min-width:120px;">
+            <button class="btn ghost" id="randB" type="button">Randomize</button>
+            <button class="btn primary" id="goalB" type="button" style="display:none;">Goal</button>
+          </div>
+          <div class="small muted" id="teamBStats"></div>
+          <div id="teamBList" class="list" style="margin-top:8px;"></div>
+        </div>
+      </div>
     </div>
 
     <div class="grid">
@@ -65,17 +110,25 @@
       </div>
     </div>
 
-    <div class="card" id="goalCard" style="display:none;">
-      <h3 style="margin-bottom:8px;">Add goal event</h3>
-      <div class="row">
-        <select id="teamSel"><option value="a">Team A</option><option value="b">Team B</option></select>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="modal-backdrop" id="goalModal">
+    <div class="modal-card">
+      <h3 id="goalModalTitle">Add goal</h3>
+      <div class="stack" style="margin-top:10px;">
+        <label for="scorerSel" class="small muted">Scorer</label>
         <select id="scorerSel"></select>
-        <select id="assistSel"><option value="">No assist</option></select>
-        <button class="btn primary" id="addGoalBtn" type="button">Add goal</button>
+        <label><input type="checkbox" id="assistToggle"> Assist</label>
+        <select id="assistSel" style="display:none;"></select>
+        <label><input type="checkbox" id="ownGoalToggle"> Own goal</label>
+        <select id="ownGoalSel" style="display:none;"></select>
+        <div class="row" style="justify-content:flex-end;margin-top:8px;">
+          <button class="btn ghost" id="goalCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="goalSaveBtn" type="button">Save</button>
+        </div>
       </div>
     </div>
-
-    <div id="status" class="status"></div>
   </div>
 
   <script>
@@ -117,21 +170,64 @@
     const scoreEl = document.getElementById("score");
     const stateEl = document.getElementById("state");
     const metaEl = document.getElementById("meta");
+    const timerEl = document.getElementById("timer");
     const actionsEl = document.getElementById("actions");
     const regsEl = document.getElementById("regs");
     const eventsEl = document.getElementById("events");
     const leagueLink = document.getElementById("leagueLink");
     const previewLink = document.getElementById("previewLink");
+    const teamsCard = document.getElementById("teamsCard");
+    const teamANameInput = document.getElementById("teamAName");
+    const teamBNameInput = document.getElementById("teamBName");
+    const teamAListEl = document.getElementById("teamAList");
+    const teamBListEl = document.getElementById("teamBList");
+    const teamAStatsEl = document.getElementById("teamAStats");
+    const teamBStatsEl = document.getElementById("teamBStats");
+    const teamsSummaryEl = document.getElementById("teamsSummary");
+    const balanceWarningEl = document.getElementById("balanceWarning");
 
     let detail = null;
     let leagueRole = null;
     let poll = null;
+    let draft = { teamA: [], teamB: [], teamAName: "Team A", teamBName: "Team B" };
+    let editingTeams = false;
+    let goalContext = { scoringTeam: "a" };
+
+    const ADJECTIVES = ["Swift", "Iron", "Bold", "Rapid", "Mighty", "Prime", "Fierce", "Royal", "Urban", "Classic"];
+    const NOUNS = ["Falcons", "Titans", "Wolves", "Strikers", "United", "Rangers", "Storm", "Warriors", "Athletic", "Legends"];
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind){ statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
     function canManage(){ return leagueRole === "owner" || leagueRole === "admin"; }
+    function statusLabel(s){
+      const map = {
+        upcoming: "Upcoming",
+        registration_open: "Registration Open",
+        registration_closed: "Registration Closed",
+        live: "LIVE",
+        finished: "Finished",
+        completed: "Completed",
+        cancelled: "Cancelled",
+      };
+      return map[s] || s;
+    }
+    function stateClass(s){
+      if (s === "live") return "state-live";
+      if (s === "registration_open") return "state-regopen";
+      if (s === "registration_closed") return "state-regclosed";
+      if (s === "upcoming") return "state-upcoming";
+      if (s === "finished") return "state-finished";
+      if (s === "completed") return "state-completed";
+      if (s === "cancelled") return "state-cancelled";
+      return "";
+    }
+    function randomTeamName(){
+      const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+      const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+      return `${a} ${n}`;
+    }
 
     async function apiFetch(path, options){
       const headers = Object.assign({}, options?.headers || {});
@@ -148,6 +244,108 @@
       return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
     }
 
+    function participantsMap(){
+      const map = new Map();
+      (detail?.registrations || []).forEach((r) => {
+        map.set(r.user_id, r);
+      });
+      return map;
+    }
+
+    function avgRating(ids, key){
+      const p = participantsMap();
+      if (!ids.length) return 0;
+      const total = ids.reduce((sum, uid) => sum + Number(p.get(uid)?.[key] || 0), 0);
+      return total / ids.length;
+    }
+
+    function syncDraftFromMatch(){
+      const m = detail.match;
+      draft.teamA = [...(m.team_a || [])];
+      draft.teamB = [...(m.team_b || [])];
+      draft.teamAName = m.team_a_name || "Team A";
+      draft.teamBName = m.team_b_name || "Team B";
+      teamANameInput.value = draft.teamAName;
+      teamBNameInput.value = draft.teamBName;
+    }
+
+    function transfer(uid, fromA){
+      if (!editingTeams) return;
+      if (fromA) {
+        draft.teamA = draft.teamA.filter((x) => x !== uid);
+        draft.teamB.push(uid);
+      } else {
+        draft.teamB = draft.teamB.filter((x) => x !== uid);
+        draft.teamA.push(uid);
+      }
+      renderTeams();
+    }
+
+    function renderTeams(){
+      const m = detail.match;
+      const hasTeams = (draft.teamA.length + draft.teamB.length) > 0;
+      teamsCard.style.display = hasTeams || m.status === "registration_closed" || m.status === "live" || m.status === "finished" || m.status === "completed" ? "block" : "none";
+      if (teamsCard.style.display === "none") return;
+
+      teamANameInput.disabled = !editingTeams;
+      teamBNameInput.disabled = !editingTeams;
+      document.getElementById("randA").style.display = editingTeams ? "inline-flex" : "none";
+      document.getElementById("randB").style.display = editingTeams ? "inline-flex" : "none";
+      document.getElementById("goalA").style.display = m.status === "live" ? "inline-flex" : "none";
+      document.getElementById("goalB").style.display = m.status === "live" ? "inline-flex" : "none";
+
+      const p = participantsMap();
+      const renderList = (ids, isA) => ids.map((uid) => {
+        const r = p.get(uid);
+        const name = r ? (r.display_name || r.username) : `#${uid}`;
+        const rating = r ? Number(r.seasonal_rating || 0).toFixed(1) : "-";
+        return `<div class="team-player"><span>${esc(name)} <span class="muted small">(${rating})</span></span>${editingTeams ? `<button class="btn ghost small" data-move="${uid}" data-from="${isA ? "a" : "b"}">${isA ? "→" : "←"}</button>` : ""}</div>`;
+      }).join("") || '<div class="muted small">No players.</div>';
+      teamAListEl.innerHTML = renderList(draft.teamA, true);
+      teamBListEl.innerHTML = renderList(draft.teamB, false);
+
+      const aSeason = avgRating(draft.teamA, "seasonal_rating");
+      const bSeason = avgRating(draft.teamB, "seasonal_rating");
+      const aGlobal = avgRating(draft.teamA, "global_rating");
+      const bGlobal = avgRating(draft.teamB, "global_rating");
+      teamAStatsEl.textContent = `Avg seasonal: ${aSeason.toFixed(1)} · Avg global: ${aGlobal.toFixed(1)}`;
+      teamBStatsEl.textContent = `Avg seasonal: ${bSeason.toFixed(1)} · Avg global: ${bGlobal.toFixed(1)}`;
+
+      const fav = Math.abs(aSeason - bSeason) < 0.5 ? "Even matchup" : (aSeason > bSeason ? `${teamANameInput.value || "Team A"} slightly favored` : `${teamBNameInput.value || "Team B"} slightly favored`);
+      teamsSummaryEl.textContent = fav;
+
+      if (Math.abs(draft.teamA.length - draft.teamB.length) > 1) {
+        balanceWarningEl.style.display = "block";
+        balanceWarningEl.textContent = "Teams are not balanced by player count (difference > 1).";
+      } else {
+        balanceWarningEl.style.display = "none";
+      }
+    }
+
+    function openGoalModal(team){
+      goalContext.scoringTeam = team;
+      const m = participantsMap();
+      const scoringIds = team === "a" ? draft.teamA : draft.teamB;
+      const oppIds = team === "a" ? draft.teamB : draft.teamA;
+      const scorerSel = document.getElementById("scorerSel");
+      const assistSel = document.getElementById("assistSel");
+      const ownGoalSel = document.getElementById("ownGoalSel");
+      document.getElementById("goalModalTitle").textContent = `Add goal for ${team === "a" ? (teamANameInput.value || "Team A") : (teamBNameInput.value || "Team B")}`;
+      const toOpt = (uid) => {
+        const r = m.get(uid);
+        const name = r ? (r.display_name || r.username) : `#${uid}`;
+        return `<option value="${uid}">${esc(name)}</option>`;
+      };
+      scorerSel.innerHTML = scoringIds.map(toOpt).join("");
+      assistSel.innerHTML = '<option value="">Select assist</option>' + scoringIds.map(toOpt).join("");
+      ownGoalSel.innerHTML = '<option value="">Select own-goal player</option>' + oppIds.map(toOpt).join("");
+      document.getElementById("assistToggle").checked = false;
+      document.getElementById("ownGoalToggle").checked = false;
+      assistSel.style.display = "none";
+      ownGoalSel.style.display = "none";
+      document.getElementById("goalModal").style.display = "flex";
+    }
+
     async function load(){
       if (!matchId) { show("Missing match id.", "error"); return; }
       if (!getToken()) { show("Please log in from lobby first.", "error"); return; }
@@ -155,6 +353,8 @@
         detail = await apiFetch(`/matches/${matchId}`, { method: "GET" });
         const leagueDetail = await apiFetch(`/leagues/${detail.match.league_id}`, { method: "GET" });
         leagueRole = leagueDetail.league.member_role;
+        syncDraftFromMatch();
+        if (detail.match.status !== "registration_closed") editingTeams = false;
         render();
       } catch (err) {
         show(err.message || "Failed loading match.", "error");
@@ -166,8 +366,17 @@
       titleEl.textContent = m.title;
       subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
       scoreEl.textContent = `${m.score_a} - ${m.score_b}`;
-      stateEl.textContent = m.status;
+      stateEl.textContent = statusLabel(m.status);
+      stateEl.className = `pill ${stateClass(m.status)}`;
       metaEl.textContent = `Registered ${m.registered_count}/${m.max_participants} · Waitlist ${m.waitlisted_count}`;
+      if (m.status === "live" && m.started_at) {
+        const sec = Math.max(0, Math.floor((Date.now() - new Date(m.started_at).getTime()) / 1000));
+        const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+        const ss = String(sec % 60).padStart(2, "0");
+        timerEl.textContent = `Match timer: ${mm}:${ss}`;
+      } else {
+        timerEl.textContent = "";
+      }
       leagueLink.href = `./league.html?id=${m.league_id}`;
       previewLink.href = `./preview.html?token=${encodeURIComponent(m.preview_token)}`;
 
@@ -176,7 +385,7 @@
       `).join("") || '<div class="item muted">No registrations.</div>';
 
       eventsEl.innerHTML = (detail.events || []).filter(e => !e.undone).map(e => `
-        <div class="item">${e.event_type === "goal" ? "⚽" : "🅰️"} ${esc(e.username || "Unknown")} ${e.team ? "(Team " + e.team.toUpperCase() + ")" : ""} · ${Math.floor(e.event_seconds/60)}'</div>
+        <div class="item">${e.event_type === "goal" ? "⚽" : e.event_type === "own_goal" ? "🥅" : "🅰️"} ${esc(e.username || "Unknown")} ${e.team ? "(Team " + e.team.toUpperCase() + ")" : ""} · ${Math.floor(e.event_seconds/60)}'</div>
       `).join("") || '<div class="item muted">No events yet.</div>';
 
       const my = m.my_registration_status;
@@ -186,38 +395,29 @@
         if (my && my !== "cancelled") btns.push(`<button class="btn danger" data-act="cancel-reg">Cancel registration</button>`);
       }
       if (canManage()) {
-        if (m.status === "upcoming") btns.push(`<button class="btn primary" data-act="open-reg">Open registration</button>`);
-        if (m.status === "upcoming" || m.status === "registration_open") btns.push(`<button class="btn primary" data-act="generate">Generate teams</button>`);
-        if (m.status === "upcoming" || m.status === "registration_open") btns.push(`<button class="btn confirm" data-act="start">Start match</button>`);
+        if (m.status === "upcoming" || m.status === "registration_closed") btns.push(`<button class="btn primary" data-act="open-reg">Open registration</button>`);
+        if (m.status === "registration_open") btns.push(`<button class="btn danger" data-act="close-reg">Close registration</button>`);
+        if (m.status === "registration_closed") {
+          btns.push(`<button class="btn primary" data-act="generate">Generate teams</button>`);
+          btns.push(`<button class="btn ghost" data-act="edit-teams">${editingTeams ? "Stop editing" : "Edit teams"}</button>`);
+          if (editingTeams) btns.push(`<button class="btn primary" data-act="save-teams">Save draft</button>`);
+          if (!m.teams_confirmed) btns.push(`<button class="btn confirm" data-act="confirm-teams">Confirm teams</button>`);
+          if (m.teams_confirmed) btns.push(`<button class="btn confirm" data-act="start">Start match</button>`);
+        }
         if (m.status === "live") btns.push(`<button class="btn confirm" data-act="finish">Finish match</button>`);
         if (m.status === "finished") btns.push(`<button class="btn confirm" data-act="confirm">Confirm result</button>`);
         if (m.status !== "completed" && m.status !== "cancelled") btns.push(`<button class="btn danger" data-act="cancel">Cancel match</button>`);
       }
       actionsEl.innerHTML = btns.join("");
 
-      const goalCard = document.getElementById("goalCard");
-      goalCard.style.display = canManage() && m.status === "live" ? "block" : "none";
-      if (goalCard.style.display === "block") {
-        const teamA = m.team_a || [];
-        const teamB = m.team_b || [];
-        const regs = detail.registrations || [];
-        const scorerSel = document.getElementById("scorerSel");
-        const assistSel = document.getElementById("assistSel");
-        const teamSel = document.getElementById("teamSel");
-        const fill = () => {
-          const team = teamSel.value;
-          const ids = team === "a" ? teamA : teamB;
-          const opts = ids.map(uid => {
-            const r = regs.find(x => x.user_id === uid);
-            const n = r ? (r.display_name || r.username) : `#${uid}`;
-            return `<option value="${uid}">${esc(n)}</option>`;
-          }).join("");
-          scorerSel.innerHTML = opts;
-          assistSel.innerHTML = '<option value="">No assist</option>' + opts;
-        };
-        teamSel.onchange = fill;
-        fill();
-      }
+      renderTeams();
+
+      teamAListEl.querySelectorAll("[data-move]").forEach((b) => {
+        b.addEventListener("click", () => transfer(Number(b.dataset.move), b.dataset.from === "a"));
+      });
+      teamBListEl.querySelectorAll("[data-move]").forEach((b) => {
+        b.addEventListener("click", () => transfer(Number(b.dataset.move), b.dataset.from === "a"));
+      });
     }
 
     document.body.addEventListener("click", async (e) => {
@@ -229,7 +429,30 @@
         if (act === "register") await apiFetch(`/matches/${m.id}/register`, { method: "POST" });
         if (act === "cancel-reg") await apiFetch(`/matches/${m.id}/register`, { method: "DELETE" });
         if (act === "open-reg") await apiFetch(`/matches/${m.id}/open-registration`, { method: "POST" });
+        if (act === "close-reg") await apiFetch(`/matches/${m.id}/close-registration`, { method: "POST" });
         if (act === "generate") await apiFetch(`/matches/${m.id}/generate-teams`, { method: "POST" });
+        if (act === "edit-teams") {
+          editingTeams = !editingTeams;
+          render();
+          return;
+        }
+        if (act === "save-teams") {
+          await apiFetch(`/matches/${m.id}/teams`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              team_a: draft.teamA,
+              team_b: draft.teamB,
+              team_a_name: teamANameInput.value.trim() || "Team A",
+              team_b_name: teamBNameInput.value.trim() || "Team B",
+            }),
+          });
+          editingTeams = true;
+        }
+        if (act === "confirm-teams") {
+          await apiFetch(`/matches/${m.id}/confirm-teams`, { method: "POST" });
+          editingTeams = false;
+        }
         if (act === "start") await apiFetch(`/matches/${m.id}/start`, { method: "POST" });
         if (act === "finish") await apiFetch(`/matches/${m.id}/finish`, { method: "POST" });
         if (act === "confirm") await apiFetch(`/matches/${m.id}/confirm`, { method: "POST" });
@@ -240,19 +463,45 @@
       }
     });
 
-    document.getElementById("addGoalBtn").addEventListener("click", async () => {
+    document.getElementById("randA").addEventListener("click", () => {
+      teamANameInput.value = randomTeamName();
+      renderTeams();
+    });
+    document.getElementById("randB").addEventListener("click", () => {
+      teamBNameInput.value = randomTeamName();
+      renderTeams();
+    });
+    teamANameInput.addEventListener("input", renderTeams);
+    teamBNameInput.addEventListener("input", renderTeams);
+
+    document.getElementById("goalA").addEventListener("click", () => openGoalModal("a"));
+    document.getElementById("goalB").addEventListener("click", () => openGoalModal("b"));
+    document.getElementById("goalCancelBtn").addEventListener("click", () => {
+      document.getElementById("goalModal").style.display = "none";
+    });
+    document.getElementById("assistToggle").addEventListener("change", (e) => {
+      document.getElementById("assistSel").style.display = e.target.checked ? "block" : "none";
+    });
+    document.getElementById("ownGoalToggle").addEventListener("change", (e) => {
+      document.getElementById("ownGoalSel").style.display = e.target.checked ? "block" : "none";
+    });
+
+    document.getElementById("goalSaveBtn").addEventListener("click", async () => {
       if (!detail) return;
       const m = detail.match;
       try {
-        const team = document.getElementById("teamSel").value;
+        const team = goalContext.scoringTeam;
         const scorer = Number(document.getElementById("scorerSel").value);
-        const assistRaw = document.getElementById("assistSel").value;
+        const assistRaw = document.getElementById("assistToggle").checked ? document.getElementById("assistSel").value : "";
         const assist = assistRaw ? Number(assistRaw) : null;
+        const ownGoalRaw = document.getElementById("ownGoalToggle").checked ? document.getElementById("ownGoalSel").value : "";
+        const ownGoal = ownGoalRaw ? Number(ownGoalRaw) : null;
         await apiFetch(`/matches/${m.id}/events`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scorer_user_id: scorer, assist_user_id: assist, team }),
+          body: JSON.stringify({ scorer_user_id: scorer, assist_user_id: assist, own_goal_user_id: ownGoal, team }),
         });
+        document.getElementById("goalModal").style.display = "none";
         await load();
       } catch (err) {
         show(err.message || "Failed to add goal.", "error");

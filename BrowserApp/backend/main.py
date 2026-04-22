@@ -371,7 +371,7 @@ class MessageOut(BaseModel):
 
 # ====================== MATCH MANAGEMENT MODELS ======================
 
-MATCH_STATUS = frozenset({"upcoming", "registration_open", "live", "finished", "completed", "cancelled"})
+MATCH_STATUS = frozenset({"upcoming", "registration_open", "registration_closed", "live", "finished", "completed", "cancelled"})
 ELO_K = 32.0
 WAITLIST_OFFER_MINUTES = 15
 UNDO_WINDOW_SECONDS = 30
@@ -401,6 +401,9 @@ class MatchOut(BaseModel):
     my_registration_status: str | None
     team_a: list[int]
     team_b: list[int]
+    team_a_name: str
+    team_b_name: str
+    teams_confirmed: bool
     score_a: int
     score_b: int
     started_at: str | None
@@ -417,6 +420,8 @@ class MatchRegistrationOut(BaseModel):
     status: str
     registered_at: str
     position: int
+    seasonal_rating: float
+    global_rating: float
 
 
 class MatchEventOut(BaseModel):
@@ -440,6 +445,14 @@ class GoalEventPayload(BaseModel):
     scorer_user_id: int
     assist_user_id: int | None = None
     team: str = Field(pattern=r"^[ab]$")
+    own_goal_user_id: int | None = None
+
+
+class MatchTeamsDraftPayload(BaseModel):
+    team_a: list[int]
+    team_b: list[int]
+    team_a_name: str | None = Field(default=None, min_length=1, max_length=60)
+    team_b_name: str | None = Field(default=None, min_length=1, max_length=60)
 
 
 class NotificationOut(BaseModel):
@@ -497,7 +510,9 @@ def nicknames_from_db(raw_value: str | None) -> list[str]:
 
 def build_invite_url(token: str) -> str:
     base_origin = FRONTEND_ORIGINS[0].rstrip("/") if FRONTEND_ORIGINS else "https://xeroxandarian.github.io"
-    return f"{base_origin}/RSTRating/?invite={token}"
+    if "github.io" in base_origin:
+        return f"{base_origin}/RSTRating/invite.html?token={token}"
+    return f"{base_origin}/invite.html?token={token}"
 
 
 @contextmanager
@@ -751,6 +766,9 @@ def init_db() -> None:
         }
         if "preview_token" not in match_columns:
             conn.execute("ALTER TABLE matches ADD COLUMN preview_token TEXT")
+        ensure_column(conn, "matches", "team_a_name", "TEXT NOT NULL DEFAULT 'Team A'")
+        ensure_column(conn, "matches", "team_b_name", "TEXT NOT NULL DEFAULT 'Team B'")
+        ensure_column(conn, "matches", "teams_confirmed", "INTEGER NOT NULL DEFAULT 0")
 
         # Ensure one-time unique index and backfill preview tokens for existing rows.
         conn.execute(
@@ -3238,6 +3256,9 @@ def _serialize_match(row: sqlite3.Row, my_registration_status: str | None = None
         my_registration_status=my_registration_status,
         team_a=json.loads(str(row["team_a"] or "[]")),
         team_b=json.loads(str(row["team_b"] or "[]")),
+        team_a_name=str(row["team_a_name"] or "Team A"),
+        team_b_name=str(row["team_b_name"] or "Team B"),
+        teams_confirmed=bool(int(row["teams_confirmed"] or 0)),
         score_a=int(row["score_a"]),
         score_b=int(row["score_b"]),
         started_at=row["started_at"],
@@ -3279,20 +3300,37 @@ def _fetch_league_matches(conn: sqlite3.Connection, league_id: int) -> list[sqli
     ).fetchall()
 
 
-def _auto_open_registration(conn: sqlite3.Connection, match_id: int) -> None:
-    """Auto-transition match to registration_open if reg time has passed."""
+def _auto_sync_registration_state(conn: sqlite3.Connection, match_id: int) -> None:
+    """Auto-transition registration state (open by configured time, close 15 min before kickoff)."""
     match = conn.execute(
-        "SELECT status, registration_opens_at FROM matches WHERE id = ?",
+        "SELECT status, registration_opens_at, scheduled_at FROM matches WHERE id = ?",
         (match_id,),
     ).fetchone()
-    if match is None or str(match["status"]) != "upcoming":
+    if match is None:
         return
+
+    status_now = str(match["status"])
     reg_opens = match["registration_opens_at"]
-    if reg_opens is None:
-        return
-    if utc_now() >= datetime.fromisoformat(str(reg_opens)):
+    scheduled = datetime.fromisoformat(str(match["scheduled_at"]))
+    if scheduled.tzinfo is None:
+        scheduled = scheduled.replace(tzinfo=timezone.utc)
+    now = utc_now()
+    close_at = scheduled - timedelta(minutes=15)
+
+    if status_now == "upcoming" and reg_opens is not None:
+        reg_dt = datetime.fromisoformat(str(reg_opens))
+        if reg_dt.tzinfo is None:
+            reg_dt = reg_dt.replace(tzinfo=timezone.utc)
+        if now >= reg_dt:
+            conn.execute(
+                "UPDATE matches SET status = 'registration_open', updated_at = ? WHERE id = ?",
+                (utc_now_iso(), match_id),
+            )
+
+    current = conn.execute("SELECT status FROM matches WHERE id = ?", (match_id,)).fetchone()
+    if current is not None and str(current["status"]) == "registration_open" and now >= close_at:
         conn.execute(
-            "UPDATE matches SET status = 'registration_open', updated_at = ? WHERE id = ?",
+            "UPDATE matches SET status = 'registration_closed', updated_at = ? WHERE id = ?",
             (utc_now_iso(), match_id),
         )
 
@@ -3319,8 +3357,9 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
             """
             INSERT INTO matches (league_id, title, location, scheduled_at, registration_opens_at,
                                  max_participants, notes, status, team_a, team_b, score_a, score_b,
+                                 team_a_name, team_b_name, teams_confirmed,
                                  created_by, created_at, updated_at, preview_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, 'Team A', 'Team B', 0, ?, ?, ?, ?)
             """,
             (
                 league_id,
@@ -3337,6 +3376,8 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
             ),
         )
         match_id = cursor.lastrowid
+        if match_id is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create match")
         conn.commit()
 
         # Notify all league members
@@ -3351,8 +3392,8 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
         conn.commit()
 
         row = _fetch_match_row(conn, int(match_id))
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not load match")
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not load match")
     return _serialize_match(row)
 
 
@@ -3364,7 +3405,7 @@ def list_league_matches(league_id: int, current_user: sqlite3.Row = Depends(reso
         rows = _fetch_league_matches(conn, league_id)
         result = []
         for row in rows:
-            _auto_open_registration(conn, int(row["id"]))
+            _auto_sync_registration_state(conn, int(row["id"]))
             _advance_waitlist(conn, int(row["id"]))
             my_status = _match_registration_status(conn, int(row["id"]), user_id)
             refreshed = _fetch_match_row(conn, int(row["id"]))
@@ -3382,21 +3423,26 @@ def get_match_detail(match_id: int, current_user: sqlite3.Row = Depends(resolve_
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_membership(conn, int(row["league_id"]), user_id)
-        _auto_open_registration(conn, match_id)
+        _auto_sync_registration_state(conn, match_id)
         _advance_waitlist(conn, match_id)
         conn.commit()
         row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         my_status = _match_registration_status(conn, match_id, user_id)
 
         reg_rows = conn.execute(
             """
-            SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position
+            SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position,
+                   COALESCE(lps.rating, ?) AS seasonal_rating,
+                   COALESCE(u.global_rating, ?) AS global_rating
             FROM match_registrations AS mr
             JOIN users AS u ON u.id = mr.user_id
+            LEFT JOIN league_player_stats AS lps ON lps.league_id = ? AND lps.user_id = mr.user_id
             WHERE mr.match_id = ? AND mr.status IN ('registered','waitlisted','offered')
             ORDER BY CASE mr.status WHEN 'registered' THEN 0 ELSE 1 END, mr.position
             """,
-            (match_id,),
+            (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, int(row["league_id"]), match_id),
         ).fetchall()
 
         event_rows = conn.execute(
@@ -3418,6 +3464,8 @@ def get_match_detail(match_id: int, current_user: sqlite3.Row = Depends(resolve_
             status=str(r["status"]),
             registered_at=str(r["registered_at"]),
             position=int(r["position"]),
+            seasonal_rating=float(r["seasonal_rating"]),
+            global_rating=float(r["global_rating"]),
         )
         for r in reg_rows
     ]
@@ -3457,7 +3505,7 @@ def get_match_detail_preview(preview_token: str) -> MatchDetailOut:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preview link not found")
 
         match_id = int(row["id"])
-        _auto_open_registration(conn, match_id)
+        _auto_sync_registration_state(conn, match_id)
         _advance_waitlist(conn, match_id)
         conn.commit()
         row = _fetch_match_row(conn, match_id)
@@ -3466,13 +3514,16 @@ def get_match_detail_preview(preview_token: str) -> MatchDetailOut:
 
         reg_rows = conn.execute(
             """
-            SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position
+            SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position,
+                   COALESCE(lps.rating, ?) AS seasonal_rating,
+                   COALESCE(u.global_rating, ?) AS global_rating
             FROM match_registrations AS mr
             JOIN users AS u ON u.id = mr.user_id
+            LEFT JOIN league_player_stats AS lps ON lps.league_id = ? AND lps.user_id = mr.user_id
             WHERE mr.match_id = ? AND mr.status IN ('registered','waitlisted','offered')
             ORDER BY CASE mr.status WHEN 'registered' THEN 0 ELSE 1 END, mr.position
             """,
-            (match_id,),
+            (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, int(row["league_id"]), match_id),
         ).fetchall()
 
         event_rows = conn.execute(
@@ -3494,6 +3545,8 @@ def get_match_detail_preview(preview_token: str) -> MatchDetailOut:
             status=str(r["status"]),
             registered_at=str(r["registered_at"]),
             position=int(r["position"]),
+            seasonal_rating=float(r["seasonal_rating"]),
+            global_rating=float(r["global_rating"]),
         )
         for r in reg_rows
     ]
@@ -3521,7 +3574,7 @@ def open_match_registration(match_id: int, current_user: sqlite3.Row = Depends(r
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_league_manager(conn, int(row["league_id"]), user_id)
-        if str(row["status"]) not in {"upcoming"}:
+        if str(row["status"]) not in {"upcoming", "registration_closed"}:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not in upcoming state")
         conn.execute(
             "UPDATE matches SET status = 'registration_open', updated_at = ? WHERE id = ?",
@@ -3529,6 +3582,26 @@ def open_match_registration(match_id: int, current_user: sqlite3.Row = Depends(r
         )
         conn.commit()
     return MessageOut(detail="Registration opened.")
+
+
+@app.post("/matches/{match_id}/close-registration", response_model=MessageOut)
+def close_match_registration(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        _auto_sync_registration_state(conn, match_id)
+        row = _fetch_match_row(conn, match_id)
+        if row is None or str(row["status"]) != "registration_open":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration is not open")
+        conn.execute(
+            "UPDATE matches SET status = 'registration_closed', updated_at = ? WHERE id = ?",
+            (utc_now_iso(), match_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Registration closed.")
 
 
 @app.post("/matches/{match_id}/register", response_model=MessageOut)
@@ -3553,10 +3626,21 @@ def register_for_match(match_id: int, current_user: sqlite3.Row = Depends(resolv
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"You are under penalty until {str(penalty['penalty_until'])}.",
                 )
-        _auto_open_registration(conn, match_id)
+        _auto_sync_registration_state(conn, match_id)
         row = _fetch_match_row(conn, match_id)
-        if str(row["status"]) not in {"registration_open"}:
+        if row is None or str(row["status"]) not in {"registration_open"}:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration is not open")
+
+        scheduled = datetime.fromisoformat(str(row["scheduled_at"]))
+        if scheduled.tzinfo is None:
+            scheduled = scheduled.replace(tzinfo=timezone.utc)
+        if utc_now() >= scheduled - timedelta(minutes=15):
+            conn.execute(
+                "UPDATE matches SET status = 'registration_closed', updated_at = ? WHERE id = ?",
+                (utc_now_iso(), match_id),
+            )
+            conn.commit()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration closes 15 minutes before kickoff")
 
         existing = conn.execute(
             "SELECT id, status FROM match_registrations WHERE match_id = ? AND user_id = ?",
@@ -3616,8 +3700,15 @@ def cancel_match_registration(match_id: int, current_user: sqlite3.Row = Depends
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_membership(conn, int(row["league_id"]), user_id)
 
+        _auto_sync_registration_state(conn, match_id)
+        row = _fetch_match_row(conn, match_id)
+        if row is None or str(row["status"]) != "registration_open":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration is not open")
+
         # Enforce 1-hour cutoff
         scheduled = datetime.fromisoformat(str(row["scheduled_at"]))
+        if scheduled.tzinfo is None:
+            scheduled = scheduled.replace(tzinfo=timezone.utc)
         if utc_now() > scheduled - timedelta(hours=1):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration cannot be cancelled within 1 hour of match start")
 
@@ -3647,8 +3738,10 @@ def generate_match_teams(match_id: int, current_user: sqlite3.Row = Depends(reso
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_league_manager(conn, int(row["league_id"]), user_id)
-        if str(row["status"]) not in {"registration_open", "upcoming"}:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be generated before match starts")
+        _auto_sync_registration_state(conn, match_id)
+        row = _fetch_match_row(conn, match_id)
+        if row is None or str(row["status"]) != "registration_closed":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be generated after registrations are closed")
 
         registered = conn.execute(
             "SELECT user_id FROM match_registrations WHERE match_id = ? AND status = 'registered'",
@@ -3668,11 +3761,68 @@ def generate_match_teams(match_id: int, current_user: sqlite3.Row = Depends(reso
 
         team_a, team_b = _generate_two_teams(player_ratings)
         conn.execute(
-            "UPDATE matches SET team_a = ?, team_b = ?, updated_at = ? WHERE id = ?",
+            "UPDATE matches SET team_a = ?, team_b = ?, teams_confirmed = 0, updated_at = ? WHERE id = ?",
             (json.dumps(team_a), json.dumps(team_b), utc_now_iso(), match_id),
         )
         conn.commit()
 
+    return get_match_detail(match_id, current_user)
+
+
+@app.patch("/matches/{match_id}/teams", response_model=MatchDetailOut)
+def update_match_teams(match_id: int, payload: MatchTeamsDraftPayload, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchDetailOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        if str(row["status"]) != "registration_closed":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be edited while registration is closed")
+
+        a_ids = [int(x) for x in payload.team_a]
+        b_ids = [int(x) for x in payload.team_b]
+        if set(a_ids).intersection(set(b_ids)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A player cannot be in both teams")
+
+        valid_users = conn.execute(
+            "SELECT user_id FROM match_registrations WHERE match_id = ? AND status = 'registered'",
+            (match_id,),
+        ).fetchall()
+        valid_set = {int(r["user_id"]) for r in valid_users}
+        if set(a_ids).union(set(b_ids)) != valid_set:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="All registered players must be assigned to exactly one team")
+
+        team_a_name = (payload.team_a_name or str(row["team_a_name"] or "Team A")).strip() or "Team A"
+        team_b_name = (payload.team_b_name or str(row["team_b_name"] or "Team B")).strip() or "Team B"
+
+        conn.execute(
+            "UPDATE matches SET team_a = ?, team_b = ?, team_a_name = ?, team_b_name = ?, teams_confirmed = 0, updated_at = ? WHERE id = ?",
+            (json.dumps(a_ids), json.dumps(b_ids), team_a_name, team_b_name, utc_now_iso(), match_id),
+        )
+        conn.commit()
+    return get_match_detail(match_id, current_user)
+
+
+@app.post("/matches/{match_id}/confirm-teams", response_model=MatchDetailOut)
+def confirm_match_teams(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchDetailOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        if str(row["status"]) != "registration_closed":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be confirmed after registration closes")
+        team_a = json.loads(str(row["team_a"] or "[]"))
+        team_b = json.loads(str(row["team_b"] or "[]"))
+        if not team_a and not team_b:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Generate or set teams before confirming")
+        conn.execute(
+            "UPDATE matches SET teams_confirmed = 1, updated_at = ? WHERE id = ?",
+            (utc_now_iso(), match_id),
+        )
+        conn.commit()
     return get_match_detail(match_id, current_user)
 
 
@@ -3684,28 +3834,17 @@ def start_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_league_manager(conn, int(row["league_id"]), user_id)
-        if str(row["status"]) not in {"registration_open", "upcoming"}:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match cannot be started in its current state")
+        _auto_sync_registration_state(conn, match_id)
+        row = _fetch_match_row(conn, match_id)
+        if row is None or str(row["status"]) != "registration_closed":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match can only start after registrations are closed")
+        if not bool(int(row["teams_confirmed"] or 0)):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Confirm teams before starting the match")
 
-        # Auto-generate teams if not yet done
         team_a = json.loads(str(row["team_a"] or "[]"))
         team_b = json.loads(str(row["team_b"] or "[]"))
         if not team_a and not team_b:
-            registered = conn.execute(
-                "SELECT user_id FROM match_registrations WHERE match_id = ? AND status = 'registered'",
-                (match_id,),
-            ).fetchall()
-            participant_ids = [int(r["user_id"]) for r in registered]
-            league_id = int(row["league_id"])
-            player_ratings: list[tuple[int, float]] = []
-            for pid in participant_ids:
-                lps = conn.execute(
-                    "SELECT rating FROM league_player_stats WHERE league_id = ? AND user_id = ?",
-                    (league_id, pid),
-                ).fetchone()
-                rating = float(lps["rating"]) if lps else DEFAULT_GLOBAL_RATING
-                player_ratings.append((pid, rating))
-            team_a, team_b = _generate_two_teams(player_ratings)
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams are missing")
 
         conn.execute(
             "UPDATE matches SET status = 'live', team_a = ?, team_b = ?, started_at = ?, updated_at = ? WHERE id = ?",
@@ -3733,15 +3872,25 @@ def add_match_goal(match_id: int, payload: GoalEventPayload, current_user: sqlit
         elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
         now_iso = utc_now_iso()
 
-        # Add goal
+        event_type = "goal"
+        scorer_id = payload.scorer_user_id
+        score_team = payload.team
+        if payload.own_goal_user_id is not None:
+            event_type = "own_goal"
+            scorer_id = payload.own_goal_user_id
+            score_team = payload.team
+
+        # Add goal/own-goal event
         cursor = conn.execute(
-            "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'goal', ?, ?, ?, ?, 0)",
-            (match_id, payload.scorer_user_id, payload.team, elapsed_seconds, now_iso),
+            "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, ?, ?, ?, ?, ?, 0)",
+            (match_id, event_type, scorer_id, score_team, elapsed_seconds, now_iso),
         )
         goal_event_id = cursor.lastrowid
+        if goal_event_id is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create event")
 
         # Update score
-        if payload.team == "a":
+        if score_team == "a":
             conn.execute("UPDATE matches SET score_a = score_a + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
         else:
             conn.execute("UPDATE matches SET score_b = score_b + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
@@ -3755,13 +3904,13 @@ def add_match_goal(match_id: int, payload: GoalEventPayload, current_user: sqlit
 
         conn.commit()
 
-        scorer_username = conn.execute("SELECT username FROM users WHERE id = ?", (payload.scorer_user_id,)).fetchone()
+        scorer_username = conn.execute("SELECT username FROM users WHERE id = ?", (scorer_id,)).fetchone()
         return MatchEventOut(
             id=int(goal_event_id),
-            event_type="goal",
-            user_id=payload.scorer_user_id,
+            event_type=event_type,
+            user_id=scorer_id,
             username=scorer_username["username"] if scorer_username else None,
-            team=payload.team,
+            team=score_team,
             event_seconds=elapsed_seconds,
             created_at=now_iso,
             undone=False,
