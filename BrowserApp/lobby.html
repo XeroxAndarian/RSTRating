@@ -1593,7 +1593,9 @@
                 return;
             }
             const roleIcon = r => r === "owner" ? "🤵" : r === "admin" ? "👮" : "👕";
-            el.innerHTML = lobbyState.leagues.map(league => {
+            const ratingByLeagueId = new Map((lobbyState.league_player_stats || []).map(s => [s.league_id, Number(s.rating || 0)]));
+            const sortedLeagues = [...lobbyState.leagues].sort((a, b) => (ratingByLeagueId.get(b.id) || 0) - (ratingByLeagueId.get(a.id) || 0));
+            el.innerHTML = sortedLeagues.map(league => {
                 const stats = (lobbyState.league_player_stats || []).find(s => s.league_id === league.id);
                 const rating = stats ? Math.round(stats.rating) : "—";
                 return `
@@ -1625,7 +1627,7 @@
             }
             const now = Date.now();
             const upcoming = allFetchedMatches
-                .filter(m => m.status === "scheduled" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
+                .filter(m => m.status === "upcoming" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
                 .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
                 .slice(0, 8);
             if (!upcoming.length) {

@@ -200,7 +200,7 @@
       var now=Date.now();
       var completed=matches.filter(function(m){return m.status==="completed"||m.status==="finished";})
         .sort(function(a,b){return new Date(b.scheduled_at)-new Date(a.scheduled_at);});
-      var upcoming=matches.filter(function(m){return m.status==="scheduled"&&m.scheduled_at&&new Date(m.scheduled_at).getTime()>now;})
+      var upcoming=matches.filter(function(m){return m.status==="upcoming"&&m.scheduled_at&&new Date(m.scheduled_at).getTime()>now;})
         .sort(function(a,b){return new Date(a.scheduled_at)-new Date(b.scheduled_at);});
 
       var presetQuick=document.getElementById("presetQuick");
