@@ -441,11 +441,13 @@ class MatchDetailOut(BaseModel):
     events: list[MatchEventOut]
 
 
-class GoalEventPayload(BaseModel):
-    scorer_user_id: int
-    assist_user_id: int | None = None
+class MatchLiveEventPayload(BaseModel):
+    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card)$")
     team: str = Field(pattern=r"^[ab]$")
+    scorer_user_id: int | None = None
+    assist_user_id: int | None = None
     own_goal_user_id: int | None = None
+    player_user_id: int | None = None
 
 
 class MatchTeamsDraftPayload(BaseModel):
@@ -3856,7 +3858,7 @@ def start_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
 
 
 @app.post("/matches/{match_id}/events", response_model=MatchEventOut, status_code=status.HTTP_201_CREATED)
-def add_match_goal(match_id: int, payload: GoalEventPayload, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchEventOut:
+def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchEventOut:
     user_id = int(current_user["id"])
     with get_conn() as conn:
         row = _fetch_match_row(conn, match_id)
@@ -3872,31 +3874,64 @@ def add_match_goal(match_id: int, payload: GoalEventPayload, current_user: sqlit
         elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
         now_iso = utc_now_iso()
 
-        event_type = "goal"
-        scorer_id = payload.scorer_user_id
-        score_team = payload.team
-        if payload.own_goal_user_id is not None:
-            event_type = "own_goal"
-            scorer_id = payload.own_goal_user_id
+        team_a = {int(uid) for uid in json.loads(str(row["team_a"] or "[]"))}
+        team_b = {int(uid) for uid in json.loads(str(row["team_b"] or "[]"))}
+        scoring_team_players = team_a if payload.team == "a" else team_b
+        opposite_team_players = team_b if payload.team == "a" else team_a
+
+        event_type = str(payload.event_type)
+        actor_user_id: int | None = None
+        score_team: str | None = None
+
+        if event_type == "goal":
+            if payload.scorer_user_id is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scorer_user_id is required for goal")
+            if int(payload.scorer_user_id) not in scoring_team_players:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Goal scorer must belong to scoring team")
+            actor_user_id = int(payload.scorer_user_id)
             score_team = payload.team
+
+        elif event_type == "own_goal":
+            own_goal_user_id = payload.own_goal_user_id or payload.player_user_id
+            if own_goal_user_id is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="own_goal_user_id is required for own_goal")
+            if int(own_goal_user_id) not in opposite_team_players:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Own-goal scorer must belong to opposite team")
+            actor_user_id = int(own_goal_user_id)
+            score_team = payload.team
+
+        elif event_type in {"injury", "yellow_card", "red_card"}:
+            card_user_id = payload.player_user_id or payload.scorer_user_id
+            if card_user_id is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="player_user_id is required for this event")
+            if int(card_user_id) not in scoring_team_players:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected player must belong to the selected team")
+            actor_user_id = int(card_user_id)
+            score_team = payload.team
+
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported event type")
 
         # Add goal/own-goal event
         cursor = conn.execute(
             "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (match_id, event_type, scorer_id, score_team, elapsed_seconds, now_iso),
+            (match_id, event_type, actor_user_id, score_team, elapsed_seconds, now_iso),
         )
         goal_event_id = cursor.lastrowid
         if goal_event_id is None:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create event")
 
         # Update score
-        if score_team == "a":
-            conn.execute("UPDATE matches SET score_a = score_a + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
-        else:
-            conn.execute("UPDATE matches SET score_b = score_b + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
+        if event_type in {"goal", "own_goal"} and score_team is not None:
+            if score_team == "a":
+                conn.execute("UPDATE matches SET score_a = score_a + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
+            else:
+                conn.execute("UPDATE matches SET score_b = score_b + 1, updated_at = ? WHERE id = ?", (now_iso, match_id))
 
         # Add assist if provided
-        if payload.assist_user_id is not None:
+        if event_type == "goal" and payload.assist_user_id is not None:
+            if int(payload.assist_user_id) not in scoring_team_players:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assist player must belong to scoring team")
             conn.execute(
                 "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'assist', ?, ?, ?, ?, 0)",
                 (match_id, payload.assist_user_id, payload.team, elapsed_seconds, now_iso),
@@ -3904,11 +3939,11 @@ def add_match_goal(match_id: int, payload: GoalEventPayload, current_user: sqlit
 
         conn.commit()
 
-        scorer_username = conn.execute("SELECT username FROM users WHERE id = ?", (scorer_id,)).fetchone()
+        scorer_username = conn.execute("SELECT username FROM users WHERE id = ?", (actor_user_id,)).fetchone() if actor_user_id is not None else None
         return MatchEventOut(
             id=int(goal_event_id),
             event_type=event_type,
-            user_id=scorer_id,
+            user_id=actor_user_id,
             username=scorer_username["username"] if scorer_username else None,
             team=score_team,
             event_seconds=elapsed_seconds,
@@ -3940,7 +3975,7 @@ def undo_match_event(match_id: int, event_id: int, current_user: sqlite3.Row = D
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Undo window has passed (30 seconds)")
 
         conn.execute("UPDATE match_events SET undone = 1 WHERE id = ?", (event_id,))
-        if str(event["event_type"]) == "goal":
+        if str(event["event_type"]) in {"goal", "own_goal"}:
             if str(event["team"]) == "a":
                 conn.execute("UPDATE matches SET score_a = MAX(0, score_a - 1) WHERE id = ?", (match_id,))
             else:

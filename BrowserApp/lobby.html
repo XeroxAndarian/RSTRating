@@ -2620,7 +2620,7 @@
                         ${match.location ? `<div class="meta-block"><span class="meta-label">Location</span><span class="meta-value">${escapeHtml(match.location)}</span></div>` : ""}
                         <div class="meta-block"><span class="meta-label">Spots</span><span class="meta-value">${escapeHtml(match.registered_count)} / ${escapeHtml(match.max_participants)}</span></div>
                         ${match.waitlisted_count > 0 ? `<div class="meta-block"><span class="meta-label">Waitlist</span><span class="meta-value">${escapeHtml(match.waitlisted_count)}</span></div>` : ""}
-                        <div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Preview link</span><span class="meta-value"><a href="./preview.html?token=${encodeURIComponent(match.preview_token)}">${escapeHtml(window.location.origin + window.location.pathname.replace(/index\.html?$/, "") + "preview.html?token=" + match.preview_token)}</a></span></div>
+                        <div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Spectator link</span><span class="meta-value"><a href="./match.html?token=${encodeURIComponent(match.preview_token)}">${escapeHtml(window.location.origin + window.location.pathname.replace(/index\.html?$/, "") + "match.html?token=" + match.preview_token)}</a></span></div>
                         ${match.notes ? `<div class="meta-block" style="grid-column:1/-1;"><span class="meta-label">Notes</span><span class="meta-value">${escapeHtml(match.notes)}</span></div>` : ""}
                     </div>
                     ${teamsHtml}

@@ -3,124 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Match Preview | RSTRating</title>
-  <style>
-    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f3faf6; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --line:rgba(14,44,29,.16); --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
-    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --line:rgba(231,245,238,.2); --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; }
-    body { margin:0; font-family:"Roboto", "Segoe UI", sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
-    .wrap { max-width:900px; margin:24px auto; padding:0 16px; }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
-    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-    .pill { display:inline-flex; padding:3px 9px; border-radius:8px; background:var(--pill); border:1px solid var(--line); font-size:.82rem; }
-    .score { font-size:2.1rem; font-weight:700; }
-    .muted { color:var(--muted); }
-    .list { display:flex; flex-direction:column; gap:8px; }
-    .item { border:1px solid var(--line); border-radius:10px; padding:10px; }
-    h1,h2,h3{ margin:0; }
-    .status { min-height:20px; color:var(--muted); margin-top:8px; }
-    .theme-toggle { position:fixed; top:14px; right:14px; border:none; border-radius:9px; padding:8px 10px; font:inherit; font-weight:700; cursor:pointer; background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
-  </style>
+  <title>Redirecting | RSTRating</title>
 </head>
 <body>
-  <button class="theme-toggle" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
-  <div class="wrap">
-    <div class="card">
-      <div class="row">
-        <div>
-          <h1 id="title">Match preview</h1>
-          <div class="muted" id="sub">Read-only live feed</div>
-        </div>
-        <span id="state" class="pill">-</span>
-      </div>
-      <div class="score" id="score" style="margin-top:8px;">0 - 0</div>
-      <div class="muted" id="meta" style="margin-top:8px;"></div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-bottom:8px;">Registrations</h3>
-      <div id="regs" class="list"></div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-bottom:8px;">Live events</h3>
-      <div id="events" class="list"></div>
-    </div>
-
-    <div id="status" class="status"></div>
-  </div>
-
+  <p style="font-family:Arial,sans-serif;text-align:center;padding-top:40px;">Redirecting to match page...</p>
   <script>
-    (function(){
-      if (localStorage.getItem("rs_theme") !== "light") {
-        document.documentElement.setAttribute("data-theme", "dark");
-      }
-    })();
-
-    (function(){
-      const btn = document.getElementById("darkModeToggle");
-      if (!btn) return;
-      const sync = () => {
-        btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
-      };
-      sync();
-      btn.addEventListener("click", () => {
-        const dark = document.documentElement.getAttribute("data-theme") === "dark";
-        if (dark) {
-          document.documentElement.removeAttribute("data-theme");
-          localStorage.setItem("rs_theme", "light");
-        } else {
-          document.documentElement.setAttribute("data-theme", "dark");
-          localStorage.setItem("rs_theme", "dark");
-        }
-        sync();
-      });
-    })();
-
     const token = new URLSearchParams(window.location.search).get("token") || "";
-    const API_BASE_KEY = "rs_api_base_override";
-    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
-
-    const titleEl = document.getElementById("title");
-    const subEl = document.getElementById("sub");
-    const stateEl = document.getElementById("state");
-    const scoreEl = document.getElementById("score");
-    const metaEl = document.getElementById("meta");
-    const regsEl = document.getElementById("regs");
-    const eventsEl = document.getElementById("events");
-    const statusEl = document.getElementById("status");
-
-    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
-    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
-    function show(msg){ statusEl.textContent = msg; }
-    function formatIso(iso){ const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(); }
-
-    async function load(){
-      if (!token) { show("Missing preview token."); return; }
-      try {
-        const res = await fetch(getApiBase() + `/preview/matches/${encodeURIComponent(token)}`);
-        const body = await res.json();
-        if (!res.ok) throw new Error(body?.detail || "Request failed");
-        const m = body.match;
-        titleEl.textContent = m.title + " (Preview)";
-        subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
-        stateEl.textContent = m.status;
-        scoreEl.textContent = `${m.score_a} - ${m.score_b}`;
-        metaEl.textContent = `Registered ${m.registered_count}/${m.max_participants} · Waitlist ${m.waitlisted_count}`;
-
-        regsEl.innerHTML = (body.registrations || []).map(r => `
-          <div class="item"><strong>${esc(r.display_name || r.username)}</strong> <span class="pill">${esc(r.status)}</span></div>
-        `).join("") || '<div class="item muted">No registrations.</div>';
-
-        eventsEl.innerHTML = (body.events || []).filter(e => !e.undone).map(e => `
-          <div class="item">${e.event_type === "goal" ? "⚽" : "🅰️"} ${esc(e.username || "Unknown")} ${e.team ? "(Team " + e.team.toUpperCase() + ")" : ""} · ${Math.floor(e.event_seconds/60)}'</div>
-        `).join("") || '<div class="item muted">No events yet.</div>';
-      } catch (err) {
-        show(err.message || "Failed to load preview.");
-      }
-    }
-
-    load();
-    setInterval(load, 5000);
+    const target = token ? `./match.html?token=${encodeURIComponent(token)}` : "./lobby.html";
+    window.location.replace(target);
   </script>
 </body>
 </html>
