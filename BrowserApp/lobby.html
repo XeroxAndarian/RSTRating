@@ -1627,8 +1627,8 @@
             }
             const now = Date.now();
             const upcoming = allFetchedMatches
-                .filter(m => m.status === "upcoming" && m.scheduled_at && new Date(m.scheduled_at).getTime() > now)
-                .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+                .filter(m => ["upcoming", "registration_open", "registration_closed", "live"].includes(m.status))
+                .sort((a, b) => new Date(a.scheduled_at || a.created_at) - new Date(b.scheduled_at || b.created_at))
                 .slice(0, 8);
             if (!upcoming.length) {
                 panel.innerHTML = '<p class="hint">No upcoming matches.</p>';

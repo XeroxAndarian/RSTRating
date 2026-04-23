@@ -55,11 +55,15 @@
     </div>
 
     <div class="card">
-      <h1 id="title">Match</h1>
-      <div id="sub" class="muted" style="margin-top:4px;">Loading...</div>
-      <div class="row" style="justify-content:center;">
-        <span class="pill" id="state">-</span>
-        <span class="pill" id="viewTag">normal</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="text-align:left;">
+          <h1 id="title">Match</h1>
+          <div id="sub" class="muted" style="margin-top:4px;">Loading...</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;">
+          <span class="pill" id="state">-</span>
+          <span class="pill" id="viewTag">normal</span>
+        </div>
       </div>
       <div class="score-grid">
         <div class="team-title left" id="teamAHeader">Team A</div>
@@ -414,20 +418,29 @@
         const mm = String(Math.floor(sec / 60)).padStart(2, "0");
         const ss = String(sec % 60).padStart(2, "0");
         clockEl.textContent = `${mm}:${ss}`;
-      } else if (["upcoming", "registration_open", "registration_closed"].includes(m.status) && m.scheduled_at) {
+      } else if (m.status === "upcoming") {
+        clockEl.textContent = m.registration_opens_at
+          ? `Registration opens ${formatIso(m.registration_opens_at)}`
+          : (m.scheduled_at ? `Starts ${formatIso(m.scheduled_at)}` : "—");
+      } else if (m.status === "registration_open") {
+        clockEl.textContent = m.scheduled_at ? `Registration ends ${formatIso(m.scheduled_at)}` : "Registration open";
+      } else if (m.status === "registration_closed" && m.scheduled_at) {
         clockEl.textContent = `Starts ${formatIso(m.scheduled_at)}`;
       } else {
         clockEl.textContent = "Full Time";
       }
       leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
 
+      const showRegistrations = ["registration_open", "registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status);
       const showTeamsAndEvents = ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status);
-      teamsCard.style.display = showTeamsAndEvents ? "grid" : "none";
+      teamsCard.style.display = showRegistrations ? "grid" : "none";
       eventsCard.style.display = showTeamsAndEvents ? "block" : "none";
 
       renderActions();
-      if (showTeamsAndEvents) {
+      if (showRegistrations) {
         renderTeams();
+      }
+      if (showTeamsAndEvents) {
         renderEvents();
       }
       renderRegistrations();
