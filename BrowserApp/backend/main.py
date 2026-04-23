@@ -39,6 +39,7 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "rstadmin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@rstrating.local")
 BACKDOOR_PIN = os.getenv("BACKDOOR_PIN", "rst2024")
+ENABLE_SAMPLE_MATCHES = os.getenv("ENABLE_SAMPLE_MATCHES", "0") == "1"
 
 bearer_scheme = HTTPBearer(auto_error=False)
 PBKDF2_ITERATIONS = 210000
@@ -1227,6 +1228,14 @@ def ensure_sample_matches() -> None:
             conn.commit()
 
 
+def remove_seeded_sample_matches() -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM match_events WHERE match_id IN (SELECT id FROM matches WHERE notes LIKE 'Sample %')")
+        conn.execute("DELETE FROM match_registrations WHERE match_id IN (SELECT id FROM matches WHERE notes LIKE 'Sample %')")
+        conn.execute("DELETE FROM matches WHERE notes LIKE 'Sample %'")
+        conn.commit()
+
+
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
@@ -1692,7 +1701,10 @@ app.add_middleware(
 def startup() -> None:
     init_db()
     ensure_admin_account()
-    ensure_sample_matches()
+    if ENABLE_SAMPLE_MATCHES:
+        ensure_sample_matches()
+    else:
+        remove_seeded_sample_matches()
 
 
 @app.get("/health")

@@ -1643,7 +1643,7 @@
                     const scheduledAt = form.scheduled_at.value;
                     const regOpensAt = form.registration_opens_at.value;
                     try {
-                        await apiFetch(`/leagues/${leagueId}/matches`, {
+                        const created = await apiFetch(`/leagues/${leagueId}/matches`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
@@ -1655,11 +1655,16 @@
                                 notes: form.notes.value.trim() || null
                             })
                         });
+                        if (!created || !created.id) {
+                            throw new Error("Match was created but ID was not returned.");
+                        }
+                        await apiFetch(`/matches/${created.id}`, { method: "GET" });
                         form.reset(); form.style.display = "none";
                         await loadLeagueMatches(leagueId);
                         const section = document.getElementById(`league-matches-section-${leagueId}`);
                         if (section) { section.innerHTML = renderLeagueMatchesHtml(leagueId, league); section.style.display = "block"; }
                         showStatus("Match scheduled.", "ok");
+                        window.location.href = `./match.html?id=${created.id}`;
                     } catch (error) { showStatus(error.message || "Failed to create match.", "error"); }
                 });
             }

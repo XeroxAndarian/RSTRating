@@ -46,11 +46,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="row" style="justify-content:space-between; margin-bottom:8px;">
-      <div style="flex:1; min-width:220px;">
-        <h1 id="title">Match</h1>
-        <div id="sub" class="muted">Loading...</div>
-      </div>
+    <div class="row" style="justify-content:flex-end; margin-bottom:8px;">
       <div class="row" style="justify-content:flex-end;">
         <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
         <a class="btn ghost" href="./lobby.html">Lobby</a>
@@ -59,6 +55,8 @@
     </div>
 
     <div class="card">
+      <h1 id="title">Match</h1>
+      <div id="sub" class="muted" style="margin-top:4px;">Loading...</div>
       <div class="row" style="justify-content:center;">
         <span class="pill" id="state">-</span>
         <span class="pill" id="viewTag">normal</span>
@@ -73,7 +71,7 @@
       <div class="row" id="actions" style="margin-top:10px;"></div>
     </div>
 
-    <div class="grid">
+    <div class="grid" id="teamsCard">
       <div class="card">
         <h3 style="margin-bottom:8px;">Teams</h3>
         <div class="grid">
@@ -98,7 +96,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="eventsCard">
       <h3 style="margin-bottom:8px;">Match Events</h3>
       <div class="events-grid">
         <div class="events-col">
@@ -189,6 +187,8 @@
     const adminBtnsA = document.getElementById("adminBtnsA");
     const adminBtnsB = document.getElementById("adminBtnsB");
     const registrationsCard = document.getElementById("registrationsCard");
+    const teamsCard = document.getElementById("teamsCard");
+    const eventsCard = document.getElementById("eventsCard");
     const leagueLink = document.getElementById("leagueLink");
     const statusEl = document.getElementById("status");
 
@@ -414,15 +414,23 @@
         const mm = String(Math.floor(sec / 60)).padStart(2, "0");
         const ss = String(sec % 60).padStart(2, "0");
         clockEl.textContent = `${mm}:${ss}`;
+      } else if (["upcoming", "registration_open", "registration_closed"].includes(m.status) && m.scheduled_at) {
+        clockEl.textContent = `Starts ${formatIso(m.scheduled_at)}`;
       } else {
         clockEl.textContent = "Full Time";
       }
       leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
 
+      const showTeamsAndEvents = ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status);
+      teamsCard.style.display = showTeamsAndEvents ? "grid" : "none";
+      eventsCard.style.display = showTeamsAndEvents ? "block" : "none";
+
       renderActions();
-      renderTeams();
+      if (showTeamsAndEvents) {
+        renderTeams();
+        renderEvents();
+      }
       renderRegistrations();
-      renderEvents();
     }
 
     async function load(){
