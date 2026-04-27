@@ -443,12 +443,13 @@ class MatchDetailOut(BaseModel):
 
 
 class MatchLiveEventPayload(BaseModel):
-    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card)$")
-    team: str = Field(pattern=r"^[ab]$")
+    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card|pause|resume)$")
+    team: str | None = Field(default=None, pattern=r"^[ab]$")
     scorer_user_id: int | None = None
     assist_user_id: int | None = None
     own_goal_user_id: int | None = None
     player_user_id: int | None = None
+    event_seconds: int | None = Field(default=None, ge=0)
 
 
 class MatchTeamsDraftPayload(BaseModel):
@@ -3756,6 +3757,8 @@ def generate_match_teams(match_id: int, current_user: sqlite3.Row = Depends(reso
         row = _fetch_match_row(conn, match_id)
         if row is None or str(row["status"]) != "registration_closed":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be generated after registrations are closed")
+        if bool(int(row["teams_confirmed"] or 0)):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams are locked after confirmation")
 
         registered = conn.execute(
             "SELECT user_id FROM match_registrations WHERE match_id = ? AND status = 'registered'",
@@ -3793,6 +3796,8 @@ def update_match_teams(match_id: int, payload: MatchTeamsDraftPayload, current_u
         require_league_manager(conn, int(row["league_id"]), user_id)
         if str(row["status"]) != "registration_closed":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams can only be edited while registration is closed")
+        if bool(int(row["teams_confirmed"] or 0)):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teams are locked after confirmation")
 
         a_ids = [int(x) for x in payload.team_a]
         b_ids = [int(x) for x in payload.team_b]
@@ -3877,13 +3882,16 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         require_league_manager(conn, int(row["league_id"]), user_id)
-        if str(row["status"]) != "live":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not live")
+        if str(row["status"]) not in {"live", "finished"}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Events can only be edited while match is live or finished")
 
         started_at = row["started_at"]
-        if started_at is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match has no start time")
-        elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+        if payload.event_seconds is not None:
+            elapsed_seconds = int(payload.event_seconds)
+        else:
+            if started_at is None:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match has no start time")
+            elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
         now_iso = utc_now_iso()
 
         team_a = {int(uid) for uid in json.loads(str(row["team_a"] or "[]"))}
@@ -3894,6 +3902,9 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         event_type = str(payload.event_type)
         actor_user_id: int | None = None
         score_team: str | None = None
+
+        if event_type in {"goal", "own_goal", "injury", "yellow_card", "red_card"} and payload.team not in {"a", "b"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="team must be 'a' or 'b' for this event")
 
         if event_type == "goal":
             if payload.scorer_user_id is None:
@@ -3920,6 +3931,10 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected player must belong to the selected team")
             actor_user_id = int(card_user_id)
             score_team = payload.team
+
+        elif event_type in {"pause", "resume"}:
+            actor_user_id = None
+            score_team = None
 
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported event type")
@@ -3964,6 +3979,94 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         )
 
 
+@app.post("/matches/{match_id}/pause", response_model=MatchEventOut, status_code=status.HTTP_201_CREATED)
+def pause_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchEventOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        if str(row["status"]) != "live":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not live")
+        started_at = row["started_at"]
+        if started_at is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match has no start time")
+
+        last_marker = conn.execute(
+            "SELECT event_type FROM match_events WHERE match_id = ? AND event_type IN ('pause','resume') AND undone = 0 ORDER BY event_seconds DESC, created_at DESC LIMIT 1",
+            (match_id,),
+        ).fetchone()
+        if last_marker is not None and str(last_marker["event_type"]) == "pause":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is already paused")
+
+        elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+        now_iso = utc_now_iso()
+        cursor = conn.execute(
+            "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'pause', NULL, NULL, ?, ?, 0)",
+            (match_id, elapsed_seconds, now_iso),
+        )
+        event_id = cursor.lastrowid
+        if event_id is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create pause event")
+        conn.commit()
+
+    return MatchEventOut(
+        id=int(event_id),
+        event_type="pause",
+        user_id=None,
+        username=None,
+        team=None,
+        event_seconds=elapsed_seconds,
+        created_at=now_iso,
+        undone=False,
+    )
+
+
+@app.post("/matches/{match_id}/resume", response_model=MatchEventOut, status_code=status.HTTP_201_CREATED)
+def resume_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchEventOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        if str(row["status"]) != "live":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not live")
+        started_at = row["started_at"]
+        if started_at is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match has no start time")
+
+        last_marker = conn.execute(
+            "SELECT event_type FROM match_events WHERE match_id = ? AND event_type IN ('pause','resume') AND undone = 0 ORDER BY event_seconds DESC, created_at DESC LIMIT 1",
+            (match_id,),
+        ).fetchone()
+        if last_marker is None or str(last_marker["event_type"]) != "pause":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not paused")
+
+        elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+        now_iso = utc_now_iso()
+        cursor = conn.execute(
+            "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'resume', NULL, NULL, ?, ?, 0)",
+            (match_id, elapsed_seconds, now_iso),
+        )
+        event_id = cursor.lastrowid
+        if event_id is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create resume event")
+        conn.commit()
+
+    return MatchEventOut(
+        id=int(event_id),
+        event_type="resume",
+        user_id=None,
+        username=None,
+        team=None,
+        event_seconds=elapsed_seconds,
+        created_at=now_iso,
+        undone=False,
+    )
+
+
 @app.delete("/matches/{match_id}/events/{event_id}", response_model=MessageOut)
 def undo_match_event(match_id: int, event_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
     user_id = int(current_user["id"])
@@ -3982,9 +4085,13 @@ def undo_match_event(match_id: int, event_id: int, current_user: sqlite3.Row = D
         if int(event["undone"]) == 1:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Event already undone")
 
-        created_dt = datetime.fromisoformat(str(event["created_at"]))
-        if (utc_now() - created_dt).total_seconds() > UNDO_WINDOW_SECONDS:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Undo window has passed (30 seconds)")
+        match_status = str(row["status"])
+        if match_status == "live":
+            created_dt = datetime.fromisoformat(str(event["created_at"]))
+            if (utc_now() - created_dt).total_seconds() > UNDO_WINDOW_SECONDS:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Undo window has passed (30 seconds)")
+        elif match_status != "finished":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Events can only be removed while match is live or finished")
 
         conn.execute("UPDATE match_events SET undone = 1 WHERE id = ?", (event_id,))
         if str(event["event_type"]) in {"goal", "own_goal"}:
