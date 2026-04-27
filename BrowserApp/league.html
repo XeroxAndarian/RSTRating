@@ -68,8 +68,7 @@
       <div class="row">
         <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">&#x1F319;</button>
         <a class="btn ghost" href="./lobby.html">&#x2190; Lobby</a>
-        <a class="btn ghost sm" id="settingsBtn" href="#" style="display:none;" title="Manager settings">&#x1F4CB; Settings</a>
-        <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Match</a>
+        <a class="btn ghost" id="settingsBtn" href="#" style="display:none;" title="Manager settings">&#x1F4CB; Settings</a>
       </div>
     </div>
 
@@ -77,7 +76,10 @@
       <!-- LEFT -->
       <div>
         <div class="card">
-          <h2 style="margin-bottom:10px;">Matches</h2>
+          <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+            <h2 style="margin:0;">Matches</h2>
+            <a class="btn primary" id="addMatchBtn" href="#" style="display:none;">+ Match</a>
+          </div>
           <div id="presetQuick" class="preset-quick" style="display:none;"></div>
           <div id="lastMatchSection" style="display:none; margin-bottom:14px;">
             <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Last played</div>
@@ -221,7 +223,7 @@
       if(completed.length){
         var mt=completed[0];
         lastSec.style.display="block";
-        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mt.score_a||"?")+" \u2013 "+esc(mt.score_b||"?")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
+        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mt.score_a ?? "?")+" \u2013 "+esc(mt.score_b ?? "?")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
       } else {
         lastSec.style.display="none";
       }
@@ -282,7 +284,9 @@
       var el=document.getElementById("announcements");
       if(!notifs||!notifs.length){el.innerHTML="<p class=\"muted\" style=\"font-size:.85rem;\">No announcements.</p>";return;}
       el.innerHTML=notifs.slice(0,10).map(function(n){
-        return "<div class=\"announce-item "+(n.read?"":"unread")+"\"><div class=\"announce-title\">"+esc(n.title)+"</div><div class=\"announce-msg\">"+esc(n.message)+"</div><div class=\"announce-time\">"+relTime(n.created_at)+"</div></div>";
+        var matchId=(n && n.data && n.data.match_id)?Number(n.data.match_id):0;
+        var open=matchId?"onclick=\"window.location.href='./match.html?id="+matchId+"'\" style=\"cursor:pointer;\"":"";
+        return "<div class=\"announce-item "+(n.read?"":"unread")+"\" "+open+"><div class=\"announce-title\">"+esc(n.title)+"</div><div class=\"announce-msg\">"+esc(n.message)+"</div><div class=\"announce-time\">"+relTime(n.created_at)+"</div></div>";
       }).join("");
     }
 

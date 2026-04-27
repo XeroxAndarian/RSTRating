@@ -24,6 +24,7 @@
     .team-title { font-size:1.25rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .team-title.right { text-align:right; }
     .team-title.left { text-align:left; }
+    .team-subline { font-size:.78rem; color:var(--muted); margin-top:2px; white-space:normal; }
     .score-main { font-size:2.2rem; font-weight:800; min-width:130px; }
     .clock { margin-top:6px; font-weight:700; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -74,9 +75,17 @@
         </div>
       </div>
       <div class="score-grid">
-        <div class="team-title left" id="teamAHeader">Team A</div>
+        <div class="team-title left">
+          <div id="teamAHeader">Team A</div>
+          <div class="team-subline" id="teamAAvg"></div>
+          <div class="team-subline" id="teamAScorers"></div>
+        </div>
         <div class="score-main" id="score">0 - 0</div>
-        <div class="team-title right" id="teamBHeader">Team B</div>
+        <div class="team-title right">
+          <div id="teamBHeader">Team B</div>
+          <div class="team-subline" id="teamBAvg"></div>
+          <div class="team-subline" id="teamBScorers"></div>
+        </div>
       </div>
       <div class="clock" id="clockText">Full Time</div>
       <div class="muted" id="meta" style="margin-top:6px;"></div>
@@ -93,14 +102,19 @@
         <div class="grid">
           <div>
             <div class="small muted">Team A Name</div>
-            <input id="teamAName" maxlength="60" placeholder="Team A">
+            <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:nowrap;">
+              <input id="teamAName" maxlength="60" placeholder="Team A">
+              <button class="btn ghost" id="randAInline" type="button" title="Random name">🎲</button>
+            </div>
           </div>
           <div>
             <div class="small muted">Team B Name</div>
-            <input id="teamBName" maxlength="60" placeholder="Team B">
+            <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:nowrap;">
+              <input id="teamBName" maxlength="60" placeholder="Team B">
+              <button class="btn ghost" id="randBInline" type="button" title="Random name">✨</button>
+            </div>
           </div>
         </div>
-        <div class="row" id="teamNameButtons" style="margin-top:8px;"></div>
         <div class="grid" style="margin-top:10px;">
           <div class="item" id="teamAPlayers"></div>
           <div class="item" id="teamBPlayers"></div>
@@ -134,8 +148,8 @@
         <select id="assistPlayer" style="display:none;"></select>
         <label><input type="checkbox" id="ownGoalToggle"> Own goal (from opposite team)</label>
         <select id="ownGoalPlayer" style="display:none;"></select>
-        <label for="eventSeconds" id="eventSecondsLabel" style="display:none;">Timestamp (seconds)</label>
-        <input id="eventSeconds" type="number" min="0" step="1" style="display:none;" placeholder="e.g. 2700">
+        <label for="eventSeconds" id="eventSecondsLabel" style="display:none;">Timestamp (minutes)</label>
+        <input id="eventSeconds" type="number" min="0" step="1" style="display:none;" placeholder="e.g. 45">
         <div class="row" style="justify-content:flex-end;margin-top:8px;">
           <button class="btn ghost" id="eventCancelBtn" type="button">Cancel</button>
           <button class="btn primary" id="eventSaveBtn" type="button">Save</button>
@@ -186,9 +200,14 @@
     const regsEl = document.getElementById("regs");
     const teamAHeader = document.getElementById("teamAHeader");
     const teamBHeader = document.getElementById("teamBHeader");
+    const teamAAvg = document.getElementById("teamAAvg");
+    const teamBAvg = document.getElementById("teamBAvg");
+    const teamAScorers = document.getElementById("teamAScorers");
+    const teamBScorers = document.getElementById("teamBScorers");
     const teamANameInput = document.getElementById("teamAName");
     const teamBNameInput = document.getElementById("teamBName");
-    const teamNameButtons = document.getElementById("teamNameButtons");
+    const randAInline = document.getElementById("randAInline");
+    const randBInline = document.getElementById("randBInline");
     const teamAPlayers = document.getElementById("teamAPlayers");
     const teamBPlayers = document.getElementById("teamBPlayers");
     const eventsATitle = document.getElementById("eventsATitle");
@@ -313,9 +332,9 @@
     }
 
     function teamEventsMap(){
-      const events = (detail?.events || []).filter((e) => !e.undone);
+      const events = (detail?.events || []).filter((e) => !e.undone && !["pause", "resume", "assist"].includes(e.event_type));
       const assistsByKey = new Map();
-      events.filter((e) => e.event_type === "assist").forEach((e) => {
+      (detail?.events || []).filter((e) => !e.undone && e.event_type === "assist").forEach((e) => {
         const key = `${e.team}|${e.event_seconds}`;
         const arr = assistsByKey.get(key) || [];
         arr.push(e);
@@ -341,16 +360,41 @@
           text = `🟨 ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
         } else if (e.event_type === "red_card") {
           text = `🟥 ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "pause") {
-          text = `⏸ Pause - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "resume") {
-          text = `▶ Resume - ${minutesLabel(e.event_seconds)}`;
         } else {
           text = `${esc(e.event_type)} - ${minutesLabel(e.event_seconds)}`;
         }
-        rows.push({ id: e.id, team: e.team, text, time: minutesLabel(e.event_seconds), type: e.event_type });
+        rows.push({ id: e.id, team: e.team, text, time: minutesLabel(e.event_seconds), type: e.event_type, created_at: e.created_at });
       });
       return rows;
+    }
+
+    function teamAverage(ids){
+      const pMap = participantsMap();
+      const values = ids.map((uid) => {
+        const p = pMap.get(Number(uid));
+        return p ? Number(p.seasonal_rating || 0) : 0;
+      }).filter((v) => Number.isFinite(v));
+      if (!values.length) return "Avg: -";
+      const avg = values.reduce((a, b) => a + b, 0) / values.length;
+      return `Avg: ${avg.toFixed(1)}`;
+    }
+
+    function scorerSummaryByTeam(){
+      const rows = (detail?.events || []).filter((e) => !e.undone && (e.event_type === "goal" || e.event_type === "own_goal"));
+      const aMap = new Map();
+      const bMap = new Map();
+      rows.forEach((e) => {
+        const benefitingTeam = e.team === "b" ? "b" : "a";
+        const isOwnGoal = e.event_type === "own_goal";
+        const baseName = playerNameForView(e.user_id);
+        const name = `${baseName}${isOwnGoal ? "*" : ""}`;
+        const target = benefitingTeam === "a" ? aMap : bMap;
+        const mins = target.get(name) || [];
+        mins.push(minutesLabel(e.event_seconds));
+        target.set(name, mins);
+      });
+      const fmt = (m) => Array.from(m.entries()).map(([name, mins]) => `${esc(name)} - ${mins.join(", ")}`).join(" | ");
+      return { a: fmt(aMap), b: fmt(bMap) };
     }
 
     function renderActions(){
@@ -366,6 +410,9 @@
       }
 
       if (isAdmin()) {
+        if (m.status === "upcoming" || m.status === "registration_closed") {
+          btns.push(`<button class="btn primary" data-act="open-reg">${m.status === "registration_closed" ? "Reopen registration" : "Open registration"}</button>`);
+        }
         if (m.status === "registration_open") btns.push('<button class="btn danger" data-act="close-reg">Close registration</button>');
         if (m.status === "registration_closed") {
           if (!m.teams_confirmed) btns.push('<button class="btn primary" data-act="generate">Generate teams</button>');
@@ -417,19 +464,14 @@
       const canEditNames = isAdmin() && editingTeams && !m.teams_confirmed;
       teamANameInput.disabled = !canEditNames;
       teamBNameInput.disabled = !canEditNames;
-
-      if (isAdmin() && editingTeams && !m.teams_confirmed) {
-        teamNameButtons.innerHTML = '<button class="btn ghost" id="randA" type="button">Random Team A</button><button class="btn ghost" id="randB" type="button">Random Team B</button>';
-        document.getElementById("randA").onclick = () => { draftNames.teamA = randomTeamName(); teamANameInput.value = draftNames.teamA; };
-        document.getElementById("randB").onclick = () => { draftNames.teamB = randomTeamName(); teamBNameInput.value = draftNames.teamB; };
-      } else {
-        teamNameButtons.innerHTML = "";
-      }
+      randAInline.style.display = canEditNames ? "inline-flex" : "none";
+      randBInline.style.display = canEditNames ? "inline-flex" : "none";
     }
 
     function renderRegistrations(){
       if (isCensored()) {
-        regsEl.innerHTML = '<div class="item muted">Spectator mode: player names are hidden.</div>';
+        const regs = detail.registrations || [];
+        regsEl.innerHTML = regs.map((r) => `<div class="item"><strong>Player</strong> <span class="pill">${esc(r.status)}</span></div>`).join("") || '<div class="item muted">No registrations.</div>';
         return;
       }
       const regs = detail.registrations || [];
@@ -440,12 +482,11 @@
       const rows = teamEventsMap();
       const canEdit = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
       eventLogEl.innerHTML = rows.map((row) => {
-        if (row.type === "pause" || row.type === "resume") {
-          return `<div class="log-row"><div class="log-left muted">${row.text}</div><div class="log-time">${row.time}</div><div class="log-right"></div>${canEdit ? `<button class="btn ghost small" data-undo="${row.id}">↩</button>` : ""}</div>`;
-        }
         const left = row.team === "a" ? row.text : "";
         const right = row.team === "b" ? row.text : "";
-        return `<div class="log-row"><div class="log-left">${left}</div><div class="log-time">${row.time}</div><div class="log-right">${right}</div>${canEdit ? `<button class="btn ghost small" data-undo="${row.id}">↩</button>` : ""}</div>`;
+        const withinUndoWindow = detail.match.status !== "live" || ((Date.now() - new Date(row.created_at).getTime()) <= 30000);
+        const undoBtn = (canEdit && withinUndoWindow) ? `<button class="btn ghost small" data-undo="${row.id}">↩</button>` : "";
+        return `<div class="log-row"><div class="log-left">${left}</div><div class="log-time">${row.time}</div><div class="log-right">${right}</div>${undoBtn}</div>`;
       }).join("") || '<div class="item muted">No events</div>';
 
       const showGoalButtons = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
@@ -463,6 +504,13 @@
       scoreEl.textContent = `${m.score_a} - ${m.score_b}`;
       teamAHeader.textContent = m.team_a_name || "Team A";
       teamBHeader.textContent = m.team_b_name || "Team B";
+      const teamAIds = draft.teamA.length ? draft.teamA : (m.team_a || []);
+      const teamBIds = draft.teamB.length ? draft.teamB : (m.team_b || []);
+      teamAAvg.textContent = teamAverage(teamAIds);
+      teamBAvg.textContent = teamAverage(teamBIds);
+      const scorers = scorerSummaryByTeam();
+      teamAScorers.textContent = scorers.a;
+      teamBScorers.textContent = scorers.b;
       eventsATitle.textContent = m.team_a_name || "Team A";
       eventsBTitle.textContent = m.team_b_name || "Team B";
       metaEl.textContent = `Registered ${m.registered_count}/${m.max_participants} · Waitlist ${m.waitlisted_count}`;
@@ -553,6 +601,7 @@
         try {
           if (act === "register") await apiFetch(`/matches/${m.id}/register`, { method: "POST" });
           if (act === "cancel-reg") await apiFetch(`/matches/${m.id}/register`, { method: "DELETE" });
+          if (act === "open-reg") await apiFetch(`/matches/${m.id}/open-registration`, { method: "POST" });
           if (act === "close-reg") await apiFetch(`/matches/${m.id}/close-registration`, { method: "POST" });
           if (act === "generate") await apiFetch(`/matches/${m.id}/generate-teams`, { method: "POST" });
           if (act === "edit-teams") {
@@ -602,6 +651,9 @@
         draft.teamB = draft.teamB.filter((x) => x !== uid);
         if (from === "a") draft.teamB.push(uid);
         else draft.teamA.push(uid);
+        if (Math.abs(draft.teamA.length - draft.teamB.length) > 1) {
+          show("Warning: team size difference is more than 1 player.", "error");
+        }
         render();
       }
 
@@ -624,9 +676,9 @@
           try {
             const payload = { event_type: eventType, team, player_user_id: player };
             if (editingEvents && detail.match.status === "finished") {
-              const secs = prompt("Timestamp in seconds:", "0");
-              if (secs == null) return;
-              payload.event_seconds = Math.max(0, Number(secs) || 0);
+              const mins = prompt("Timestamp in minutes:", "0");
+              if (mins == null) return;
+              payload.event_seconds = Math.max(0, Number(mins) || 0) * 60;
             }
             await apiFetch(`/matches/${detail.match.id}/events`, {
               method: "POST",
@@ -725,8 +777,8 @@
         const eventPlayer = Number(document.getElementById("eventPlayer").value);
         const assist = document.getElementById("assistToggle").checked ? Number(document.getElementById("assistPlayer").value || 0) : null;
         const ownGoal = document.getElementById("ownGoalToggle").checked ? Number(document.getElementById("ownGoalPlayer").value || 0) : null;
-        const customSecondsRaw = document.getElementById("eventSeconds").value;
-        const customSeconds = customSecondsRaw === "" ? null : Math.max(0, Number(customSecondsRaw) || 0);
+        const customMinutesRaw = document.getElementById("eventSeconds").value;
+        const customSeconds = customMinutesRaw === "" ? null : (Math.max(0, Number(customMinutesRaw) || 0) * 60);
 
         const payload = {
           event_type: ownGoal ? "own_goal" : pendingEvent.eventType,
@@ -756,6 +808,8 @@
 
     teamANameInput.addEventListener("input", () => { draftNames.teamA = teamANameInput.value; });
     teamBNameInput.addEventListener("input", () => { draftNames.teamB = teamBNameInput.value; });
+    randAInline.addEventListener("click", () => { draftNames.teamA = randomTeamName(); teamANameInput.value = draftNames.teamA; });
+    randBInline.addEventListener("click", () => { draftNames.teamB = randomTeamName(); teamBNameInput.value = draftNames.teamB; });
   </script>
 </body>
 </html>
