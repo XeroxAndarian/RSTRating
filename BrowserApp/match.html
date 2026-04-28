@@ -38,7 +38,8 @@
     .icon-btn { min-width:36px; padding:6px 8px; font-size:1rem; }
     .goal-side { display:flex; align-items:center; gap:8px; }
     .log-list { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
-    .log-row { display:grid; grid-template-columns:1fr auto 1fr auto; gap:8px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--panel); }
+    .log-row { display:grid; grid-template-columns:1fr 56px 1fr; gap:8px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--panel); position:relative; }
+    .log-undo { position:absolute; right:6px; top:50%; transform:translateY(-50%); }
     .log-left { text-align:left; }
     .log-right { text-align:right; }
     .log-time { font-weight:700; color:var(--muted); }
@@ -99,7 +100,7 @@
       </div>
       <div id="teamsSection" style="display:none;">
         <h3 style="margin-bottom:8px;">Teams</h3>
-        <div class="grid">
+        <div class="grid" id="teamNamesWrap" style="display:none;">
           <div>
             <div class="small muted">Team A Name</div>
             <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:nowrap;">
@@ -111,7 +112,7 @@
             <div class="small muted">Team B Name</div>
             <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:nowrap;">
               <input id="teamBName" maxlength="60" placeholder="Team B">
-              <button class="btn ghost" id="randBInline" type="button" title="Random name">✨</button>
+              <button class="btn ghost" id="randBInline" type="button" title="Random name">🎲</button>
             </div>
           </div>
         </div>
@@ -142,12 +143,28 @@
     <div class="modal-card">
       <h3 id="eventModalTitle">Add event</h3>
       <div class="stack" style="margin-top:10px;">
-        <label for="eventPlayer">Player</label>
-        <select id="eventPlayer"></select>
-        <label><input type="checkbox" id="assistToggle"> Assist</label>
-        <select id="assistPlayer" style="display:none;"></select>
-        <label><input type="checkbox" id="ownGoalToggle"> Own goal (from opposite team)</label>
-        <select id="ownGoalPlayer" style="display:none;"></select>
+        <!-- Step 1: goal type selection (only shown for goal events) -->
+        <div id="goalTypeStep" style="display:none;">
+          <label style="font-weight:700;">Goal type</label>
+          <div style="display:flex;gap:12px;margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="goalType" id="goalTypeNormal" value="normal" checked> Normal goal</label>
+            <label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="goalType" id="goalTypeOwn" value="own"> Own goal</label>
+          </div>
+        </div>
+        <!-- Step 2a: normal goal -->
+        <div id="normalGoalStep">
+          <label for="eventPlayer" id="eventPlayerLabel">Player</label>
+          <select id="eventPlayer"></select>
+          <div id="assistRow" style="display:none;">
+            <label><input type="checkbox" id="assistToggle"> Assist</label>
+            <select id="assistPlayer" style="display:none;"></select>
+          </div>
+        </div>
+        <!-- Step 2b: own goal player (opposite team) -->
+        <div id="ownGoalStep" style="display:none;">
+          <label for="ownGoalPlayer">Own-goal scorer (opponent)</label>
+          <select id="ownGoalPlayer"></select>
+        </div>
         <label for="eventSeconds" id="eventSecondsLabel" style="display:none;">Timestamp (minutes)</label>
         <input id="eventSeconds" type="number" min="0" step="1" style="display:none;" placeholder="e.g. 45">
         <div class="row" style="justify-content:flex-end;margin-top:8px;">
@@ -341,29 +358,47 @@
         assistsByKey.set(key, arr);
       });
 
+      const m = detail?.match;
+      const teamAName = m?.team_a_name || "Team A";
+      const teamBName = m?.team_b_name || "Team B";
+
       const rows = [];
       events.forEach((e) => {
         if (e.event_type === "assist") return;
         const team = e.team === "b" ? "b" : "a";
+        const teamName = team === "a" ? teamAName : teamBName;
         const key = `${team}|${e.event_seconds}`;
+        const min = minutesLabel(e.event_seconds);
         let text = "";
-        if (e.event_type === "goal") {
-          const assists = assistsByKey.get(key) || [];
-          const assist = assists.shift();
-          const assistText = assist ? ` (${esc(playerNameForView(assist.user_id))})` : "";
-          text = `⚽ ${esc(playerNameForView(e.user_id))}${assistText} - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "own_goal") {
-          text = `🥅 ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "injury") {
-          text = `➕ ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "yellow_card") {
-          text = `🟨 ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
-        } else if (e.event_type === "red_card") {
-          text = `🟥 ${esc(playerNameForView(e.user_id))} - ${minutesLabel(e.event_seconds)}`;
+        if (isCensored()) {
+          if (e.event_type === "goal") text = `⚽ ${esc(teamName)} scored - ${min}`;
+          else if (e.event_type === "own_goal") text = `🥅 Own goal (${esc(teamName)}) - ${min}`;
+          else if (e.event_type === "injury") text = `🚑 Injury - ${min}`;
+          else if (e.event_type === "yellow_card") text = `🟨 Yellow card - ${min}`;
+          else if (e.event_type === "red_card") text = `🟥 Red card - ${min}`;
+          else if (e.event_type === "offside") text = `🚩 Offside - ${min}`;
+          else text = `${esc(e.event_type)} - ${min}`;
         } else {
-          text = `${esc(e.event_type)} - ${minutesLabel(e.event_seconds)}`;
+          if (e.event_type === "goal") {
+            const assists = assistsByKey.get(key) || [];
+            const assist = assists.shift();
+            const assistText = assist ? ` (${esc(playerName(assist.user_id))})` : "";
+            text = `⚽ ${esc(playerName(e.user_id))}${assistText} - ${min}`;
+          } else if (e.event_type === "own_goal") {
+            text = `🥅 ${esc(playerName(e.user_id))} - ${min}`;
+          } else if (e.event_type === "injury") {
+            text = `🚑 ${esc(playerName(e.user_id))} - ${min}`;
+          } else if (e.event_type === "yellow_card") {
+            text = `🟨 ${esc(playerName(e.user_id))} - ${min}`;
+          } else if (e.event_type === "red_card") {
+            text = `🟥 ${esc(playerName(e.user_id))} - ${min}`;
+          } else if (e.event_type === "offside") {
+            text = `🚩 ${esc(playerName(e.user_id))} - ${min}`;
+          } else {
+            text = `${esc(e.event_type)} - ${min}`;
+          }
         }
-        rows.push({ id: e.id, team: e.team, text, time: minutesLabel(e.event_seconds), type: e.event_type, created_at: e.created_at });
+        rows.push({ id: e.id, team: e.team, text, time: min, type: e.event_type, created_at: e.created_at });
       });
       return rows;
     }
@@ -384,16 +419,15 @@
       const aMap = new Map();
       const bMap = new Map();
       rows.forEach((e) => {
-        const benefitingTeam = e.team === "b" ? "b" : "a";
-        const isOwnGoal = e.event_type === "own_goal";
-        const baseName = playerNameForView(e.user_id);
-        const name = `${baseName}${isOwnGoal ? "*" : ""}`;
+        const benefitingTeam = e.event_type === "own_goal" ? (e.team === "b" ? "a" : "b") : (e.team === "b" ? "b" : "a");
+        const baseName = playerName(e.user_id);
+        const name = `${baseName}${e.event_type === "own_goal" ? " (og)" : ""}`;
         const target = benefitingTeam === "a" ? aMap : bMap;
         const mins = target.get(name) || [];
         mins.push(minutesLabel(e.event_seconds));
         target.set(name, mins);
       });
-      const fmt = (m) => Array.from(m.entries()).map(([name, mins]) => `${esc(name)} - ${mins.join(", ")}`).join(" | ");
+      const fmt = (m) => Array.from(m.entries()).map(([name, mins]) => `<div>${esc(name)} - ${mins.join(", ")}</div>`).join("");
       return { a: fmt(aMap), b: fmt(bMap) };
     }
 
@@ -410,8 +444,11 @@
       }
 
       if (isAdmin()) {
-        if (m.status === "upcoming" || m.status === "registration_closed") {
-          btns.push(`<button class="btn primary" data-act="open-reg">${m.status === "registration_closed" ? "Reopen registration" : "Open registration"}</button>`);
+        if (m.status === "upcoming") {
+          btns.push('<button class="btn primary" data-act="open-reg">Open registration</button>');
+        }
+        if (m.status === "registration_closed" && !m.teams_confirmed) {
+          btns.push('<button class="btn primary" data-act="open-reg">Reopen registration</button>');
         }
         if (m.status === "registration_open") btns.push('<button class="btn danger" data-act="close-reg">Close registration</button>');
         if (m.status === "registration_closed") {
@@ -440,28 +477,62 @@
       actionsEl.innerHTML = btns.join("");
     }
 
+    function computePlayerStats(){
+      const stats = new Map();
+      const init = (uid) => { if (!stats.has(uid)) stats.set(uid, { goals: 0, assists: 0, own_goals: 0, yellow: 0, red: 0 }); };
+      (detail?.events || []).filter((e) => !e.undone && e.user_id != null).forEach((e) => {
+        const uid = Number(e.user_id);
+        init(uid);
+        const s = stats.get(uid);
+        if (e.event_type === "goal") s.goals++;
+        else if (e.event_type === "assist") s.assists++;
+        else if (e.event_type === "own_goal") s.own_goals++;
+        else if (e.event_type === "yellow_card") s.yellow++;
+        else if (e.event_type === "red_card") s.red++;
+      });
+      return stats;
+    }
+
     function renderTeams(){
       const m = detail.match;
       const pMap = participantsMap();
       const teamA = draft.teamA.length ? draft.teamA : (m.team_a || []);
       const teamB = draft.teamB.length ? draft.teamB : (m.team_b || []);
       const liveControls = isAdmin() && (m.status === "live" || (m.status === "finished" && editingEvents));
+      const playerStats = computePlayerStats();
 
       const mkPlayers = (ids, team) => ids.map((uid) => {
         const p = pMap.get(Number(uid));
         const name = isCensored() ? "Player" : (p ? (p.display_name || p.username) : `#${uid}`);
-        const rate = p ? ` <span class="muted small">(${Number(p.seasonal_rating || 0).toFixed(1)})</span>` : "";
+        const rate = (!isCensored() && p) ? ` <span class="muted small">(${Number(p.seasonal_rating || 0).toFixed(1)})</span>` : "";
         const move = editingTeams && isAdmin() ? `<button class="btn ghost small" data-move="${uid}" data-move-team="${team}">${team === "a" ? "→" : "←"}</button>` : "";
-        const controls = liveControls ? `<span class="player-actions"><button class="btn ghost icon-btn" data-live="injury" data-team="${team}" data-player="${uid}" title="Injury">🤕</button><button class="btn ghost icon-btn" data-live="yellow_card" data-team="${team}" data-player="${uid}" title="Yellow card">🟨</button><button class="btn danger icon-btn" data-live="red_card" data-team="${team}" data-player="${uid}" title="Red card">🟥</button></span>` : "";
-        return `<div class="player-line"><span>${esc(name)}${isCensored() ? "" : rate}</span><span class="player-actions">${move}${controls}</span></div>`;
+        const statsHtml = (() => {
+          if (isCensored()) return "";
+          const s = playerStats.get(Number(uid));
+          if (!s) return "";
+          const parts = [];
+          if (s.goals) parts.push(`⚽${s.goals}`);
+          if (s.assists) parts.push(`🅰️${s.assists}`);
+          if (s.own_goals) parts.push(`🥅${s.own_goals}`);
+          if (s.yellow) parts.push(`🟨${s.yellow}`);
+          if (s.red) parts.push(`🟥${s.red}`);
+          return parts.length ? `<span class="muted small" style="text-align:center;">${parts.join(" ")}</span>` : "";
+        })();
+        const cardsControls = (liveControls && m.cards_enabled) ? `<button class="btn ghost icon-btn" data-live="yellow_card" data-team="${team}" data-player="${uid}" title="Yellow card">🟨</button><button class="btn danger icon-btn" data-live="red_card" data-team="${team}" data-player="${uid}" title="Red card">🟥</button>` : "";
+        const injuryControl = liveControls ? `<button class="btn ghost icon-btn" data-live="injury" data-team="${team}" data-player="${uid}" title="Injury">🚑</button>` : "";
+        const offsideControl = (liveControls && m.offsides_enabled) ? `<button class="btn ghost icon-btn" data-live="offside" data-team="${team}" data-player="${uid}" title="Offside">🚩</button>` : "";
+        const controls = liveControls ? `<span class="player-actions">${injuryControl}${cardsControls}${offsideControl}</span>` : "";
+        return `<div class="player-line"><span>${esc(name)}${rate}</span><span class="player-actions" style="align-items:center;">${statsHtml}${move}${controls}</span></div>`;
       }).join("") || '<div class="muted small">No players.</div>';
 
       teamAPlayers.innerHTML = `<h4>${esc(m.team_a_name || "Team A")}</h4><div class="list">${mkPlayers(teamA, "a")}</div>`;
       teamBPlayers.innerHTML = `<h4>${esc(m.team_b_name || "Team B")}</h4><div class="list">${mkPlayers(teamB, "b")}</div>`;
 
+      const canEditNames = isAdmin() && editingTeams && !m.teams_confirmed;
+      const nameInputsWrap = document.getElementById("teamNamesWrap");
+      if (nameInputsWrap) nameInputsWrap.style.display = canEditNames ? "grid" : "none";
       teamANameInput.value = editingTeams ? draftNames.teamA : (m.team_a_name || "Team A");
       teamBNameInput.value = editingTeams ? draftNames.teamB : (m.team_b_name || "Team B");
-      const canEditNames = isAdmin() && editingTeams && !m.teams_confirmed;
       teamANameInput.disabled = !canEditNames;
       teamBNameInput.disabled = !canEditNames;
       randAInline.style.display = canEditNames ? "inline-flex" : "none";
@@ -485,8 +556,8 @@
         const left = row.team === "a" ? row.text : "";
         const right = row.team === "b" ? row.text : "";
         const withinUndoWindow = detail.match.status !== "live" || ((Date.now() - new Date(row.created_at).getTime()) <= 30000);
-        const undoBtn = (canEdit && withinUndoWindow) ? `<button class="btn ghost small" data-undo="${row.id}">↩</button>` : "";
-        return `<div class="log-row"><div class="log-left">${left}</div><div class="log-time">${row.time}</div><div class="log-right">${right}</div>${undoBtn}</div>`;
+        const undoBtn = (canEdit && withinUndoWindow) ? `<button class="btn ghost small log-undo" data-undo="${row.id}" style="white-space:nowrap;">↩</button>` : "";
+        return `<div class="log-row" style="${undoBtn ? "padding-right:58px;" : ""}"><div class="log-left">${left}</div><div class="log-time">${row.time}</div><div class="log-right">${right}</div>${undoBtn}</div>`;
       }).join("") || '<div class="item muted">No events</div>';
 
       const showGoalButtons = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
@@ -509,16 +580,48 @@
       teamAAvg.textContent = teamAverage(teamAIds);
       teamBAvg.textContent = teamAverage(teamBIds);
       const scorers = scorerSummaryByTeam();
-      teamAScorers.textContent = scorers.a;
-      teamBScorers.textContent = scorers.b;
+      if (isCensored()) {
+        teamAScorers.innerHTML = "";
+        teamBScorers.innerHTML = "";
+      } else {
+        teamAScorers.innerHTML = scorers.a;
+        teamBScorers.innerHTML = scorers.b;
+      }
       eventsATitle.textContent = m.team_a_name || "Team A";
       eventsBTitle.textContent = m.team_b_name || "Team B";
-      metaEl.textContent = `Registered ${m.registered_count}/${m.max_participants} · Waitlist ${m.waitlisted_count}`;
+      // Meta line: registered counts / LIVE / Paused / duration
+      if (["live", "finished", "completed", "cancelled"].includes(m.status)) {
+        if (m.status === "live") {
+          const paused = isMatchPaused();
+          if (paused) {
+            const pauseMarker = [...(detail.events || [])].filter(e => !e.undone && e.event_type === "pause").slice(-1)[0];
+            const pausedAt = pauseMarker ? Number(pauseMarker.event_seconds) : 0;
+            const pausedSecs = Math.max(0, Math.floor((Date.now() - new Date(m.started_at).getTime()) / 1000) - pausedAt);
+            const pm = String(Math.floor(pausedSecs / 60)).padStart(2, "0");
+            const ps = String(pausedSecs % 60).padStart(2, "0");
+            metaEl.textContent = `⏸ Paused – ${pm}:${ps}`;
+          } else {
+            metaEl.textContent = "🔴 LIVE";
+          }
+        } else if ((m.status === "finished" || m.status === "completed") && m.started_at && m.ended_at) {
+          const dur = Math.round((new Date(m.ended_at).getTime() - new Date(m.started_at).getTime()) / 1000);
+          const hh = Math.floor(dur / 3600);
+          const mm = Math.floor((dur % 3600) / 60);
+          const ss = dur % 60;
+          const durStr = hh ? `${hh}h ${mm}m` : `${mm}m ${ss}s`;
+          metaEl.textContent = `Duration: ${durStr}`;
+        } else {
+          metaEl.textContent = "";
+        }
+      } else {
+        metaEl.textContent = `Registered ${m.registered_count}/${m.max_participants} · Waitlist ${m.waitlisted_count}`;
+      }
       if (m.status === "live" && m.started_at) {
         const sec = activeLiveSeconds(m.started_at);
         const mm = String(Math.floor(sec / 60)).padStart(2, "0");
         const ss = String(sec % 60).padStart(2, "0");
-        clockEl.textContent = `${isMatchPaused() ? "⏸ " : ""}${mm}:${ss}`;
+        const paused = isMatchPaused();
+        clockEl.textContent = `${paused ? "⏸ " : ""}${mm}:${ss}`;
       } else if (m.status === "upcoming") {
         clockEl.textContent = m.registration_opens_at
           ? `Registration opens ${formatIso(m.registration_opens_at)}`
@@ -556,6 +659,12 @@
       if (showEvents) {
         renderEvents();
       }
+      // Balance warning - shown/cleared based on current draft state
+      if (editingTeams && Math.abs(draft.teamA.length - draft.teamB.length) > 1) {
+        show("Warning: team size difference is more than 1 player.", "error");
+      } else if (statusEl.textContent.startsWith("Warning:")) {
+        show("");
+      }
     }
 
     async function load(){
@@ -571,12 +680,31 @@
         }
 
         if (!matchId) { show("Missing match id.", "error"); return; }
-        if (!getToken()) { show("Please log in from lobby first.", "error"); return; }
 
-        detail = await apiFetch(`/matches/${matchId}`, { method: "GET" });
-        const leagueDetail = await apiFetch(`/leagues/${detail.match.league_id}`, { method: "GET" });
-        leagueRole = leagueDetail.league.member_role;
-        viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin" : "normal";
+        // Try authenticated fetch first; fall back to public (outsider) view
+        if (getToken()) {
+          try {
+            detail = await apiFetch(`/matches/${matchId}`, { method: "GET" });
+            try {
+              const leagueDetail = await apiFetch(`/leagues/${detail.match.league_id}`, { method: "GET" });
+              leagueRole = leagueDetail.league.member_role;
+              viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin" : "normal";
+            } catch {
+              leagueRole = null;
+              viewMode = "censored";
+            }
+          } catch (authErr) {
+            // User is logged in but not a member - try as public
+            detail = await publicFetch(`/matches/${matchId}`);
+            leagueRole = null;
+            viewMode = "censored";
+          }
+        } else {
+          // Not logged in - outsider view
+          detail = await publicFetch(`/matches/${matchId}`);
+          leagueRole = null;
+          viewMode = "censored";
+        }
 
         if (!editingTeams) {
           draft.teamA = [...(detail.match.team_a || [])];
@@ -651,9 +779,7 @@
         draft.teamB = draft.teamB.filter((x) => x !== uid);
         if (from === "a") draft.teamB.push(uid);
         else draft.teamA.push(uid);
-        if (Math.abs(draft.teamA.length - draft.teamB.length) > 1) {
-          show("Warning: team size difference is more than 1 player.", "error");
-        }
+        // Balance warning is computed in render via current draft sizes
         render();
       }
 
@@ -710,25 +836,37 @@
       const ownGoalPlayer = document.getElementById("ownGoalPlayer");
       const title = document.getElementById("eventModalTitle");
       const assistToggle = document.getElementById("assistToggle");
-      const ownGoalToggle = document.getElementById("ownGoalToggle");
+      const goalTypeStep = document.getElementById("goalTypeStep");
+      const normalGoalStep = document.getElementById("normalGoalStep");
+      const ownGoalStep = document.getElementById("ownGoalStep");
+      const assistRow = document.getElementById("assistRow");
       const eventSeconds = document.getElementById("eventSeconds");
       const eventSecondsLabel = document.getElementById("eventSecondsLabel");
 
-      title.textContent = `Add ${pendingEvent.eventType.replace("_", " ")} for Team ${team.toUpperCase()}`;
+      title.textContent = `Add ${pendingEvent.eventType.replace(/_/g, " ")} – Team ${team === "a" ? (detail.match.team_a_name || "A") : (detail.match.team_b_name || "B")}`;
       const options = (ids) => ids.map((uid) => `<option value="${uid}">${esc(playerName(uid))}</option>`).join("");
       eventPlayer.innerHTML = options(teamIds);
-      assistPlayer.innerHTML = '<option value="">Select assist</option>' + options(teamIds);
-      ownGoalPlayer.innerHTML = '<option value="">Select own-goal player</option>' + options(oppIds);
+      ownGoalPlayer.innerHTML = '<option value="">Select player</option>' + options(oppIds);
 
+      // Default goal type to normal
+      document.getElementById("goalTypeNormal").checked = true;
+      goalTypeStep.style.display = isGoal ? "block" : "none";
+      normalGoalStep.style.display = "block";
+      ownGoalStep.style.display = "none";
+      assistRow.style.display = isGoal ? "block" : "none";
       assistToggle.checked = false;
-      ownGoalToggle.checked = false;
       assistPlayer.style.display = "none";
-      ownGoalPlayer.style.display = "none";
-      assistToggle.parentElement.style.display = isGoal ? "block" : "none";
-      ownGoalToggle.parentElement.style.display = isGoal ? "block" : "none";
-      eventPlayer.disabled = false;
+      // Build assist list (excludes scorer - updated on scorer change)
+      const updateAssistList = () => {
+        const scorerId = eventPlayer.value;
+        assistPlayer.innerHTML = '<option value="">No assist</option>' + options(teamIds.filter(uid => String(uid) !== scorerId));
+      };
+      updateAssistList();
+      eventPlayer.onchange = updateAssistList;
+
       if (pendingEvent.playerUserId) {
         eventPlayer.value = String(pendingEvent.playerUserId);
+        updateAssistList();
       }
 
       const customTime = detail.match.status === "finished" && editingEvents;
@@ -739,34 +877,16 @@
       document.getElementById("eventModal").style.display = "flex";
     }
 
-    document.getElementById("assistToggle").addEventListener("change", (e) => {
-      const assistPlayer = document.getElementById("assistPlayer");
-      const ownGoalToggle = document.getElementById("ownGoalToggle");
-      const ownGoalPlayer = document.getElementById("ownGoalPlayer");
-      assistPlayer.style.display = e.target.checked ? "block" : "none";
-      if (e.target.checked) {
-        ownGoalToggle.checked = false;
-        ownGoalToggle.disabled = true;
-        ownGoalPlayer.style.display = "none";
-      } else {
-        ownGoalToggle.disabled = false;
-      }
+    document.querySelectorAll("input[name='goalType']").forEach(radio => {
+      radio.addEventListener("change", () => {
+        const isOwn = document.getElementById("goalTypeOwn").checked;
+        document.getElementById("normalGoalStep").style.display = isOwn ? "none" : "block";
+        document.getElementById("ownGoalStep").style.display = isOwn ? "block" : "none";
+      });
     });
-    document.getElementById("ownGoalToggle").addEventListener("change", (e) => {
-      const ownGoalPlayer = document.getElementById("ownGoalPlayer");
-      const assistToggle = document.getElementById("assistToggle");
-      const assistPlayer = document.getElementById("assistPlayer");
-      const eventPlayer = document.getElementById("eventPlayer");
-      ownGoalPlayer.style.display = e.target.checked ? "block" : "none";
-      if (e.target.checked) {
-        assistToggle.checked = false;
-        assistToggle.disabled = true;
-        assistPlayer.style.display = "none";
-        eventPlayer.disabled = true;
-      } else {
-        assistToggle.disabled = false;
-        eventPlayer.disabled = false;
-      }
+
+    document.getElementById("assistToggle").addEventListener("change", (e) => {
+      document.getElementById("assistPlayer").style.display = e.target.checked ? "block" : "none";
     });
     document.getElementById("eventCancelBtn").addEventListener("click", () => {
       document.getElementById("eventModal").style.display = "none";
@@ -774,19 +894,22 @@
     document.getElementById("eventSaveBtn").addEventListener("click", async () => {
       if (!detail) return;
       try {
+        const isGoal = pendingEvent.eventType === "goal";
+        const isOwnGoal = isGoal && document.getElementById("goalTypeOwn").checked;
         const eventPlayer = Number(document.getElementById("eventPlayer").value);
-        const assist = document.getElementById("assistToggle").checked ? Number(document.getElementById("assistPlayer").value || 0) : null;
-        const ownGoal = document.getElementById("ownGoalToggle").checked ? Number(document.getElementById("ownGoalPlayer").value || 0) : null;
+        const assistChecked = !isOwnGoal && document.getElementById("assistToggle").checked;
+        const assist = assistChecked ? Number(document.getElementById("assistPlayer").value || 0) : null;
+        const ownGoalPlayerVal = isOwnGoal ? Number(document.getElementById("ownGoalPlayer").value || 0) : null;
         const customMinutesRaw = document.getElementById("eventSeconds").value;
         const customSeconds = customMinutesRaw === "" ? null : (Math.max(0, Number(customMinutesRaw) || 0) * 60);
 
         const payload = {
-          event_type: ownGoal ? "own_goal" : pendingEvent.eventType,
+          event_type: isOwnGoal ? "own_goal" : pendingEvent.eventType,
           team: pendingEvent.team,
-          scorer_user_id: pendingEvent.eventType === "goal" ? eventPlayer : null,
+          scorer_user_id: (!isOwnGoal && isGoal) ? eventPlayer : null,
           assist_user_id: assist || null,
-          own_goal_user_id: ownGoal || null,
-          player_user_id: pendingEvent.eventType === "goal" ? null : eventPlayer,
+          own_goal_user_id: ownGoalPlayerVal || null,
+          player_user_id: (!isGoal) ? eventPlayer : null,
           event_seconds: (detail.match.status === "finished" && editingEvents) ? customSeconds : null,
         };
 
@@ -804,7 +927,33 @@
     });
 
     load();
-    setInterval(load, 5000);
+    // 1-second tick for smooth timer; full data reload every 5 seconds
+    let _tickCount = 0;
+    setInterval(() => {
+      _tickCount++;
+      if (detail?.match?.status === "live" && detail.match.started_at) {
+        // Update clock and meta every second without full reload
+        const m = detail.match;
+        const sec = activeLiveSeconds(m.started_at);
+        const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+        const ss = String(sec % 60).padStart(2, "0");
+        const paused = isMatchPaused();
+        if (clockEl) clockEl.textContent = `${paused ? "\u23F8 " : ""}${mm}:${ss}`;
+        if (metaEl) {
+          if (paused) {
+            const pauseMarker = [...(detail.events || [])].filter(e => !e.undone && e.event_type === "pause").slice(-1)[0];
+            const pausedAt = pauseMarker ? Number(pauseMarker.event_seconds) : 0;
+            const pausedSecs = Math.max(0, Math.floor((Date.now() - new Date(m.started_at).getTime()) / 1000) - pausedAt);
+            const pm = String(Math.floor(pausedSecs / 60)).padStart(2, "0");
+            const ps = String(pausedSecs % 60).padStart(2, "0");
+            metaEl.textContent = `\u23F8 Paused \u2013 ${pm}:${ps}`;
+          } else {
+            metaEl.textContent = "\uD83D\uDD34 LIVE";
+          }
+        }
+      }
+      if (_tickCount % 5 === 0) load();
+    }, 1000);
 
     teamANameInput.addEventListener("input", () => { draftNames.teamA = teamANameInput.value; });
     teamBNameInput.addEventListener("input", () => { draftNames.teamB = teamBNameInput.value; });

@@ -69,6 +69,23 @@
         <label for="notes">Notes</label>
         <textarea id="notes" name="notes" maxlength="1000"></textarea>
 
+        <label>Visibility</label>
+        <div class="mode-row" id="visibilityRow">
+          <button type="button" class="mode-chip active" data-vis="public">🌐 Public</button>
+          <button type="button" class="mode-chip" data-vis="private">🔒 Private</button>
+        </div>
+        <p class="hint">Public: everyone can see player names. Private: outsiders only see a censored view.</p>
+
+        <label>Match options</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
+            <input type="checkbox" id="cards_enabled" name="cards_enabled" checked style="width:auto;"> 🟨🟥 Yellow / red cards enabled
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
+            <input type="checkbox" id="offsides_enabled" name="offsides_enabled" style="width:auto;"> 🚩 Offsides tracking enabled
+          </label>
+        </div>
+
         <div class="row">
           <button class="btn primary" type="submit">Create match</button>
           <a class="btn ghost" id="backLeagueLink" href="./index.html">Back</a>
@@ -114,11 +131,21 @@
     const statusEl = document.getElementById("status");
     let currentLeague = null;
     let setupMode = "custom";
+    let visibility = "public";
     let availablePresets = [];
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+    function setVisibility(v) {
+      visibility = v === "private" ? "private" : "public";
+      document.querySelectorAll("#visibilityRow .mode-chip").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.vis === visibility);
+      });
+    }
+    document.querySelectorAll("#visibilityRow .mode-chip").forEach(btn => {
+      btn.addEventListener("click", () => setVisibility(btn.dataset.vis));
+    });
     function setSetupMode(mode) {
       setupMode = mode === "preset" ? "preset" : "custom";
       const wrap = document.getElementById("presetPickerWrap");
@@ -228,6 +255,9 @@
           registration_opens_at: form.registration_opens_at.value ? new Date(form.registration_opens_at.value).toISOString() : null,
           max_participants: Number(form.max_participants.value),
           notes: form.notes.value.trim() || null,
+          visibility,
+          cards_enabled: document.getElementById("cards_enabled").checked,
+          offsides_enabled: document.getElementById("offsides_enabled").checked,
         };
         const match = await apiFetch(`/leagues/${leagueId}/matches`, {
           method: "POST",
@@ -253,6 +283,7 @@
             presetSelect.dispatchEvent(new Event("change"));
           }
         }
+        // When switching to custom, leave form fields as-is (do not auto-fill)
       });
     });
   </script>

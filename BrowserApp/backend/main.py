@@ -385,6 +385,9 @@ class MatchCreatePayload(BaseModel):
     registration_opens_at: str | None = Field(default=None, max_length=40)
     max_participants: int = Field(default=20, ge=2, le=200)
     notes: str | None = Field(default=None, max_length=1000)
+    visibility: str = Field(default="public", pattern=r"^(public|private)$")
+    cards_enabled: bool = Field(default=True)
+    offsides_enabled: bool = Field(default=False)
 
 
 class MatchOut(BaseModel):
@@ -412,6 +415,9 @@ class MatchOut(BaseModel):
     created_by_username: str
     created_at: str
     preview_token: str
+    visibility: str
+    cards_enabled: bool
+    offsides_enabled: bool
 
 
 class MatchRegistrationOut(BaseModel):
@@ -443,7 +449,7 @@ class MatchDetailOut(BaseModel):
 
 
 class MatchLiveEventPayload(BaseModel):
-    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card|pause|resume)$")
+    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card|pause|resume|offside)$")
     team: str | None = Field(default=None, pattern=r"^[ab]$")
     scorer_user_id: int | None = None
     assist_user_id: int | None = None
@@ -773,6 +779,9 @@ def init_db() -> None:
         ensure_column(conn, "matches", "team_a_name", "TEXT NOT NULL DEFAULT 'Team A'")
         ensure_column(conn, "matches", "team_b_name", "TEXT NOT NULL DEFAULT 'Team B'")
         ensure_column(conn, "matches", "teams_confirmed", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "matches", "visibility", "TEXT NOT NULL DEFAULT 'public'")
+        ensure_column(conn, "matches", "cards_enabled", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(conn, "matches", "offsides_enabled", "INTEGER NOT NULL DEFAULT 0")
 
         # Ensure one-time unique index and backfill preview tokens for existing rows.
         conn.execute(
@@ -3281,6 +3290,9 @@ def _serialize_match(row: sqlite3.Row, my_registration_status: str | None = None
         created_by_username=str(row["created_by_username"]),
         created_at=str(row["created_at"]),
         preview_token=str(row["preview_token"] or ""),
+        visibility=str(row["visibility"] if row["visibility"] else "public"),
+        cards_enabled=bool(int(row["cards_enabled"]) if row["cards_enabled"] is not None else 1),
+        offsides_enabled=bool(int(row["offsides_enabled"]) if row["offsides_enabled"] is not None else 0),
     )
 
 
@@ -3373,8 +3385,9 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
             INSERT INTO matches (league_id, title, location, scheduled_at, registration_opens_at,
                                  max_participants, notes, status, team_a, team_b, score_a, score_b,
                                  team_a_name, team_b_name, teams_confirmed,
+                                 visibility, cards_enabled, offsides_enabled,
                                  created_by, created_at, updated_at, preview_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, 'Team A', 'Team B', 0, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, 'Team A', 'Team B', 0, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 league_id,
@@ -3384,6 +3397,9 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
                 payload.registration_opens_at.strip() if payload.registration_opens_at else None,
                 payload.max_participants,
                 payload.notes.strip() if payload.notes else None,
+                payload.visibility,
+                int(payload.cards_enabled),
+                int(payload.offsides_enabled),
                 user_id,
                 created_at,
                 created_at,
@@ -3431,20 +3447,37 @@ def list_league_matches(league_id: int, current_user: sqlite3.Row = Depends(reso
 
 
 @app.get("/matches/{match_id}", response_model=MatchDetailOut)
-def get_match_detail(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchDetailOut:
-    user_id = int(current_user["id"])
+def get_match_detail(match_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> MatchDetailOut:
+    # Resolve optional user - allow unauthenticated for public matches
+    user_id: int | None = None
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        try:
+            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            subject = str(payload.get("sub", ""))
+            if subject.startswith("user:"):
+                user_id = int(subject.split(":", 1)[1])
+        except (JWTError, ValueError):
+            pass
+
     with get_conn() as conn:
         row = _fetch_match_row(conn, match_id)
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
-        require_membership(conn, int(row["league_id"]), user_id)
+        visibility = str(row["visibility"] if row["visibility"] else "public")
+        league_id = int(row["league_id"])
+        is_member = user_id is not None and conn.execute(
+            "SELECT 1 FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone() is not None
+        if visibility == "private" and not is_member:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This match is private")
         _auto_sync_registration_state(conn, match_id)
         _advance_waitlist(conn, match_id)
         conn.commit()
         row = _fetch_match_row(conn, match_id)
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
-        my_status = _match_registration_status(conn, match_id, user_id)
+        my_status = _match_registration_status(conn, match_id, user_id) if user_id is not None else None
 
         reg_rows = conn.execute(
             """
@@ -3903,7 +3936,7 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         actor_user_id: int | None = None
         score_team: str | None = None
 
-        if event_type in {"goal", "own_goal", "injury", "yellow_card", "red_card"} and payload.team not in {"a", "b"}:
+        if event_type in {"goal", "own_goal", "injury", "yellow_card", "red_card", "offside"} and payload.team not in {"a", "b"}:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="team must be 'a' or 'b' for this event")
 
         if event_type == "goal":
@@ -3935,6 +3968,13 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         elif event_type in {"pause", "resume"}:
             actor_user_id = None
             score_team = None
+
+        elif event_type == "offside":
+            offside_user_id = payload.player_user_id or payload.scorer_user_id
+            if offside_user_id is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="player_user_id is required for offside")
+            actor_user_id = int(offside_user_id)
+            score_team = payload.team
 
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported event type")

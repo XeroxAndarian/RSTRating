@@ -1679,23 +1679,38 @@
                     const dateStr = dt.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
                     const regCount = m.registered_count ?? 0;
                     const isRegistered = m.my_registration_status && m.my_registration_status !== "cancelled";
-                    return `<div class="upcoming-match-row" data-match-id="${m.id}">
+                    const regNotYetOpen = m.status === "upcoming";
+                    let actionEl = "";
+                    if (regNotYetOpen && m.registration_opens_at) {
+                        const opensStr = new Date(m.registration_opens_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                        actionEl = `<span class="muted" style="font-size:.82rem;">Opens ${opensStr}</span>`;
+                    } else if (regNotYetOpen) {
+                        actionEl = `<span class="muted" style="font-size:.82rem;">Reg. not open</span>`;
+                    } else if (isRegistered) {
+                        actionEl = `<button class="button danger umr-reg-btn" type="button" data-match-id="${m.id}" data-reg="1" style="padding:4px 10px;font-size:0.8rem;">Unregister</button>`;
+                    } else {
+                        actionEl = `<button class="button umr-reg-btn" type="button" data-match-id="${m.id}" data-reg="0" style="padding:4px 10px;font-size:0.8rem;">Register</button>`;
+                    }
+                    return `<div class="upcoming-match-row" data-match-id="${m.id}" style="cursor:pointer;">
                         <div class="umr-info">
                             <span class="umr-league">${escapeHtml(m._leagueName)}</span>
                             <span class="umr-date">${dateStr}</span>
                         </div>
-                        <div class="umr-actions">
-                            <span class="lr-chip">👥 ${regCount}</span>
-                            <button class="ghost umr-info-btn" type="button" data-match-id="${m.id}" style="padding:4px 8px;font-size:0.8rem;">ℹ️</button>
-                            <button class="button umr-reg-btn ${isRegistered ? "danger" : ""}" type="button" data-match-id="${m.id}" data-reg="${isRegistered ? "1" : "0"}" style="padding:4px 10px;font-size:0.8rem;">${isRegistered ? "Unregister" : "Register"}</button>
+                        <div class="umr-actions" style="align-items:center;">
+                            <span class="lr-chip" style="display:inline-flex;align-items:center;">👥 ${regCount}</span>
+                            ${actionEl}
                         </div>
                     </div>`;
                 }).join("");
-                panel.querySelectorAll(".umr-info-btn").forEach(btn => {
-                    btn.addEventListener("click", () => loadMatchDetail(Number(btn.dataset.matchId)));
+                panel.querySelectorAll(".upcoming-match-row").forEach(row => {
+                    row.addEventListener("click", (e) => {
+                        if (e.target.closest(".umr-reg-btn")) return;
+                        window.location.href = `./match.html?id=${Number(row.dataset.matchId)}`;
+                    });
                 });
                 panel.querySelectorAll(".umr-reg-btn").forEach(btn => {
-                    btn.addEventListener("click", async () => {
+                    btn.addEventListener("click", async (e) => {
+                        e.stopPropagation();
                         try {
                             if (btn.dataset.reg === "1") {
                                 await apiFetch(`/matches/${btn.dataset.matchId}/register`, { method: "DELETE" });

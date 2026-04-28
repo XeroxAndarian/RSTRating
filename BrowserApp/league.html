@@ -233,7 +233,7 @@
       upEl.innerHTML=upcoming.map(function(mt){
         var regOpens=mt.registration_opens_at?new Date(mt.registration_opens_at):null;
         var regIsOpen=!regOpens||regOpens.getTime()<=now;
-        var regCount=mt.registration_count||mt.registered_count||"?";
+        var regCount=(mt.registered_count!=null?mt.registered_count:(mt.registration_count!=null?mt.registration_count:"?"));
         var regBtn="";
         if(regIsOpen){
           if(mt.is_registered){regBtn="<button class=\"btn ghost sm unregBtn\" data-match=\""+mt.id+"\">Unregister</button>";}
