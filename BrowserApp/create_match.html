@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Match | RSTRating</title>
+  <title>Create Match | EARLY ACCESSS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
     [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
@@ -153,6 +153,17 @@
       document.querySelectorAll("#modeRow .mode-chip").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.mode === setupMode);
       });
+      if (setupMode === "custom") {
+        const form = document.getElementById("form");
+        if (form) {
+          form.title.value = "";
+          form.location.value = "";
+          form.scheduled_at.value = "";
+          form.registration_opens_at.value = "";
+          form.max_participants.value = "";
+          form.notes.value = "";
+        }
+      }
     }
 
     async function apiFetch(path, options) {
@@ -283,7 +294,7 @@
             presetSelect.dispatchEvent(new Event("change"));
           }
         }
-        // When switching to custom, leave form fields as-is (do not auto-fill)
+        // Custom mode intentionally starts with empty fields.
       });
     });
   </script>

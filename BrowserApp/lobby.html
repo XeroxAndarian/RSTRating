@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSTRating – Lobby</title>
+    <title>EARLY ACCESSS – Lobby</title>
     <style>
         :root {
             --bg: #d6ece0;
@@ -976,7 +976,7 @@
         <section class="hero">
             <div class="hero-top">
                 <div>
-                    <p class="eyebrow" id="eyebrowText" style="cursor:default;user-select:none;">RSTRating</p>
+                    <p class="eyebrow" id="eyebrowText" style="cursor:default;user-select:none;">EARLY ACCESSS</p>
                     <h1>League Manager <small style="font-size:0.42em;opacity:0.6;display:block;line-height:1.3;">(name Subject To Change)</small></h1>
                 </div>
                 <div class="actions">
@@ -1501,7 +1501,9 @@
         }
 
         function renderLeagueStatsList() {
-            const stats = Array.isArray(lobbyState.league_player_stats) ? lobbyState.league_player_stats : [];
+            const stats = Array.isArray(lobbyState.league_player_stats)
+                ? [...lobbyState.league_player_stats].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+                : [];
             if (!stats.length) {
                 leagueStatsList.innerHTML = '<div class="empty-card">No league-specific player stats yet.</div>';
                 return;

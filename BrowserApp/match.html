@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Match | RSTRating</title>
+  <title>Match | EARLY ACCESSS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f3faf6; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
     [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --success:#26a957; --danger:#ef6f66; --line:rgba(231,245,238,.2); --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; }
@@ -72,7 +72,7 @@
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;">
           <span class="pill" id="state">-</span>
-          <span class="pill" id="viewTag">normal</span>
+          <span class="pill" id="viewTag">public</span>
         </div>
       </div>
       <div class="score-grid">
@@ -421,7 +421,7 @@
       rows.forEach((e) => {
         const benefitingTeam = e.event_type === "own_goal" ? (e.team === "b" ? "a" : "b") : (e.team === "b" ? "b" : "a");
         const baseName = playerName(e.user_id);
-        const name = `${baseName}${e.event_type === "own_goal" ? " (og)" : ""}`;
+        const name = `${baseName}${e.event_type === "own_goal" ? "*" : ""}`;
         const target = benefitingTeam === "a" ? aMap : bMap;
         const mins = target.get(name) || [];
         mins.push(minutesLabel(e.event_seconds));
@@ -571,7 +571,7 @@
       subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
       stateEl.textContent = statusLabel(m.status);
       stateEl.className = `pill ${m.status === "live" ? "state-live" : "state-" + m.status}`;
-      viewTagEl.textContent = viewMode;
+      viewTagEl.textContent = (m.visibility === "private" ? "private" : "public");
       scoreEl.textContent = `${m.score_a} - ${m.score_b}`;
       teamAHeader.textContent = m.team_a_name || "Team A";
       teamBHeader.textContent = m.team_b_name || "Team B";
@@ -641,7 +641,7 @@
       leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
 
       const hasTeams = hasGeneratedTeams(m);
-      const showRegistrations = m.status === "registration_open";
+      const showRegistrations = ["registration_open", "registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status);
       const showTeams = ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       const showEvents = ["live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       teamsCard.style.display = (showRegistrations || showTeams) ? "block" : "none";
@@ -667,7 +667,7 @@
       }
     }
 
-    async function load(){
+    async function load(silent){
       try {
         if (previewToken) {
           detail = await publicFetch(`/preview/matches/${encodeURIComponent(previewToken)}`);
@@ -717,7 +717,9 @@
 
         render();
       } catch (err) {
-        show(err.message || "Failed loading match.", "error");
+        const message = err && err.message ? err.message : "Failed loading match.";
+        if (silent && /failed to fetch/i.test(message) && detail) return;
+        show(message, "error");
       }
     }
 
@@ -952,7 +954,7 @@
           }
         }
       }
-      if (_tickCount % 5 === 0) load();
+      if (_tickCount % 5 === 0) load(true);
     }, 1000);
 
     teamANameInput.addEventListener("input", () => { draftNames.teamA = teamANameInput.value; });
