@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player Page | EARLY ACCESSS</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Roboto", "Segoe UI", sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); }
+    .wrap { max-width:1020px; margin:24px auto; padding:0 16px; }
+    .top { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+    .btn { border:none; border-radius:9px; padding:8px 12px; font:inherit; font-weight:700; cursor:pointer; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .btn.danger { background:var(--danger); color:#fff; }
+    .muted { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:2fr 1fr; gap:12px; }
+    @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
+    .stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .stat { border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--panel-soft); }
+    .stat .k { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+    .stat .v { font-size:1.2rem; font-weight:700; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); font-size:.9rem; }
+    .status { min-height:20px; color:var(--muted); }
+    .status.error { color:var(--danger); }
+    label { font-size:.88rem; font-weight:700; }
+    select, input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel-soft); color:var(--text); font:inherit; }
+    .friend-req { border:1px solid var(--line); border-radius:10px; padding:8px; margin-bottom:8px; background:var(--panel-soft); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 id="title" style="margin:0;">Player</h1>
+        <div class="muted" id="subtitle">Loading...</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn ghost" href="./lobby.html" style="text-decoration:none;display:inline-flex;align-items:center;">← Lobby</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" id="actionsRow"></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h3 style="margin:0 0 8px;">General stats</h3>
+          <div id="privacyMsg" class="muted" style="margin-bottom:10px;"></div>
+          <div class="stat-grid" id="generalStats"></div>
+        </div>
+
+        <div class="card">
+          <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+            <h3 style="margin:0;">League stats</h3>
+            <select id="leagueFilter" style="max-width:260px;"></select>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr><th>League</th><th>Att</th><th>W</th><th>G</th><th>A</th><th>LMMR</th></tr>
+              </thead>
+              <tbody id="leagueStatsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="settingsCard" style="display:none;">
+          <h3 style="margin:0 0 8px;">Player settings</h3>
+          <div class="row" style="display:block;">
+            <label for="profileVisibility">Page visibility</label>
+            <select id="profileVisibility">
+              <option value="public">Public</option>
+              <option value="friends">Shared with friends</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          <div class="row" style="display:block; margin-top:10px;">
+            <label for="friendPolicy">Who can send friend requests</label>
+            <select id="friendPolicy">
+              <option value="everyone">Everyone</option>
+              <option value="shared_leagues">Shared leagues</option>
+              <option value="nobody">Nobody</option>
+            </select>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="saveSettingsBtn" type="button">Save settings</button>
+          </div>
+        </div>
+
+        <div class="card" id="friendReqCard" style="display:none;">
+          <h3 style="margin:0 0 8px;">Friend requests</h3>
+          <div id="friendReqList"></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 8px;">Find players</h3>
+          <div class="row" style="display:block;">
+            <input id="searchInput" placeholder="Search username/display name">
+          </div>
+          <div id="searchResults" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark"); })();
+    const darkBtn = document.getElementById("darkModeToggle");
+    function syncThemeBtn(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
+    syncThemeBtn();
+    darkBtn.addEventListener("click", ()=>{ const dark = document.documentElement.getAttribute("data-theme") === "dark"; if(dark){document.documentElement.removeAttribute("data-theme");localStorage.setItem("rs_theme","light");} else {document.documentElement.setAttribute("data-theme","dark");localStorage.setItem("rs_theme","dark");} syncThemeBtn(); });
+
+    const params = new URLSearchParams(window.location.search);
+    const targetIdFromUrl = Number(params.get("id") || 0);
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+    let me = null;
+    let profile = null;
+
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function show(msg, kind){ const el = document.getElementById("status"); el.textContent = msg; el.className = kind ? "status "+kind : "status"; }
+
+    async function apiFetch(path, options){
+      const headers = Object.assign({}, options && options.headers || {});
+      const token = getToken();
+      if(token) headers.Authorization = "Bearer " + token;
+      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if(!res.ok) throw new Error((body && body.detail) || "Request failed");
+      return body;
+    }
+
+    function renderProfile(){
+      if(!profile) return;
+      const title = document.getElementById("title");
+      const subtitle = document.getElementById("subtitle");
+      title.textContent = profile.display_name || profile.username;
+      subtitle.textContent = "@" + profile.username + (profile.can_view_stats ? (" · GMMR " + Number(profile.global_rating || 0).toFixed(1) + " · Position #" + profile.global_position) : " · stats hidden");
+
+      const privacyMsg = document.getElementById("privacyMsg");
+      privacyMsg.textContent = profile.can_view_stats ? "" : "This player profile is not visible to you based on privacy settings.";
+
+      const g = document.getElementById("generalStats");
+      if(profile.can_view_stats){
+        g.innerHTML = [
+          ["GMMR", Number(profile.global_rating || 0).toFixed(1)],
+          ["Global position", "#" + profile.global_position],
+          ["Attendance", profile.attendance],
+          ["Wins", profile.wins],
+          ["Goals", profile.goals],
+          ["Assists", profile.assists],
+        ].map(x => '<div class="stat"><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div></div>').join("");
+      } else {
+        g.innerHTML = '<div class="muted">No visible stats.</div>';
+      }
+
+      const actions = document.getElementById("actionsRow");
+      const isSelf = me && Number(me.id) === Number(profile.id);
+      let html = "";
+      if(!isSelf){
+        if(profile.is_friend){
+          html += '<span class="btn ghost" style="cursor:default;">Friends</span>';
+        } else if(profile.can_send_friend_request){
+          html += '<button class="btn primary" id="sendFriendReqBtn" type="button">Add friend</button>';
+        } else if(profile.has_pending_outgoing_request){
+          html += '<span class="btn ghost" style="cursor:default;">Friend request sent</span>';
+        } else if(profile.has_pending_incoming_request){
+          html += '<span class="btn ghost" style="cursor:default;">Incoming friend request</span>';
+        }
+        html += profile.is_following
+          ? '<button class="btn ghost" id="toggleFollowBtn" data-follow="0" type="button">Unfan</button>'
+          : '<button class="btn ghost" id="toggleFollowBtn" data-follow="1" type="button">Become fan</button>';
+      }
+      actions.innerHTML = html;
+
+      const leagueFilter = document.getElementById("leagueFilter");
+      const stats = Array.isArray(profile.league_stats) ? profile.league_stats : [];
+      leagueFilter.innerHTML = '<option value="all">All leagues</option>' + stats.map(s => '<option value="'+s.league_id+'">'+esc(s.league_name)+'</option>').join("");
+      renderLeagueStats();
+
+      document.getElementById("settingsCard").style.display = isSelf ? "block" : "none";
+      document.getElementById("friendReqCard").style.display = isSelf ? "block" : "none";
+    }
+
+    function renderLeagueStats(){
+      const body = document.getElementById("leagueStatsBody");
+      const selected = document.getElementById("leagueFilter").value || "all";
+      const stats = (profile && Array.isArray(profile.league_stats) ? profile.league_stats : []).filter(s => selected === "all" || String(s.league_id) === selected);
+      body.innerHTML = stats.map(s => '<tr><td>'+esc(s.league_name)+'</td><td>'+esc(s.attendance)+'</td><td>'+esc(s.wins)+'</td><td>'+esc(s.goals)+'</td><td>'+esc(s.assists)+'</td><td>'+esc(Number(s.rating || 0).toFixed(1))+'</td></tr>').join("") || '<tr><td colspan="6" class="muted">No league stats.</td></tr>';
+    }
+
+    async function renderFriendRequests(){
+      const list = document.getElementById("friendReqList");
+      if(!(me && profile && Number(me.id) === Number(profile.id))){ list.innerHTML = ""; return; }
+      try {
+        const data = await apiFetch('/players/me/friend-requests');
+        const incoming = Array.isArray(data.incoming) ? data.incoming : [];
+        const outgoing = Array.isArray(data.outgoing) ? data.outgoing : [];
+        const incomingHtml = incoming.map(r => '<div class="friend-req"><strong>'+esc(r.from_display_name || r.from_username)+'</strong><div class="muted" style="font-size:.82rem;">@'+esc(r.from_username)+'</div><div class="row" style="margin-top:6px;"><button class="btn primary" data-accept="'+r.id+'" type="button">Accept</button><button class="btn ghost" data-reject="'+r.id+'" type="button">Reject</button></div></div>').join('');
+        const outgoingHtml = outgoing.map(r => '<div class="friend-req"><strong>'+esc(r.to_display_name || r.to_username)+'</strong><div class="muted" style="font-size:.82rem;">Pending outgoing</div></div>').join('');
+        list.innerHTML = (incomingHtml || '<div class="muted">No incoming requests.</div>') + '<div style="height:8px"></div>' + (outgoingHtml || '<div class="muted">No outgoing requests.</div>');
+      } catch (e) {
+        list.innerHTML = '<div class="muted">Could not load friend requests.</div>';
+      }
+    }
+
+    async function loadMe(){
+      try { me = await apiFetch('/auth/me'); }
+      catch { me = null; }
+    }
+
+    async function loadProfile(){
+      const targetId = targetIdFromUrl || (me ? Number(me.id) : 0);
+      if(!targetId){ show('Missing player id and not signed in.', 'error'); return; }
+      profile = await apiFetch('/players/' + targetId);
+      renderProfile();
+      await renderFriendRequests();
+      if(me && Number(me.id) === Number(profile.id)){
+        try {
+          const s = await apiFetch('/players/me/settings');
+          document.getElementById('profileVisibility').value = s.profile_visibility;
+          document.getElementById('friendPolicy').value = s.friend_request_policy;
+        } catch {}
+      }
+    }
+
+    document.body.addEventListener('click', async (e) => {
+      const sendBtn = e.target.closest('#sendFriendReqBtn');
+      if(sendBtn && profile){
+        try { await apiFetch('/players/' + profile.id + '/friend-requests', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) }); show('Friend request sent.'); await loadProfile(); }
+        catch (err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const followBtn = e.target.closest('#toggleFollowBtn');
+      if(followBtn && profile){
+        try {
+          if(followBtn.dataset.follow === '1') await apiFetch('/players/' + profile.id + '/follow', { method:'POST' });
+          else await apiFetch('/players/' + profile.id + '/follow', { method:'DELETE' });
+          await loadProfile();
+          show('Updated fan status.');
+        } catch (err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const accBtn = e.target.closest('[data-accept]');
+      if(accBtn){
+        try { await apiFetch('/friend-requests/' + accBtn.dataset.accept + '/accept', { method:'POST' }); await loadProfile(); show('Friend request accepted.'); }
+        catch(err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const rejBtn = e.target.closest('[data-reject]');
+      if(rejBtn){
+        try { await apiFetch('/friend-requests/' + rejBtn.dataset.reject + '/reject', { method:'POST' }); await loadProfile(); show('Friend request rejected.'); }
+        catch(err){ show(err.message || 'Failed.', 'error'); }
+      }
+    });
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
+      try {
+        await apiFetch('/players/me/settings', {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ profile_visibility: document.getElementById('profileVisibility').value, friend_request_policy: document.getElementById('friendPolicy').value })
+        });
+        show('Settings saved.');
+        await loadProfile();
+      } catch (e){ show(e.message || 'Failed to save settings.', 'error'); }
+    });
+
+    document.getElementById('leagueFilter').addEventListener('change', renderLeagueStats);
+
+    document.getElementById('searchInput').addEventListener('input', async () => {
+      const q = document.getElementById('searchInput').value.trim();
+      const out = document.getElementById('searchResults');
+      if(!q){ out.innerHTML = ''; return; }
+      try {
+        const rows = await apiFetch('/players/search?q=' + encodeURIComponent(q) + '&limit=10');
+        out.innerHTML = rows.map(r => '<div class="friend-req" style="cursor:pointer;" data-open="'+r.id+'"><strong>'+esc(r.display_name || r.username)+'</strong><div class="muted" style="font-size:.82rem;">@'+esc(r.username)+' · GMMR '+esc(Number(r.global_rating || 0).toFixed(1))+'</div></div>').join('') || '<div class="muted">No players found.</div>';
+        out.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => { window.location.href = './player.html?id=' + el.dataset.open; }));
+      } catch (e){ out.innerHTML = '<div class="muted">Search failed.</div>'; }
+    });
+
+    (async () => {
+      await loadMe();
+      await loadProfile();
+    })();
+  </script>
+</body>
+</html>

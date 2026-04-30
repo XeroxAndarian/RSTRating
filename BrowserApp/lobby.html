@@ -985,6 +985,7 @@
                         🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
                     </button>
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <a class="ghost" href="./player.html" title="My player page" style="text-decoration:none;">👤</a>
                     <a class="ghost" id="adminConsoleBtn" href="./admin.html" title="Admin console" style="display:none;text-decoration:none;">🛡</a>
                     <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings">⚙</button>
                     <button class="danger" id="logoutButton" type="button" title="Sign out">🚪</button>
@@ -1114,7 +1115,7 @@
         <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
             <div>
                 <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">—</strong></p>
-                <p class="subtle" style="margin:0;">Recovery ID: <strong id="acctRecoveryId">—</strong></p>
+                <p class="subtle" style="margin:0;">Recovery Token: <strong id="acctRecoveryId">—</strong></p>
             </div>
             <form id="updateProfileForm" class="stack" style="gap:8px;">
                 <label for="acctDisplayName">Display name</label>
@@ -2102,7 +2103,7 @@
             const uname = document.getElementById("acctUsername");
             if (uname && currentUser) uname.textContent = currentUser.username || currentUser.name;
             const recovery = document.getElementById("acctRecoveryId");
-            if (recovery && currentUser) recovery.textContent = currentUser.recovery_id || "—";
+            if (recovery && currentUser) recovery.textContent = currentUser.recovery_token || currentUser.recovery_id || "—";
             const dispInput = document.getElementById("acctDisplayName");
             if (dispInput && currentUser) dispInput.value = currentUser.display_name || currentUser.name || "";
             const emailInput = document.getElementById("acctEmail");
@@ -2195,7 +2196,7 @@
                     const response = await apiFetch("/auth/password-reset-request", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ recovery_id: currentUser.recovery_id || null, email: currentUser.email || null })
+                        body: JSON.stringify({ recovery_token: currentUser.recovery_token || currentUser.recovery_id || null })
                     });
                     if (tokenInput) tokenInput.value = response.token || "";
                     if (tokenMeta) {

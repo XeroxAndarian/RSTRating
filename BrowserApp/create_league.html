@@ -71,8 +71,26 @@
         <label for="fee_value">Fee value</label>
         <input id="fee_value" name="fee_value" type="number" min="0" step="0.01" value="0" placeholder="0.00">
 
-        <label for="rating_config">Rating parameters (JSON)</label>
-        <textarea id="rating_config" name="rating_config" rows="7" placeholder='{"sr_start_points":1000,"sr_goal_points":10,"sr_assist_points":6,"sr_own_goal_points":-2,"sr_win_points":20,"sr_draw_points":0,"sr_loss_points":-20}'>{"sr_start_points":1000,"sr_goal_points":10,"sr_assist_points":6,"sr_own_goal_points":-2,"sr_win_points":20,"sr_draw_points":0,"sr_loss_points":-20}</textarea>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px;">
+          <label style="margin:0;">Advanced options</label>
+          <button class="btn ghost" id="toggleAdvancedBtn" type="button">Show</button>
+        </div>
+        <div id="advancedOptions" class="sub-card stack" style="display:none;gap:8px;">
+          <label for="sr_start_points">SR start points</label>
+          <input id="sr_start_points" type="number" step="0.01" value="1000">
+          <label for="sr_goal_points">SR goal points</label>
+          <input id="sr_goal_points" type="number" step="0.01" value="10">
+          <label for="sr_assist_points">SR assist points</label>
+          <input id="sr_assist_points" type="number" step="0.01" value="6">
+          <label for="sr_own_goal_points">SR own-goal points</label>
+          <input id="sr_own_goal_points" type="number" step="0.01" value="-2">
+          <label for="sr_win_points">SR win points</label>
+          <input id="sr_win_points" type="number" step="0.01" value="20">
+          <label for="sr_draw_points">SR draw points</label>
+          <input id="sr_draw_points" type="number" step="0.01" value="0">
+          <label for="sr_loss_points">SR loss points</label>
+          <input id="sr_loss_points" type="number" step="0.01" value="-20">
+        </div>
 
         <label>Match presets (optional)</label>
         <div class="sub-card stack" style="gap:10px;">
@@ -163,12 +181,20 @@
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
     const statusEl = document.getElementById("status");
     const presets = [];
+    const advancedOptionsEl = document.getElementById("advancedOptions");
+    const toggleAdvancedBtn = document.getElementById("toggleAdvancedBtn");
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
     function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
 
     function escapeHtml(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+    function numberInputValue(id, fallback) {
+      const el = document.getElementById(id);
+      const val = Number(el ? el.value : fallback);
+      return Number.isFinite(val) ? val : fallback;
+    }
 
     function clearPresetEditor() {
       document.getElementById("preset_name").value = "";
@@ -269,17 +295,27 @@
     clearPresetEditor();
     renderPresetList();
 
+    if (toggleAdvancedBtn && advancedOptionsEl) {
+      toggleAdvancedBtn.addEventListener("click", () => {
+        const open = advancedOptionsEl.style.display !== "none";
+        advancedOptionsEl.style.display = open ? "none" : "flex";
+        toggleAdvancedBtn.textContent = open ? "Show" : "Hide";
+      });
+    }
+
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.currentTarget;
       try {
-        let ratingConfig = {};
-        try {
-          ratingConfig = JSON.parse(form.rating_config.value || "{}");
-        } catch {
-          show("Rating parameters must be valid JSON.", "error");
-          return;
-        }
+        const ratingConfig = {
+          sr_start_points: numberInputValue("sr_start_points", 1000),
+          sr_goal_points: numberInputValue("sr_goal_points", 10),
+          sr_assist_points: numberInputValue("sr_assist_points", 6),
+          sr_own_goal_points: numberInputValue("sr_own_goal_points", -2),
+          sr_win_points: numberInputValue("sr_win_points", 20),
+          sr_draw_points: numberInputValue("sr_draw_points", 0),
+          sr_loss_points: numberInputValue("sr_loss_points", -20),
+        };
         const league = await apiFetch("/leagues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

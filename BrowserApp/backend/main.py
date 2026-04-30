@@ -78,6 +78,7 @@ class UserOut(BaseModel):
     nicknames: list[str]
     display_name: str | None
     recovery_id: str | None = None
+    recovery_token: str | None = None
     role: str
     is_active: bool = True
     terminated_at: str | None = None
@@ -201,11 +202,13 @@ class BackupImportData(BaseModel):
 class PasswordResetRequestPayload(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     recovery_id: str | None = Field(default=None, min_length=6, max_length=32)
+    recovery_token: str | None = Field(default=None, min_length=19, max_length=19)
 
 
 class PasswordResetPayload(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     recovery_id: str | None = Field(default=None, min_length=6, max_length=32)
+    recovery_token: str | None = Field(default=None, min_length=19, max_length=19)
     token: str = Field(min_length=32, max_length=128)
     new_password: str = Field(min_length=6, max_length=200)
 
@@ -231,6 +234,7 @@ class AdminUserOut(BaseModel):
     display_name: str | None
     role: str
     recovery_id: str | None
+    recovery_token: str | None
     is_active: bool
     terminated_at: str | None
     created_at: str
@@ -257,8 +261,97 @@ class AdminLeagueOut(BaseModel):
     approval_status: str
     approved_at: str | None
     approval_note: str | None
+    terminated_until: str | None
+    is_terminated: bool
     created_at: str
     updated_at: str
+
+
+class AdminLeagueTemporaryTerminatePayload(BaseModel):
+    until: str = Field(description="ISO datetime when temporary termination ends")
+    note: str | None = Field(default=None, max_length=300)
+
+
+class AdminLeaguePermanentTerminatePayload(BaseModel):
+    confirm: bool = Field(default=False)
+
+
+class PlayerSettingsOut(BaseModel):
+    profile_visibility: str
+    friend_request_policy: str
+
+
+class PlayerSettingsPatchPayload(BaseModel):
+    profile_visibility: str | None = Field(default=None, pattern=r"^(public|friends|private)$")
+    friend_request_policy: str | None = Field(default=None, pattern=r"^(everyone|shared_leagues|nobody)$")
+
+
+class PlayerSearchOut(BaseModel):
+    id: int
+    username: str
+    display_name: str | None
+    global_rating: float
+    is_friend: bool
+    has_pending_outgoing_request: bool
+    has_pending_incoming_request: bool
+    is_following: bool
+
+
+class PlayerLeagueStatsOut(BaseModel):
+    league_id: int
+    league_name: str
+    attendance: int
+    wins: int
+    goals: int
+    assists: int
+    rating: float
+
+
+class PlayerProfileOut(BaseModel):
+    id: int
+    username: str
+    display_name: str | None
+    global_rating: float
+    global_position: int
+    attendance: int
+    wins: int
+    goals: int
+    assists: int
+    profile_visibility: str
+    can_view_stats: bool
+    is_friend: bool
+    is_following: bool
+    can_send_friend_request: bool
+    has_pending_outgoing_request: bool
+    has_pending_incoming_request: bool
+    league_stats: list[PlayerLeagueStatsOut]
+
+
+class FriendRequestCreatePayload(BaseModel):
+    message: str | None = Field(default=None, max_length=300)
+
+
+class FriendRequestOut(BaseModel):
+    id: int
+    from_user_id: int
+    from_username: str
+    from_display_name: str | None
+    to_user_id: int
+    to_username: str
+    to_display_name: str | None
+    status: str
+    message: str | None
+    created_at: str
+    updated_at: str
+
+
+class FriendRequestsResponseOut(BaseModel):
+    incoming: list[FriendRequestOut]
+    outgoing: list[FriendRequestOut]
+
+
+class FollowStateOut(BaseModel):
+    following: bool
 
 
 class LeagueCreatePayload(BaseModel):
@@ -546,6 +639,10 @@ class MatchLiveEventPayload(BaseModel):
     event_seconds: int | None = Field(default=None, ge=0)
 
 
+class MatchVisibilityPayload(BaseModel):
+    visibility: str = Field(pattern=r"^(public|private)$")
+
+
 class MatchTeamsDraftPayload(BaseModel):
     team_a: list[int]
     team_b: list[int]
@@ -681,10 +778,21 @@ def infer_football_type(old_sport: str | None) -> str:
 
 def _generate_recovery_id(conn: sqlite3.Connection) -> str:
     while True:
-        candidate = f"RST-{secrets.token_hex(4).upper()}"
+        digits = "".join(str(secrets.randbelow(10)) for _ in range(16))
+        candidate = f"{digits[:4]}-{digits[4:8]}-{digits[8:12]}-{digits[12:16]}"
         row = conn.execute("SELECT 1 FROM users WHERE recovery_id = ?", (candidate,)).fetchone()
         if row is None:
             return candidate
+
+
+def _is_valid_recovery_token(value: str | None) -> bool:
+    if not value:
+        return False
+    s = str(value).strip()
+    if len(s) != 19:
+        return False
+    parts = s.split("-")
+    return len(parts) == 4 and all(len(p) == 4 and p.isdigit() for p in parts)
 
 
 def init_db() -> None:
@@ -724,13 +832,20 @@ def init_db() -> None:
         ensure_column(conn, "users", "goals", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "assists", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "global_rating", "REAL NOT NULL DEFAULT 1000")
+        ensure_column(conn, "users", "profile_visibility", "TEXT NOT NULL DEFAULT 'public'")
+        ensure_column(conn, "users", "friend_request_policy", "TEXT NOT NULL DEFAULT 'everyone'")
+        conn.execute("UPDATE users SET profile_visibility = 'public' WHERE profile_visibility IS NULL OR profile_visibility = ''")
+        conn.execute("UPDATE users SET friend_request_policy = 'everyone' WHERE friend_request_policy IS NULL OR friend_request_policy = ''")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE email IS NOT NULL")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_recovery_id_unique ON users(recovery_id) WHERE recovery_id IS NOT NULL")
 
         users_without_recovery = conn.execute(
-            "SELECT id FROM users WHERE recovery_id IS NULL OR recovery_id = ''"
+            "SELECT id, recovery_id FROM users"
         ).fetchall()
         for row in users_without_recovery:
+            rid = str(row["recovery_id"] or "").strip()
+            if _is_valid_recovery_token(rid):
+                continue
             conn.execute(
                 "UPDATE users SET recovery_id = ? WHERE id = ?",
                 (_generate_recovery_id(conn), int(row["id"])),
@@ -784,6 +899,9 @@ def init_db() -> None:
         ensure_column(conn, "leagues", "approved_at", "TEXT")
         ensure_column(conn, "leagues", "approved_by_user_id", "INTEGER")
         ensure_column(conn, "leagues", "approval_note", "TEXT")
+        ensure_column(conn, "leagues", "terminated_until", "TEXT")
+        ensure_column(conn, "leagues", "termination_note", "TEXT")
+        ensure_column(conn, "leagues", "terminated_by_user_id", "INTEGER")
 
         conn.execute("UPDATE leagues SET approval_status = 'approved' WHERE approval_status IS NULL OR approval_status = ''")
 
@@ -1053,6 +1171,51 @@ def init_db() -> None:
                 read INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS friendships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                friend_user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, friend_user_id),
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(friend_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS friend_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_user_id INTEGER NOT NULL,
+                to_user_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(from_user_id, to_user_id),
+                FOREIGN KEY(from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(to_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_follows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                follower_user_id INTEGER NOT NULL,
+                target_user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(follower_user_id, target_user_id),
+                FOREIGN KEY(follower_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(target_user_id) REFERENCES users(id) ON DELETE CASCADE
             )
             """
         )
@@ -1564,7 +1727,7 @@ def find_user_by_recovery_id(recovery_id: str) -> sqlite3.Row | None:
             FROM users
             WHERE recovery_id = ?
             """,
-            (recovery_id.strip().upper(),),
+            (recovery_id.strip(),),
         ).fetchone()
 
 
@@ -1578,6 +1741,7 @@ def serialize_user(row: sqlite3.Row) -> UserOut:
         nicknames=nicknames_from_db(row["nicknames"]),
         display_name=row["display_name"],
         recovery_id=(str(row["recovery_id"]) if "recovery_id" in row.keys() and row["recovery_id"] is not None else None),
+        recovery_token=(str(row["recovery_id"]) if "recovery_id" in row.keys() and row["recovery_id"] is not None else None),
         role=str(row["role"]),
         is_active=bool(int(row["is_active"] or 0)) if "is_active" in row.keys() else True,
         terminated_at=(str(row["terminated_at"]) if "terminated_at" in row.keys() and row["terminated_at"] is not None else None),
@@ -1952,24 +2116,134 @@ def require_league_owner(conn: sqlite3.Connection, league_id: int, user_id: int)
 
 def require_league_approved(conn: sqlite3.Connection, league_id: int) -> sqlite3.Row:
     league = conn.execute(
-        "SELECT id, name, approval_status FROM leagues WHERE id = ?",
+        "SELECT id, name, approval_status, terminated_until FROM leagues WHERE id = ?",
         (league_id,),
     ).fetchone()
     if league is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
     if str(league["approval_status"] or "approved") != "approved":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="League is awaiting admin approval")
+    terminated_until_raw = league["terminated_until"]
+    if terminated_until_raw:
+        terminated_until = datetime.fromisoformat(str(terminated_until_raw))
+        if terminated_until.tzinfo is None:
+            terminated_until = terminated_until.replace(tzinfo=timezone.utc)
+        if utc_now() < terminated_until:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"League is temporarily terminated until {terminated_until.isoformat()}")
     return league
 
 
-def _find_password_reset_user(email: str | None, recovery_id: str | None) -> sqlite3.Row | None:
+def _are_friends(conn: sqlite3.Connection, user_a: int, user_b: int) -> bool:
+    if user_a == user_b:
+        return True
+    row = conn.execute(
+        "SELECT 1 FROM friendships WHERE user_id = ? AND friend_user_id = ?",
+        (user_a, user_b),
+    ).fetchone()
+    return row is not None
+
+
+def _share_league(conn: sqlite3.Connection, user_a: int, user_b: int) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM league_memberships AS a
+        JOIN league_memberships AS b ON b.league_id = a.league_id
+        WHERE a.user_id = ? AND b.user_id = ?
+        LIMIT 1
+        """,
+        (user_a, user_b),
+    ).fetchone()
+    return row is not None
+
+
+def _can_send_friend_request(conn: sqlite3.Connection, from_user_id: int, target_row: sqlite3.Row) -> bool:
+    if int(target_row["id"]) == from_user_id:
+        return False
+    policy = str(target_row["friend_request_policy"] or "everyone")
+    if policy == "nobody":
+        return False
+    if policy == "shared_leagues" and not _share_league(conn, from_user_id, int(target_row["id"])):
+        return False
+    return True
+
+
+def _can_view_player_stats(conn: sqlite3.Connection, viewer_user_id: int | None, target_row: sqlite3.Row) -> bool:
+    target_id = int(target_row["id"])
+    if viewer_user_id is not None and viewer_user_id == target_id:
+        return True
+    visibility = str(target_row["profile_visibility"] or "public")
+    if visibility == "public":
+        return True
+    if visibility == "private":
+        return False
+    if viewer_user_id is None:
+        return False
+    return _are_friends(conn, viewer_user_id, target_id)
+
+
+def _player_global_position(conn: sqlite3.Connection, user_id: int) -> int:
+    row = conn.execute(
+        "SELECT 1 + COUNT(*) AS pos FROM users WHERE COALESCE(global_rating, ?) > COALESCE((SELECT global_rating FROM users WHERE id = ?), ?)",
+        (DEFAULT_GLOBAL_RATING, user_id, DEFAULT_GLOBAL_RATING),
+    ).fetchone()
+    return int(row["pos"] if row is not None else 1)
+
+
+def _serialize_friend_request(row: sqlite3.Row) -> FriendRequestOut:
+    return FriendRequestOut(
+        id=int(row["id"]),
+        from_user_id=int(row["from_user_id"]),
+        from_username=str(row["from_username"]),
+        from_display_name=row["from_display_name"],
+        to_user_id=int(row["to_user_id"]),
+        to_username=str(row["to_username"]),
+        to_display_name=row["to_display_name"],
+        status=str(row["status"]),
+        message=row["message"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+    )
+
+
+def _notify_player_fans(
+    conn: sqlite3.Connection,
+    *,
+    player_user_id: int,
+    league_id: int,
+    notif_type: str,
+    title: str,
+    message: str,
+    data: dict,
+    exclude_user_ids: set[int] | None = None,
+) -> None:
+    exclude = exclude_user_ids or set()
+    rows = conn.execute(
+        """
+        SELECT pf.follower_user_id
+        FROM player_follows AS pf
+        JOIN league_memberships AS lm ON lm.user_id = pf.follower_user_id AND lm.league_id = ?
+        WHERE pf.target_user_id = ?
+        """,
+        (league_id, player_user_id),
+    ).fetchall()
+    for row in rows:
+        follower_id = int(row["follower_user_id"])
+        if follower_id in exclude:
+            continue
+        _create_notification(conn, follower_id, notif_type, title, message, data)
+
+
+def _find_password_reset_user(email: str | None, recovery_id: str | None, recovery_token: str | None) -> sqlite3.Row | None:
+    if recovery_token is not None and recovery_token.strip():
+        return find_user_by_recovery_id(recovery_token)
     if recovery_id is not None and recovery_id.strip():
         return find_user_by_recovery_id(recovery_id)
     if email is not None and email.strip():
         return find_user_by_email(email)
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Provide either email or recovery_id",
+        detail="Provide either recovery_token or recovery_id",
     )
 
 
@@ -2478,7 +2752,7 @@ def download_db(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> 
 
 @app.post("/auth/password-reset-request", response_model=PasswordResetRequestOut)
 def request_password_reset(payload: PasswordResetRequestPayload) -> PasswordResetRequestOut:
-    user = _find_password_reset_user(payload.email, payload.recovery_id)
+    user = _find_password_reset_user(payload.email, payload.recovery_id, payload.recovery_token)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not bool(int(user["is_active"] or 0)):
@@ -2502,7 +2776,7 @@ def request_password_reset(payload: PasswordResetRequestPayload) -> PasswordRese
 
 @app.post("/auth/password-reset", response_model=MessageOut)
 def reset_password(payload: PasswordResetPayload) -> MessageOut:
-    user = _find_password_reset_user(payload.email, payload.recovery_id)
+    user = _find_password_reset_user(payload.email, payload.recovery_id, payload.recovery_token)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not bool(int(user["is_active"] or 0)):
@@ -2566,6 +2840,383 @@ def update_own_profile(
                      [*params[:-1], utc_now_iso(), params[-1]])
         conn.commit()
     return MessageOut(detail="Profile updated.")
+
+
+@app.get("/players/me/settings", response_model=PlayerSettingsOut)
+def get_player_settings(current_user: sqlite3.Row = Depends(resolve_current_user)) -> PlayerSettingsOut:
+    return PlayerSettingsOut(
+        profile_visibility=str(current_user["profile_visibility"] or "public"),
+        friend_request_policy=str(current_user["friend_request_policy"] or "everyone"),
+    )
+
+
+@app.patch("/players/me/settings", response_model=PlayerSettingsOut)
+def patch_player_settings(
+    payload: PlayerSettingsPatchPayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> PlayerSettingsOut:
+    updates: list[str] = []
+    params: list = []
+    if payload.profile_visibility is not None:
+        updates.append("profile_visibility = ?")
+        params.append(payload.profile_visibility)
+    if payload.friend_request_policy is not None:
+        updates.append("friend_request_policy = ?")
+        params.append(payload.friend_request_policy)
+    if not updates:
+        return PlayerSettingsOut(
+            profile_visibility=str(current_user["profile_visibility"] or "public"),
+            friend_request_policy=str(current_user["friend_request_policy"] or "everyone"),
+        )
+    params.extend([utc_now_iso(), int(current_user["id"])])
+    with get_conn() as conn:
+        conn.execute(f"UPDATE users SET {', '.join(updates)}, updated_at = ? WHERE id = ?", params)
+        conn.commit()
+        row = conn.execute(
+            "SELECT profile_visibility, friend_request_policy FROM users WHERE id = ?",
+            (int(current_user["id"]),),
+        ).fetchone()
+    return PlayerSettingsOut(
+        profile_visibility=str(row["profile_visibility"] if row is not None else "public"),
+        friend_request_policy=str(row["friend_request_policy"] if row is not None else "everyone"),
+    )
+
+
+@app.get("/players/search", response_model=list[PlayerSearchOut])
+def player_search(
+    q: str | None = None,
+    limit: int = 20,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> list[PlayerSearchOut]:
+    user_id = int(current_user["id"])
+    safe_limit = max(1, min(int(limit), 100))
+    with get_conn() as conn:
+        where_params: list = [user_id]
+        where = ["u.id != ?"]
+        if q and q.strip():
+            like_q = f"%{q.strip()}%"
+            where.append("(LOWER(u.username) LIKE LOWER(?) OR LOWER(COALESCE(u.display_name, '')) LIKE LOWER(?))")
+            where_params.extend([like_q, like_q])
+
+        rows = conn.execute(
+            f"""
+            SELECT u.id, u.username, u.display_name, COALESCE(u.global_rating, ?) AS global_rating,
+                   EXISTS(SELECT 1 FROM friendships f WHERE f.user_id = ? AND f.friend_user_id = u.id) AS is_friend,
+                   EXISTS(SELECT 1 FROM friend_requests fr WHERE fr.from_user_id = ? AND fr.to_user_id = u.id AND fr.status = 'pending') AS has_pending_outgoing,
+                   EXISTS(SELECT 1 FROM friend_requests fr WHERE fr.from_user_id = u.id AND fr.to_user_id = ? AND fr.status = 'pending') AS has_pending_incoming,
+                   EXISTS(SELECT 1 FROM player_follows pf WHERE pf.follower_user_id = ? AND pf.target_user_id = u.id) AS is_following
+            FROM users u
+            WHERE {' AND '.join(where)}
+            ORDER BY u.global_rating DESC, u.username ASC
+            LIMIT ?
+            """,
+            [DEFAULT_GLOBAL_RATING, user_id, user_id, user_id, user_id, *where_params, safe_limit],
+        ).fetchall()
+    return [
+        PlayerSearchOut(
+            id=int(r["id"]),
+            username=str(r["username"]),
+            display_name=r["display_name"],
+            global_rating=float(r["global_rating"] or DEFAULT_GLOBAL_RATING),
+            is_friend=bool(int(r["is_friend"] or 0)),
+            has_pending_outgoing_request=bool(int(r["has_pending_outgoing"] or 0)),
+            has_pending_incoming_request=bool(int(r["has_pending_incoming"] or 0)),
+            is_following=bool(int(r["is_following"] or 0)),
+        )
+        for r in rows
+    ]
+
+
+@app.get("/players/{user_id}", response_model=PlayerProfileOut)
+def get_player_profile(
+    user_id: int,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> PlayerProfileOut:
+    viewer_id: int | None = None
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        try:
+            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            subject = str(payload.get("sub", ""))
+            if subject.startswith("user:"):
+                viewer_id = int(subject.split(":", 1)[1])
+        except Exception:
+            viewer_id = None
+
+    with get_conn() as conn:
+        target = conn.execute(
+            "SELECT id, username, display_name, attendance, wins, goals, assists, global_rating, profile_visibility, friend_request_policy FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+        viewer_is_admin = False
+        if viewer_id is not None:
+            viewer_row = conn.execute("SELECT role FROM users WHERE id = ?", (viewer_id,)).fetchone()
+            viewer_is_admin = viewer_row is not None and str(viewer_row["role"] or "") == "admin"
+        can_view = True if viewer_is_admin else _can_view_player_stats(conn, viewer_id, target)
+        is_friend = viewer_id is not None and _are_friends(conn, viewer_id, int(target["id"]))
+        is_following = False
+        has_pending_out = False
+        has_pending_in = False
+        can_send_request = False
+        if viewer_id is not None and viewer_id != int(target["id"]):
+            is_following = conn.execute(
+                "SELECT 1 FROM player_follows WHERE follower_user_id = ? AND target_user_id = ?",
+                (viewer_id, int(target["id"])),
+            ).fetchone() is not None
+            has_pending_out = conn.execute(
+                "SELECT 1 FROM friend_requests WHERE from_user_id = ? AND to_user_id = ? AND status = 'pending'",
+                (viewer_id, int(target["id"])),
+            ).fetchone() is not None
+            has_pending_in = conn.execute(
+                "SELECT 1 FROM friend_requests WHERE from_user_id = ? AND to_user_id = ? AND status = 'pending'",
+                (int(target["id"]), viewer_id),
+            ).fetchone() is not None
+            can_send_request = (not is_friend) and (not has_pending_out) and _can_send_friend_request(conn, viewer_id, target)
+
+        league_stats: list[PlayerLeagueStatsOut] = []
+        if can_view:
+            rows = conn.execute(
+                """
+                SELECT l.id AS league_id, l.name AS league_name,
+                       COALESCE(lps.attendance, 0) AS attendance,
+                       COALESCE(lps.wins, 0) AS wins,
+                       COALESCE(lps.goals, 0) AS goals,
+                       COALESCE(lps.assists, 0) AS assists,
+                       COALESCE(lps.rating, ?) AS rating
+                FROM league_player_stats lps
+                JOIN leagues l ON l.id = lps.league_id
+                WHERE lps.user_id = ?
+                ORDER BY l.name ASC
+                """,
+                (DEFAULT_GLOBAL_RATING, int(target["id"])),
+            ).fetchall()
+            league_stats = [
+                PlayerLeagueStatsOut(
+                    league_id=int(r["league_id"]),
+                    league_name=str(r["league_name"]),
+                    attendance=int(r["attendance"] or 0),
+                    wins=int(r["wins"] or 0),
+                    goals=int(r["goals"] or 0),
+                    assists=int(r["assists"] or 0),
+                    rating=float(r["rating"] or DEFAULT_GLOBAL_RATING),
+                )
+                for r in rows
+            ]
+
+        return PlayerProfileOut(
+            id=int(target["id"]),
+            username=str(target["username"]),
+            display_name=target["display_name"],
+            global_rating=float(target["global_rating"] or DEFAULT_GLOBAL_RATING) if can_view else 0.0,
+            global_position=_player_global_position(conn, int(target["id"])) if can_view else 0,
+            attendance=int(target["attendance"] or 0) if can_view else 0,
+            wins=int(target["wins"] or 0) if can_view else 0,
+            goals=int(target["goals"] or 0) if can_view else 0,
+            assists=int(target["assists"] or 0) if can_view else 0,
+            profile_visibility=str(target["profile_visibility"] or "public"),
+            can_view_stats=can_view,
+            is_friend=bool(is_friend),
+            is_following=bool(is_following),
+            can_send_friend_request=bool(can_send_request),
+            has_pending_outgoing_request=bool(has_pending_out),
+            has_pending_incoming_request=bool(has_pending_in),
+            league_stats=league_stats,
+        )
+
+
+@app.post("/players/{target_user_id}/friend-requests", response_model=MessageOut)
+def send_friend_request(
+    target_user_id: int,
+    payload: FriendRequestCreatePayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    from_user_id = int(current_user["id"])
+    with get_conn() as conn:
+        target = conn.execute(
+            "SELECT id, username, friend_request_policy FROM users WHERE id = ?",
+            (target_user_id,),
+        ).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+        if from_user_id == target_user_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot send a friend request to yourself")
+        if _are_friends(conn, from_user_id, target_user_id):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You are already friends")
+        if not _can_send_friend_request(conn, from_user_id, target):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This player is not accepting your friend requests")
+
+        reciprocal = conn.execute(
+            "SELECT id FROM friend_requests WHERE from_user_id = ? AND to_user_id = ? AND status = 'pending'",
+            (target_user_id, from_user_id),
+        ).fetchone()
+        if reciprocal is not None:
+            now_iso = utc_now_iso()
+            conn.execute(
+                "INSERT OR IGNORE INTO friendships (user_id, friend_user_id, created_at) VALUES (?, ?, ?)",
+                (from_user_id, target_user_id, now_iso),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO friendships (user_id, friend_user_id, created_at) VALUES (?, ?, ?)",
+                (target_user_id, from_user_id, now_iso),
+            )
+            conn.execute(
+                "UPDATE friend_requests SET status = 'accepted', updated_at = ? WHERE id = ?",
+                (now_iso, int(reciprocal["id"])),
+            )
+            conn.commit()
+            return MessageOut(detail="Friend request accepted. You are now friends.")
+
+        existing = conn.execute(
+            "SELECT id, status FROM friend_requests WHERE from_user_id = ? AND to_user_id = ?",
+            (from_user_id, target_user_id),
+        ).fetchone()
+        now_iso = utc_now_iso()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO friend_requests (from_user_id, to_user_id, status, message, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+                (from_user_id, target_user_id, payload.message, now_iso, now_iso),
+            )
+        else:
+            if str(existing["status"]) == "pending":
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Friend request already pending")
+            conn.execute(
+                "UPDATE friend_requests SET status = 'pending', message = ?, updated_at = ? WHERE id = ?",
+                (payload.message, now_iso, int(existing["id"])),
+            )
+        _create_notification(
+            conn,
+            target_user_id,
+            "friend_request",
+            "New friend request",
+            f"{current_user['username']} sent you a friend request.",
+            {"from_user_id": from_user_id},
+        )
+        conn.commit()
+    return MessageOut(detail="Friend request sent.")
+
+
+@app.get("/players/me/friend-requests", response_model=FriendRequestsResponseOut)
+def list_my_friend_requests(current_user: sqlite3.Row = Depends(resolve_current_user)) -> FriendRequestsResponseOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        incoming_rows = conn.execute(
+            """
+            SELECT fr.id, fr.from_user_id, fu.username AS from_username, fu.display_name AS from_display_name,
+                   fr.to_user_id, tu.username AS to_username, tu.display_name AS to_display_name,
+                   fr.status, fr.message, fr.created_at, fr.updated_at
+            FROM friend_requests fr
+            JOIN users fu ON fu.id = fr.from_user_id
+            JOIN users tu ON tu.id = fr.to_user_id
+            WHERE fr.to_user_id = ? AND fr.status = 'pending'
+            ORDER BY fr.updated_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+        outgoing_rows = conn.execute(
+            """
+            SELECT fr.id, fr.from_user_id, fu.username AS from_username, fu.display_name AS from_display_name,
+                   fr.to_user_id, tu.username AS to_username, tu.display_name AS to_display_name,
+                   fr.status, fr.message, fr.created_at, fr.updated_at
+            FROM friend_requests fr
+            JOIN users fu ON fu.id = fr.from_user_id
+            JOIN users tu ON tu.id = fr.to_user_id
+            WHERE fr.from_user_id = ? AND fr.status = 'pending'
+            ORDER BY fr.updated_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+    return FriendRequestsResponseOut(
+        incoming=[_serialize_friend_request(r) for r in incoming_rows],
+        outgoing=[_serialize_friend_request(r) for r in outgoing_rows],
+    )
+
+
+@app.post("/friend-requests/{request_id}/accept", response_model=MessageOut)
+def accept_friend_request(request_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        req = conn.execute(
+            "SELECT id, from_user_id, to_user_id, status FROM friend_requests WHERE id = ?",
+            (request_id,),
+        ).fetchone()
+        if req is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Friend request not found")
+        if int(req["to_user_id"]) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your friend request")
+        if str(req["status"]) != "pending":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Friend request already handled")
+
+        now_iso = utc_now_iso()
+        from_user_id = int(req["from_user_id"])
+        conn.execute(
+            "INSERT OR IGNORE INTO friendships (user_id, friend_user_id, created_at) VALUES (?, ?, ?)",
+            (from_user_id, user_id, now_iso),
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO friendships (user_id, friend_user_id, created_at) VALUES (?, ?, ?)",
+            (user_id, from_user_id, now_iso),
+        )
+        conn.execute("UPDATE friend_requests SET status = 'accepted', updated_at = ? WHERE id = ?", (now_iso, request_id))
+        _create_notification(
+            conn,
+            from_user_id,
+            "friend_request_accepted",
+            "Friend request accepted",
+            f"{current_user['username']} accepted your friend request.",
+            {"user_id": user_id},
+        )
+        conn.commit()
+    return MessageOut(detail="Friend request accepted.")
+
+
+@app.post("/friend-requests/{request_id}/reject", response_model=MessageOut)
+def reject_friend_request(request_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        req = conn.execute(
+            "SELECT id, to_user_id, status FROM friend_requests WHERE id = ?",
+            (request_id,),
+        ).fetchone()
+        if req is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Friend request not found")
+        if int(req["to_user_id"]) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your friend request")
+        if str(req["status"]) != "pending":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Friend request already handled")
+        conn.execute("UPDATE friend_requests SET status = 'rejected', updated_at = ? WHERE id = ?", (utc_now_iso(), request_id))
+        conn.commit()
+    return MessageOut(detail="Friend request rejected.")
+
+
+@app.post("/players/{target_user_id}/follow", response_model=FollowStateOut)
+def follow_player(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> FollowStateOut:
+    follower_id = int(current_user["id"])
+    if follower_id == target_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot follow yourself")
+    with get_conn() as conn:
+        target = conn.execute("SELECT id FROM users WHERE id = ?", (target_user_id,)).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+        conn.execute(
+            "INSERT OR IGNORE INTO player_follows (follower_user_id, target_user_id, created_at) VALUES (?, ?, ?)",
+            (follower_id, target_user_id, utc_now_iso()),
+        )
+        conn.commit()
+    return FollowStateOut(following=True)
+
+
+@app.delete("/players/{target_user_id}/follow", response_model=FollowStateOut)
+def unfollow_player(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> FollowStateOut:
+    follower_id = int(current_user["id"])
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM player_follows WHERE follower_user_id = ? AND target_user_id = ?",
+            (follower_id, target_user_id),
+        )
+        conn.commit()
+    return FollowStateOut(following=False)
 
 
 @app.post("/leagues/{league_id}/leave", response_model=MessageOut)
@@ -2656,12 +3307,45 @@ def get_league_detail(league_id: int, current_user: sqlite3.Row = Depends(resolv
     user_id = int(current_user["id"])
     with get_conn() as conn:
         league_row = fetch_league_for_user(conn, league_id, user_id)
+        if league_row is None and str(current_user["role"] or "") == "admin":
+            league_row = conn.execute(
+                """
+                SELECT
+                    l.id,
+                    l.name,
+                    l.football_type,
+                    l.goal_size,
+                    l.region,
+                    l.invite_code,
+                    l.description,
+                    l.fee_type,
+                    l.fee_value,
+                    l.match_presets_json,
+                    l.rating_config_json,
+                    l.approval_status,
+                    l.approved_at,
+                    l.approval_note,
+                    l.owner_id,
+                    l.created_at,
+                    l.auto_accept_members,
+                    'admin' AS member_role,
+                    owner.username AS owner_username,
+                    (SELECT COUNT(*) FROM league_memberships AS member_count_source WHERE member_count_source.league_id = l.id) AS member_count
+                FROM leagues AS l
+                JOIN users AS owner ON owner.id = l.owner_id
+                WHERE l.id = ?
+                """,
+                (league_id,),
+            ).fetchone()
         if league_row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
         members = [serialize_member(row) for row in fetch_league_members(conn, league_id)]
-        membership = require_membership(conn, league_id, user_id)
+        membership = conn.execute(
+            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
         invites: list[LeagueInviteOut] = []
-        if membership["role"] in {"owner", "admin"}:
+        if (membership is not None and membership["role"] in {"owner", "admin"}) or str(current_user["role"] or "") == "admin":
             invites = [serialize_invite(row) for row in fetch_league_invites(conn, league_id)]
     return LeagueDetailOut(league=serialize_league(league_row), members=members, invites=invites)
 
@@ -3383,6 +4067,7 @@ def admin_list_users(current_admin: sqlite3.Row = Depends(resolve_current_admin)
             display_name=r["display_name"],
             role=str(r["role"]),
             recovery_id=(str(r["recovery_id"]) if r["recovery_id"] is not None else None),
+            recovery_token=(str(r["recovery_id"]) if r["recovery_id"] is not None else None),
             is_active=bool(int(r["is_active"] or 0)),
             terminated_at=(str(r["terminated_at"]) if r["terminated_at"] is not None else None),
             created_at=str(r["created_at"]),
@@ -3404,9 +4089,10 @@ def admin_list_leagues(current_admin: sqlite3.Row = Depends(resolve_current_admi
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT l.id, l.name, l.football_type, l.goal_size, l.region, l.description,
+                 SELECT l.id, l.name, l.football_type, l.goal_size, l.region, l.description,
                    l.owner_id, owner.username AS owner_username,
-                   l.approval_status, l.approved_at, l.approval_note, l.created_at, l.updated_at,
+                     l.approval_status, l.approved_at, l.approval_note,
+                     l.terminated_until, l.created_at, l.updated_at,
                    (SELECT COUNT(*) FROM league_memberships AS lm WHERE lm.league_id = l.id) AS member_count
             FROM leagues AS l
             JOIN users AS owner ON owner.id = l.owner_id
@@ -3414,25 +4100,40 @@ def admin_list_leagues(current_admin: sqlite3.Row = Depends(resolve_current_admi
                      l.created_at DESC, l.id DESC
             """
         ).fetchall()
-    return [
-        AdminLeagueOut(
-            id=int(r["id"]),
-            name=str(r["name"]),
-            football_type=str(r["football_type"]),
-            goal_size=str(r["goal_size"]),
-            region=str(r["region"] or "Unknown"),
-            description=r["description"],
-            owner_id=int(r["owner_id"]),
-            owner_username=str(r["owner_username"]),
-            member_count=int(r["member_count"] or 0),
-            approval_status=str(r["approval_status"] or "approved"),
-            approved_at=(str(r["approved_at"]) if r["approved_at"] is not None else None),
-            approval_note=(str(r["approval_note"]) if r["approval_note"] is not None else None),
-            created_at=str(r["created_at"]),
-            updated_at=str(r["updated_at"]),
+    out: list[AdminLeagueOut] = []
+    now = utc_now()
+    for r in rows:
+        terminated_until_text = str(r["terminated_until"]) if r["terminated_until"] is not None else None
+        is_terminated = False
+        if terminated_until_text:
+            try:
+                term_dt = datetime.fromisoformat(terminated_until_text)
+                if term_dt.tzinfo is None:
+                    term_dt = term_dt.replace(tzinfo=timezone.utc)
+                is_terminated = now < term_dt
+            except Exception:
+                is_terminated = False
+        out.append(
+            AdminLeagueOut(
+                id=int(r["id"]),
+                name=str(r["name"]),
+                football_type=str(r["football_type"]),
+                goal_size=str(r["goal_size"]),
+                region=str(r["region"] or "Unknown"),
+                description=r["description"],
+                owner_id=int(r["owner_id"]),
+                owner_username=str(r["owner_username"]),
+                member_count=int(r["member_count"] or 0),
+                approval_status=str(r["approval_status"] or "approved"),
+                approved_at=(str(r["approved_at"]) if r["approved_at"] is not None else None),
+                approval_note=(str(r["approval_note"]) if r["approval_note"] is not None else None),
+                terminated_until=terminated_until_text,
+                is_terminated=is_terminated,
+                created_at=str(r["created_at"]),
+                updated_at=str(r["updated_at"]),
+            )
         )
-        for r in rows
-    ]
+    return out
 
 
 @app.patch("/admin/leagues/{league_id}/approval", response_model=MessageOut)
@@ -3458,6 +4159,67 @@ def admin_update_league_approval(
     return MessageOut(detail=f"League '{league['name']}' marked as {payload.status}.")
 
 
+@app.post("/admin/leagues/{league_id}/terminate-temporary", response_model=MessageOut)
+def admin_temporarily_terminate_league(
+    league_id: int,
+    payload: AdminLeagueTemporaryTerminatePayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> MessageOut:
+    try:
+        until_dt = datetime.fromisoformat(payload.until)
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
+        if until_dt <= utc_now():
+            raise ValueError
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="until must be a future ISO datetime")
+
+    with get_conn() as conn:
+        league = conn.execute("SELECT id, name FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        if league is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        conn.execute(
+            "UPDATE leagues SET terminated_until = ?, termination_note = ?, terminated_by_user_id = ?, updated_at = ? WHERE id = ?",
+            (until_dt.isoformat(), payload.note, int(current_admin["id"]), utc_now_iso(), league_id),
+        )
+        conn.commit()
+    return MessageOut(detail=f"League '{league['name']}' terminated until {until_dt.isoformat()}.")
+
+
+@app.post("/admin/leagues/{league_id}/unterminate", response_model=MessageOut)
+def admin_unterminate_league(
+    league_id: int,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> MessageOut:
+    with get_conn() as conn:
+        league = conn.execute("SELECT id, name FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        if league is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        conn.execute(
+            "UPDATE leagues SET terminated_until = NULL, termination_note = NULL, terminated_by_user_id = NULL, updated_at = ? WHERE id = ?",
+            (utc_now_iso(), league_id),
+        )
+        conn.commit()
+    return MessageOut(detail=f"League '{league['name']}' is active again.")
+
+
+@app.delete("/admin/leagues/{league_id}/terminate-permanent", response_model=MessageOut)
+def admin_permanently_terminate_league(
+    league_id: int,
+    payload: AdminLeaguePermanentTerminatePayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> MessageOut:
+    if not payload.confirm:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="confirm=true is required for permanent termination")
+    with get_conn() as conn:
+        league = conn.execute("SELECT id, name FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        if league is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        conn.execute("DELETE FROM leagues WHERE id = ?", (league_id,))
+        conn.commit()
+    return MessageOut(detail=f"League '{league['name']}' permanently deleted.")
+
+
 @app.post("/admin/users/{user_id}/force-password-reset", response_model=AdminPasswordResetOut)
 def admin_force_password_reset(
     user_id: int,
@@ -3478,6 +4240,15 @@ def admin_force_password_reset(
         conn.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user_id,))
         conn.commit()
     return AdminPasswordResetOut(detail=f"Password reset for {user['username']}.", password=new_password)
+
+
+@app.post("/admin/users/{user_id}/reset-password", response_model=AdminPasswordResetOut)
+def admin_reset_password_alias(
+    user_id: int,
+    payload: AdminPasswordResetPayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> AdminPasswordResetOut:
+    return admin_force_password_reset(user_id, payload, current_admin)
 
 
 @app.post("/admin/users/{user_id}/block", response_model=MessageOut)
@@ -3597,6 +4368,7 @@ def discover_leagues(
         where_clauses = [
             "l.id NOT IN (SELECT league_id FROM league_memberships WHERE user_id = ?)",
             "COALESCE(l.approval_status, 'approved') = 'approved'",
+            "(l.terminated_until IS NULL OR datetime(l.terminated_until) <= datetime('now'))",
         ]
         if region and region.strip():
             where_clauses.append("LOWER(l.region) = LOWER(?)")
@@ -4816,6 +5588,16 @@ def register_for_match(match_id: int, current_user: sqlite3.Row = Depends(resolv
                     "INSERT INTO match_registrations (match_id, user_id, status, position, registered_at) VALUES (?, ?, 'registered', ?, ?)",
                     (match_id, user_id, pos, now_iso),
                 )
+            _notify_player_fans(
+                conn,
+                player_user_id=user_id,
+                league_id=int(row["league_id"]),
+                notif_type="fan_player_registered",
+                title="Followed player registered",
+                message=f"{current_user['username']} registered for '{row['title']}'.",
+                data={"match_id": match_id, "league_id": int(row["league_id"]), "player_user_id": user_id},
+                exclude_user_ids={user_id},
+            )
             conn.commit()
             return MessageOut(detail="You are registered for the match.")
         else:
@@ -5012,6 +5794,21 @@ def start_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
             """,
             (DEFAULT_GLOBAL_RATING, int(row["league_id"]), DEFAULT_GLOBAL_RATING, match_id),
         )
+
+        participant_ids = {int(uid) for uid in team_a + team_b}
+        for pid in participant_ids:
+            player_row = conn.execute("SELECT username FROM users WHERE id = ?", (pid,)).fetchone()
+            player_name = str(player_row["username"]) if player_row is not None else f"Player {pid}"
+            _notify_player_fans(
+                conn,
+                player_user_id=pid,
+                league_id=int(row["league_id"]),
+                notif_type="fan_player_started_match",
+                title="Followed player started a match",
+                message=f"{player_name} is now live in '{row['title']}'.",
+                data={"match_id": match_id, "league_id": int(row["league_id"]), "player_user_id": pid},
+                exclude_user_ids=participant_ids,
+            )
         conn.commit()
 
     return get_match_detail(match_id, current_user)
@@ -5027,6 +5824,13 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         require_league_manager(conn, int(row["league_id"]), user_id)
         if str(row["status"]) not in {"live", "finished"}:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Events can only be edited while match is live or finished")
+        if str(row["status"]) == "live":
+            last_marker = conn.execute(
+                "SELECT event_type FROM match_events WHERE match_id = ? AND event_type IN ('pause','resume') AND undone = 0 ORDER BY event_seconds DESC, created_at DESC LIMIT 1",
+                (match_id,),
+            ).fetchone()
+            if last_marker is not None and str(last_marker["event_type"]) == "pause":
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot log events while match is paused")
 
         started_at = row["started_at"]
         if payload.event_seconds is not None:
@@ -5118,6 +5922,32 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
                 (match_id, payload.assist_user_id, payload.team, elapsed_seconds, now_iso),
             )
 
+        if event_type == "yellow_card" and actor_user_id is not None:
+            yellow_count_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM match_events WHERE match_id = ? AND user_id = ? AND event_type = 'yellow_card' AND undone = 0",
+                (match_id, actor_user_id),
+            ).fetchone()
+            yellow_count = int(yellow_count_row["c"] or 0) if yellow_count_row is not None else 0
+            if yellow_count >= 2:
+                conn.execute(
+                    "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'red_card', ?, ?, ?, ?, 0)",
+                    (match_id, actor_user_id, score_team, elapsed_seconds, now_iso),
+                )
+
+        if actor_user_id is not None and event_type not in {"pause", "resume"}:
+            actor_row = conn.execute("SELECT username FROM users WHERE id = ?", (actor_user_id,)).fetchone()
+            actor_name = str(actor_row["username"]) if actor_row is not None else f"Player {actor_user_id}"
+            _notify_player_fans(
+                conn,
+                player_user_id=actor_user_id,
+                league_id=int(row["league_id"]),
+                notif_type="fan_player_match_event",
+                title="Followed player had a match event",
+                message=f"{actor_name}: {event_type.replace('_', ' ')} in '{row['title']}'.",
+                data={"match_id": match_id, "league_id": int(row["league_id"]), "player_user_id": actor_user_id, "event_type": event_type},
+                exclude_user_ids={actor_user_id},
+            )
+
         conn.commit()
 
         scorer_username = conn.execute("SELECT username FROM users WHERE id = ?", (actor_user_id,)).fetchone() if actor_user_id is not None else None
@@ -5175,6 +6005,26 @@ def pause_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
         created_at=now_iso,
         undone=False,
     )
+
+
+@app.patch("/matches/{match_id}/visibility", response_model=MatchDetailOut)
+def update_match_visibility(
+    match_id: int,
+    payload: MatchVisibilityPayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MatchDetailOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = _fetch_match_row(conn, match_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        require_league_manager(conn, int(row["league_id"]), user_id)
+        conn.execute(
+            "UPDATE matches SET visibility = ?, updated_at = ? WHERE id = ?",
+            (payload.visibility, utc_now_iso(), match_id),
+        )
+        conn.commit()
+    return get_match_detail(match_id, current_user)
 
 
 @app.post("/matches/{match_id}/resume", response_model=MatchEventOut, status_code=status.HTTP_201_CREATED)

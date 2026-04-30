@@ -1034,13 +1034,11 @@
 
                         <section class="panel-card" id="resetSection" style="display:none;">
                             <h2 class="section-title">Forgot your password?</h2>
-                            <p class="subtle">Enter your recovery ID. Email can still be used as a fallback.</p>
+                            <p class="subtle">Enter your recovery token to request a reset token.</p>
                             <p class="hint" style="margin-top:6px;">If the token is forgotten, contact league.manager.admin@protonmail.com.</p>
                             <form class="stack" id="resetRequestForm" style="margin-top: 12px; margin-bottom: 14px;">
-                                <label for="resetRecoveryId">Recovery ID</label>
-                                <input id="resetRecoveryId" name="recoveryId" type="text" minlength="6" maxlength="32" placeholder="RST-XXXXXXXX">
-                                <label for="resetEmail">Email (optional fallback)</label>
-                                <input id="resetEmail" name="email" type="email">
+                                <label for="resetRecoveryToken">Recovery Token</label>
+                                <input id="resetRecoveryToken" name="recoveryToken" type="text" minlength="19" maxlength="19" placeholder="1234-5678-9012-3456" required>
                                 <button class="ghost" type="submit">Send reset token</button>
                             </form>
                             <div id="resetTokenPanel" style="display: none;">
@@ -2025,16 +2023,15 @@
         resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
-                const recoveryId = resetRequestForm.recoveryId.value.trim();
-                const email = resetRequestForm.email.value.trim();
-                if (!recoveryId && !email) {
-                    showStatus("Enter your recovery ID or email.", "error");
+                const recoveryToken = resetRequestForm.recoveryToken.value.trim();
+                if (!recoveryToken) {
+                    showStatus("Enter your recovery token.", "error");
                     return;
                 }
                 const response = await apiFetch("/auth/password-reset-request", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ recovery_id: recoveryId || null, email: email || null })
+                    body: JSON.stringify({ recovery_token: recoveryToken })
                 });
                 resetTokenPanel.style.display = "block";
                 showStatus(response.detail || "Reset token requested.", "ok");
@@ -2045,13 +2042,12 @@
 
         resetForm.addEventListener("submit", async (event) => {
             event.preventDefault();
-            const email = resetRequestForm.email.value.trim();
-            const recoveryId = resetRequestForm.recoveryId.value.trim();
+            const recoveryToken = resetRequestForm.recoveryToken.value.trim();
             const token = resetForm.token.value.trim();
             const newPassword = resetForm.newPassword.value;
             const passwordRepeat = resetForm.passwordRepeat.value;
-            if (!email && !recoveryId) {
-                showStatus("Enter the recovery information used for the reset request.", "error");
+            if (!recoveryToken) {
+                showStatus("Enter the recovery token used for the reset request.", "error");
                 return;
             }
             if (newPassword.length < 6) {
@@ -2066,7 +2062,7 @@
                 const response = await apiFetch("/auth/password-reset", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: email || null, recovery_id: recoveryId || null, token, new_password: newPassword })
+                    body: JSON.stringify({ recovery_token: recoveryToken, token, new_password: newPassword })
                 });
                 resetForm.reset();
                 resetTokenPanel.style.display = "none";

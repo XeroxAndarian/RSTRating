@@ -467,6 +467,7 @@
       }
 
       if (isAdmin()) {
+        btns.push(`<button class="btn ghost" data-act="toggle-vis">${m.visibility === "private" ? "🌐 Public" : "🔒 Private"}</button>`);
         if (m.status === "upcoming") {
           btns.push('<button class="btn primary" data-act="open-reg">Open registration</button>');
         }
@@ -521,7 +522,7 @@
       const pMap = participantsMap();
       const teamA = draft.teamA.length ? draft.teamA : (m.team_a || []);
       const teamB = draft.teamB.length ? draft.teamB : (m.team_b || []);
-      const liveControls = isAdmin() && (m.status === "live" || (m.status === "finished" && editingEvents));
+      const liveControls = isAdmin() && ((m.status === "live" && !isMatchPaused()) || (m.status === "finished" && editingEvents));
       const playerStats = computePlayerStats();
 
       const mkPlayers = (ids, team) => ids.map((uid) => {
@@ -582,6 +583,7 @@
     function renderEvents(){
       const rows = teamEventsMap();
       const canEdit = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
+      const isPaused = detail.match.status === "live" && isMatchPaused();
       eventLogEl.innerHTML = rows.map((row) => {
         const left = row.team === "a" ? row.text : "";
         const right = row.team === "b" ? row.text : "";
@@ -590,7 +592,7 @@
         return `<div class="log-row" style="${undoBtn ? "padding-right:58px;" : ""}"><div class="log-left">${left}</div><div class="log-time">${row.time}</div><div class="log-right">${right}</div>${undoBtn}</div>`;
       }).join("") || '<div class="item muted">No events</div>';
 
-      const showGoalButtons = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
+      const showGoalButtons = isAdmin() && ((detail.match.status === "live" && !isPaused) || (detail.match.status === "finished" && editingEvents));
       goalBtnA.style.display = showGoalButtons ? "inline-flex" : "none";
       goalBtnB.style.display = showGoalButtons ? "inline-flex" : "none";
       cornerBtnA.style.display = (showGoalButtons && detail.match.corners_enabled) ? "inline-flex" : "none";
@@ -603,7 +605,7 @@
       subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
       stateEl.textContent = statusLabel(m.status);
       stateEl.className = `pill ${m.status === "live" ? "state-live" : "state-" + m.status}`;
-      viewTagEl.textContent = (m.visibility === "private" ? "private" : "public");
+      viewTagEl.textContent = (m.visibility === "private" ? "🔒 private" : "🌐 public");
       scoreEl.textContent = `${m.score_a} - ${m.score_b}`;
       teamAHeader.textContent = m.team_a_name || "Team A";
       teamBHeader.textContent = m.team_b_name || "Team B";
@@ -723,19 +725,19 @@
               viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin" : "normal";
             } catch {
               leagueRole = null;
-              viewMode = "censored";
+              viewMode = detail.match.visibility === "public" ? "normal" : "censored";
             }
           } catch (authErr) {
             // User is logged in but not a member - try as public
             detail = await publicFetch(`/matches/${matchId}`);
             leagueRole = null;
-            viewMode = "censored";
+            viewMode = detail.match.visibility === "public" ? "normal" : "censored";
           }
         } else {
           // Not logged in - outsider view
           detail = await publicFetch(`/matches/${matchId}`);
           leagueRole = null;
-          viewMode = "censored";
+          viewMode = detail.match.visibility === "public" ? "normal" : "censored";
         }
 
         if (!editingTeams) {
@@ -799,6 +801,14 @@
           if (act === "finish") await apiFetch(`/matches/${m.id}/finish`, { method: "POST" });
           if (act === "confirm") await apiFetch(`/matches/${m.id}/confirm`, { method: "POST" });
           if (act === "cancel") await apiFetch(`/matches/${m.id}/cancel`, { method: "POST" });
+          if (act === "toggle-vis") {
+            const next = m.visibility === "private" ? "public" : "private";
+            await apiFetch(`/matches/${m.id}/visibility`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ visibility: next }),
+            });
+          }
           await load();
         } catch (err) {
           show(err.message || "Action failed.", "error");
@@ -829,10 +839,14 @@
 
       const liveBtn = e.target.closest("[data-live]");
       if (liveBtn && detail) {
+        if (detail.match.status === "live" && isMatchPaused()) {
+          show("Match is paused. Resume before logging events.", "error");
+          return;
+        }
         const eventType = liveBtn.dataset.live;
         const team = liveBtn.dataset.team;
         const player = Number(liveBtn.dataset.player || 0);
-        if (player && ["injury", "yellow_card", "red_card"].includes(eventType)) {
+        if (player && ["injury", "yellow_card", "red_card", "offside", "foul"].includes(eventType)) {
           try {
             const payload = { event_type: eventType, team, player_user_id: player };
             if (editingEvents && detail.match.status === "finished") {

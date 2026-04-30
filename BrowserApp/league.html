@@ -56,6 +56,12 @@
     .reg-open { background:var(--accent); color:#fff; }
     .reg-opens-label { font-size:.78rem; color:var(--muted); }
     .preset-quick { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+    .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:860px){ .stats-grid { grid-template-columns:1fr; } }
+    .stats-box { border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--card); }
+    .mini { font-size:.8rem; color:var(--muted); }
+    .chart-wrap { width:100%; overflow-x:auto; }
+    .chart { width:100%; height:160px; display:block; }
   </style>
 </head>
 <body>
@@ -94,21 +100,50 @@
         <div class="card">
           <div class="row" style="justify-content:space-between;margin-bottom:10px;">
             <h2 style="margin:0;">Player stats</h2>
-            <span class="muted" style="font-size:.82rem;">General + seasons</span>
+            <span class="muted" style="font-size:.82rem;">All time + seasons</span>
           </div>
           <div id="seasonManager" style="display:none;margin-bottom:10px;">
             <div class="row" style="justify-content:flex-start;gap:8px;">
               <select id="seasonSelect" style="max-width:280px;"></select>
               <button type="button" class="btn ghost sm" id="activateSeasonBtn">Activate season</button>
-            </div>
-            <div class="row" style="justify-content:flex-start;gap:8px;margin-top:8px;">
-              <input id="newSeasonInput" type="text" maxlength="80" placeholder="New season name" style="max-width:280px;">
-              <input id="newSeasonStartInput" type="datetime-local" style="max-width:220px;" title="Season start">
-              <input id="newSeasonEndInput" type="datetime-local" style="max-width:220px;" title="Season end">
-              <button type="button" class="btn ghost sm" id="createSeasonBtn">Create season</button>
+              <a class="btn ghost sm" id="createSeasonPageBtn" href="#">+ Create season page</a>
             </div>
           </div>
-          <div id="statsTabs" class="row" style="justify-content:flex-start;gap:6px;margin-bottom:8px;"></div>
+          <div class="row" style="justify-content:flex-start;gap:8px;margin-bottom:8px;">
+            <label for="statsScopeSelect" class="mini">Scope</label>
+            <select id="statsScopeSelect" style="max-width:340px;"></select>
+          </div>
+          <div class="stats-grid" style="margin-bottom:10px;">
+            <div class="stats-box">
+              <h3 style="margin:0 0 6px;font-size:.95rem;">Your performance</h3>
+              <div id="currentUserStats" class="mini">Sign in to view your data.</div>
+            </div>
+          var visPill = '<span class="pill">'+(mt.visibility==="private"?"🔒 private":"🌐 public")+'</span>';
+            <div class="stats-box">
+              <h3 style="margin:0 0 6px;font-size:.95rem;">History graph</h3>
+              <div class="chart-wrap" id="historyChartWrap"></div>
+            </div>
+          </div>
+
+          <h3 style="margin:0 0 8px;font-size:.95rem;">Scoreboard</h3>
+          <div style="overflow-x:auto; margin-bottom:10px;">
+            <table class="member-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>W-L-D</th>
+                  <th>Winrate</th>
+                  <th>G</th>
+                  <th>A</th>
+                  <th>LMMR</th>
+                  <th>SR</th>
+                </tr>
+              </thead>
+              <tbody id="scoreboardTbody"></tbody>
+            </table>
+          </div>
+
+          <h3 style="margin:0 0 8px;font-size:.95rem;">Detailed table</h3>
           <div style="overflow-x:auto;">
             <table class="member-table">
               <thead>
@@ -197,8 +232,9 @@
     var subtitleEl=document.getElementById("subtitle");
     var addMatchBtn=document.getElementById("addMatchBtn");
     var settingsBtn=document.getElementById("settingsBtn");
+    var statsScopeSelect=document.getElementById("statsScopeSelect");
 
-    var detail=null, matches=[], joinRequests=[], statsTabs=[], seasons=[];
+    var detail=null, matches=[], joinRequests=[], statsTabs=[], seasons=[], me=null;
     var activeStatsTabKey="general";
     var sortCol="rating", sortDir=-1;
 
@@ -227,12 +263,12 @@
     function renderMeta(){
       var lg=detail.league;
       var activeSeason=Array.isArray(seasons)?seasons.find(function(s){return !!s.is_active;}):null;
-      var seasonBadge="";
+      var seasonLine="";
       var approvalLine="";
       if(activeSeason){
-        var sStart=activeSeason.start_at?new Date(activeSeason.start_at).toLocaleDateString():"-";
-        var sEnd=activeSeason.end_at?new Date(activeSeason.end_at).toLocaleDateString():"...";
-        seasonBadge="<div><strong>Season:</strong> "+esc(activeSeason.name||"Current")+" <span class=\"pill\" style=\"font-size:.75rem;\">"+esc(sStart)+" – "+esc(sEnd)+"</span></div>";
+        var sStart=activeSeason.start_at?new Date(activeSeason.start_at).toLocaleString():"-";
+        var sEnd=activeSeason.end_at?new Date(activeSeason.end_at).toLocaleString():"...";
+        seasonLine="<div><strong>Season:</strong> "+esc(activeSeason.name||"Current")+" ("+esc(sStart)+" - "+esc(sEnd)+")</div>";
       }
       if(lg.approval_status && lg.approval_status !== "approved"){
         approvalLine="<div><strong>Status:</strong> <span class=\"pill\">"+esc(lg.approval_status)+(lg.approval_note?": "+esc(lg.approval_note):"")+"</span></div>";
@@ -245,7 +281,7 @@
         "<div><strong>Members:</strong> "+esc(lg.member_count)+"</div>"+
         "<div><strong>Created:</strong> "+esc((lg.created_at||"").slice(0,10))+"</div>"+
         approvalLine+
-        seasonBadge;
+        seasonLine;
     }
 
     function renderMatches(){
@@ -300,27 +336,136 @@
       }).join("");
     }
 
+    function getActiveStatsTab(){
+      if(!Array.isArray(statsTabs)||!statsTabs.length) return null;
+      var active=statsTabs.find(function(t){return t.key===activeStatsTabKey;});
+      return active||statsTabs[0];
+    }
+
+    function computeWldForUser(userId){
+      var tab=getActiveStatsTab();
+      var tabKey=tab?String(tab.key||"general"):"general";
+      var selectedSeasonId=tabKey.startsWith("season-")?Number(tabKey.split("-")[1]||0):0;
+      var season=selectedSeasonId?seasons.find(function(s){return Number(s.id)===selectedSeasonId;}):null;
+      var start=season&&season.start_at?new Date(season.start_at).getTime():null;
+      var end=season&&season.end_at?new Date(season.end_at).getTime():null;
+
+      var wins=0, losses=0, draws=0;
+      matches.forEach(function(m){
+        if(!(m.status==="completed"||m.status==="finished")) return;
+        var when=m.scheduled_at?new Date(m.scheduled_at).getTime():0;
+        if(start!==null && when<start) return;
+        if(end!==null && when>=end) return;
+        var teamA=Array.isArray(m.team_a_players)?m.team_a_players:[];
+        var teamB=Array.isArray(m.team_b_players)?m.team_b_players:[];
+        var inA=teamA.some(function(p){return Number(p.user_id)===Number(userId);});
+        var inB=teamB.some(function(p){return Number(p.user_id)===Number(userId);});
+        if(!inA && !inB) return;
+        var a=Number(m.score_a||0), b=Number(m.score_b||0);
+        if(a===b){ draws++; return; }
+        var won=(inA && a>b) || (inB && b>a);
+        if(won) wins++; else losses++;
+      });
+      return {wins:wins, losses:losses, draws:draws};
+    }
+
+    function renderScoreboard(rows){
+      var tbody=document.getElementById("scoreboardTbody");
+      if(!tbody) return;
+      if(!rows.length){
+        tbody.innerHTML='<tr><td colspan="7" class="muted">No players.</td></tr>';
+        return;
+      }
+      var items=rows.map(function(r){
+        var wld=computeWldForUser(r.user_id);
+        var played=wld.wins+wld.losses+wld.draws;
+        var wr=played?Math.round((wld.wins/played)*100):0;
+        return { row:r, wld:wld, wr:wr };
+      });
+      items.sort(function(a,b){ return Number(b.row.sr_points||0)-Number(a.row.sr_points||0); });
+      tbody.innerHTML=items.map(function(it){
+        var r=it.row;
+        return "<tr><td class=\"mt-name\">"+esc(r.display_name||r.username)+"</td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
+      }).join("");
+    }
+
+    function renderHistoryGraph(){
+      var wrap=document.getElementById("historyChartWrap");
+      if(!wrap) return;
+      if(!me){ wrap.innerHTML='<div class="mini">Sign in to view your season trend.</div>'; return; }
+
+      var seasonTabs=statsTabs.filter(function(t){ return String(t.key||"").startsWith("season-"); });
+      if(!seasonTabs.length){ wrap.innerHTML='<div class="mini">No season history yet.</div>'; return; }
+
+      var points=[];
+      seasonTabs.forEach(function(tab){
+        var r=(Array.isArray(tab.rows)?tab.rows:[]).find(function(x){ return Number(x.user_id)===Number(me.id); });
+        if(!r) return;
+        points.push({ label: tab.label, value: Number(r.sr_points||0) });
+      });
+      if(!points.length){ wrap.innerHTML='<div class="mini">No personal season data yet.</div>'; return; }
+
+      var min=Math.min.apply(null, points.map(function(p){return p.value;}));
+      var max=Math.max.apply(null, points.map(function(p){return p.value;}));
+      var span=Math.max(1, max-min);
+      var width=560, height=150, pad=18;
+      var coords=points.map(function(p, i){
+        var x=pad + (points.length===1?0:(i*(width-2*pad)/(points.length-1)));
+        var y=height-pad - ((p.value-min)/span)*(height-2*pad);
+        return {x:x,y:y,label:p.label,value:p.value};
+      });
+      var poly=coords.map(function(c){return c.x+","+c.y;}).join(" ");
+      var marks=coords.map(function(c){ return '<circle cx="'+c.x+'" cy="'+c.y+'" r="3" fill="currentColor"></circle>'; }).join("");
+      var labels=coords.map(function(c){ return '<text x="'+c.x+'" y="'+(height-2)+'" text-anchor="middle" font-size="10" fill="currentColor">'+esc(c.label)+'</text>'; }).join("");
+      wrap.innerHTML =
+        '<svg viewBox="0 0 '+width+' '+height+'" class="chart" aria-label="SR history">'+
+          '<line x1="'+pad+'" y1="'+(height-pad)+'" x2="'+(width-pad)+'" y2="'+(height-pad)+'" stroke="currentColor" opacity=".3"></line>'+
+          '<polyline points="'+poly+'" fill="none" stroke="currentColor" stroke-width="2"></polyline>'+
+          marks + labels +
+        '</svg>';
+    }
+
     function renderStatsTabs(){
-      var tabsEl=document.getElementById("statsTabs");
       var bodyEl=document.getElementById("statsTbody");
-      if(!tabsEl||!bodyEl) return;
+      if(!bodyEl) return;
       if(!Array.isArray(statsTabs)||!statsTabs.length){
-        tabsEl.innerHTML="";
+        if(statsScopeSelect) statsScopeSelect.innerHTML='';
+        var currentUserStats=document.getElementById("currentUserStats");
+        if(currentUserStats) currentUserStats.textContent='No stats available yet.';
+        renderScoreboard([]);
+        renderHistoryGraph();
         bodyEl.innerHTML='<tr><td colspan="7" class="muted">No stats available yet.</td></tr>';
         return;
       }
       if(!statsTabs.find(function(t){return t.key===activeStatsTabKey;})) activeStatsTabKey=statsTabs[0].key;
-      tabsEl.innerHTML=statsTabs.map(function(tab){
-        var cls=(tab.key===activeStatsTabKey)?"btn primary sm":"btn ghost sm";
-        return '<button type="button" class="'+cls+'" data-stat-tab="'+esc(tab.key)+'">'+esc(tab.label)+'</button>';
-      }).join("");
+      if(statsScopeSelect){
+        statsScopeSelect.innerHTML=statsTabs.map(function(tab){
+          return '<option value="'+esc(tab.key)+'">'+esc(tab.label)+'</option>';
+        }).join("");
+        statsScopeSelect.value=activeStatsTabKey;
+      }
 
-      var active=statsTabs.find(function(t){return t.key===activeStatsTabKey;})||statsTabs[0];
+      var active=getActiveStatsTab();
       var rows=Array.isArray(active.rows)?active.rows:[];
       bodyEl.innerHTML=rows.map(function(r){
         var wr=(Number(r.attendance||0)>0)?Math.round(100*Number(r.wins||0)/Number(r.attendance||0)):0;
         return "<tr><td class=\"mt-name\">"+esc(r.display_name||r.username)+"</td><td>"+esc(r.attendance||0)+"</td><td>"+esc(r.wins||0)+" ("+wr+"%)</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
       }).join("") || '<tr><td colspan="7" class="muted">No players.</td></tr>';
+
+      var currentUserStats=document.getElementById("currentUserStats");
+      if(currentUserStats){
+        var meRow=me?rows.find(function(r){ return Number(r.user_id)===Number(me.id); }):null;
+        if(meRow){
+          var meWld=computeWldForUser(me.id);
+          var played=meWld.wins+meWld.losses+meWld.draws;
+          var meWr=played?Math.round((meWld.wins/played)*100):0;
+          currentUserStats.innerHTML='Att '+esc(meRow.attendance||0)+' | W-L-D '+meWld.wins+'-'+meWld.losses+'-'+meWld.draws+' | Winrate '+meWr+'% | G '+esc(meRow.goals||0)+' | A '+esc(meRow.assists||0)+' | LMMR '+Math.round(Number(meRow.lmmr||0))+' | SR '+Math.round(Number(meRow.sr_points||0));
+        } else {
+          currentUserStats.textContent='You have no entries for this scope yet.';
+        }
+      }
+      renderScoreboard(rows);
+      renderHistoryGraph();
     }
 
     function renderSeasonManager(){
@@ -342,6 +487,8 @@
       }).join("");
       var active=items.find(function(s){return !!s.is_active;});
       if(active) select.value=String(active.id);
+      var createBtn=document.getElementById("createSeasonPageBtn");
+      if(createBtn) createBtn.href="./create_season.html?league_id="+leagueId;
     }
 
     function renderMembers(){
@@ -426,28 +573,18 @@
         try{await apiFetch("/leagues/"+leagueId+"/seasons/"+sid+"/activate",{method:"POST"});await load();show("Season activated.");}catch(err){show(err.message||"Failed.","error");}
         return;
       }
-      var createBtn=e.target.closest("#createSeasonBtn");
-      if(createBtn){
-        var nm=((document.getElementById("newSeasonInput")||{}).value||"").trim();
-        var startRaw=((document.getElementById("newSeasonStartInput")||{}).value||"").trim();
-        var endRaw=((document.getElementById("newSeasonEndInput")||{}).value||"").trim();
-        if(!nm){show("Season name is required.","error");return;}
-        if(!startRaw||!endRaw){show("Set both season start and end.","error");return;}
-        var startIso=new Date(startRaw).toISOString();
-        var endIso=new Date(endRaw).toISOString();
-        if(new Date(endIso)<=new Date(startIso)){show("Season end must be after start.","error");return;}
-        var shouldActivate=new Date(startIso)<=new Date()&&new Date()<new Date(endIso);
-        try{
-          await apiFetch("/leagues/"+leagueId+"/seasons",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:nm,start_at:startIso,end_at:endIso,activate:shouldActivate})});
-          if(document.getElementById("newSeasonInput"))document.getElementById("newSeasonInput").value="";
-          if(document.getElementById("newSeasonStartInput"))document.getElementById("newSeasonStartInput").value="";
-          if(document.getElementById("newSeasonEndInput"))document.getElementById("newSeasonEndInput").value="";
-          await load();
-          show(shouldActivate?"Season created and activated.":"Season scheduled.");
-        }catch(err){show(err.message||"Failed.","error");}
-        return;
+      var createSeasonLink=e.target.closest("#createSeasonPageBtn");
+      if(createSeasonLink){
+        createSeasonLink.href="./create_season.html?league_id="+leagueId;
       }
     });
+
+    if(statsScopeSelect){
+      statsScopeSelect.addEventListener("change", function(){
+        activeStatsTabKey = statsScopeSelect.value || "general";
+        renderStatsTabs();
+      });
+    }
 
     async function load(){
       if(!leagueId){show("Missing league id.","error");return;}
@@ -455,6 +592,7 @@
       try{
         var results=await Promise.all([
           apiFetch("/leagues/"+leagueId),
+          apiFetch("/auth/me").catch(function(){return null;}),
           apiFetch("/leagues/"+leagueId+"/matches"),
           apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(){return[];}),
           apiFetch("/leagues/"+leagueId+"/seasons").catch(function(){return[];}),
@@ -462,12 +600,13 @@
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
         ]);
         detail=results[0];
-        matches=Array.isArray(results[1])?results[1]:[];
-        statsTabs=Array.isArray(results[2])?results[2]:[];
-        seasons=Array.isArray(results[3])?results[3]:[];
-        joinRequests=Array.isArray(results[4])?results[4]:[];
+        me=results[1]||null;
+        matches=Array.isArray(results[2])?results[2]:[];
+        statsTabs=Array.isArray(results[3])?results[3]:[];
+        seasons=Array.isArray(results[4])?results[4]:[];
+        joinRequests=Array.isArray(results[5])?results[5]:[];
         render();
-        var notifs=Array.isArray(results[5])?results[5]:(results[5]&&results[5].items||[]);
+        var notifs=Array.isArray(results[6])?results[6]:(results[6]&&results[6].items||[]);
         renderAnnouncements(notifs);
       }catch(err){
         show(err.message||"Failed loading league.","error");
