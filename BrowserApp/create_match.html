@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <title>Create Match | EARLY ACCESSS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -97,6 +100,25 @@
           <a class="btn ghost" id="backLeagueLink" href="./index.html">Back</a>
         </div>
       </form>
+
+      <!-- Pre-match lineup builder -->
+      <details id="lineupBuilderSection" style="margin-top:14px;">
+        <summary style="cursor:pointer;font-weight:700;padding:10px 0;user-select:none;">⚽ Pre-assign players to teams (optional)</summary>
+        <div style="margin-top:10px;">
+          <p style="font-size:.88rem;color:var(--muted);margin:0 0 10px;">Optionally pre-assign league members to Team A and Team B before creating the match.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-weight:700;margin-bottom:6px;">Team A</div>
+              <div id="teamAList" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+            <div>
+              <div style="font-weight:700;margin-bottom:6px;">Team B</div>
+              <div id="teamBList" style="display:flex;flex-direction:column;gap=6px;"></div>
+            </div>
+          </div>
+          <div id="lineupMemberPool" style="margin-top:12px;"></div>
+        </div>
+      </details>
       <div class="status" id="status"></div>
     </div>
   </div>
@@ -258,6 +280,48 @@
       } catch (err) {
         show(err.message || "Could not load league.", "error");
       }
+
+      // Load lineup builder members
+      try {
+        const mResp = await apiFetch(`/leagues/${leagueId}/members`);
+        const members = Array.isArray(mResp) ? mResp : (Array.isArray(mResp.members) ? mResp.members : []);
+        const pool = document.getElementById("lineupMemberPool");
+        const teamAList = document.getElementById("teamAList");
+        const teamBList = document.getElementById("teamBList");
+        if (!pool || !members.length) { if(pool) pool.textContent = "No members found."; }
+        else {
+          pool.innerHTML = "<div style=\"font-size:.82rem;color:var(--muted);margin-bottom:6px;\">Click a member to assign to a team:</div>" +
+            members.map(m => `<button type="button" class="btn ghost lineup-pool-chip" data-uid="${m.user_id}" data-name="${esc(m.display_name || m.username)}" style="margin:2px;font-size:.82rem;">${esc(m.display_name || m.username)}</button>`).join("");
+          pool.addEventListener("click", e => {
+            const chip = e.target.closest(".lineup-pool-chip");
+            if (!chip) return;
+            const uid = chip.dataset.uid;
+            const name = chip.dataset.name;
+            const alreadyA = document.querySelector(`.lineup-chip[data-team='A'][data-uid='${uid}']`);
+            const alreadyB = document.querySelector(`.lineup-chip[data-team='B'][data-uid='${uid}']`);
+            if (alreadyA || alreadyB) {
+              // remove from whichever team
+              if (alreadyA) alreadyA.remove();
+              if (alreadyB) alreadyB.remove();
+              chip.style.opacity = "1";
+              return;
+            }
+            const countA = teamAList.querySelectorAll(".lineup-chip").length;
+            const countB = teamBList.querySelectorAll(".lineup-chip").length;
+            const target = countA <= countB ? teamAList : teamBList;
+            const team = countA <= countB ? "A" : "B";
+            const assignedChip = document.createElement("div");
+            assignedChip.className = "lineup-chip";
+            assignedChip.dataset.uid = uid;
+            assignedChip.dataset.team = team;
+            assignedChip.style.cssText = "display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--panel-soft);border:1px solid var(--line);border-radius:7px;font-size:.82rem;";
+            assignedChip.innerHTML = esc(name) + ` <button type="button" style="border:none;background:none;cursor:pointer;color:var(--danger);padding:0;font-size:.9rem;" title="Remove">&times;</button>`;
+            assignedChip.querySelector("button").addEventListener("click", () => { assignedChip.remove(); chip.style.opacity = "1"; });
+            target.appendChild(assignedChip);
+            chip.style.opacity = "0.4";
+          });
+        }
+      } catch {}
     })();
 
     document.getElementById("form").addEventListener("submit", async (e) => {
@@ -278,6 +342,11 @@
           corners_enabled: document.getElementById("corners_enabled").checked,
           fouls_enabled: document.getElementById("fouls_enabled").checked,
         };
+        // Include pre-assigned lineup if any
+        const teamAIds = Array.from(document.querySelectorAll(".lineup-chip[data-team='A']")).map(el => Number(el.dataset.uid)).filter(Boolean);
+        const teamBIds = Array.from(document.querySelectorAll(".lineup-chip[data-team='B']")).map(el => Number(el.dataset.uid)).filter(Boolean);
+        if (teamAIds.length) payload.team_a_player_ids = teamAIds;
+        if (teamBIds.length) payload.team_b_player_ids = teamBIds;
         const match = await apiFetch(`/leagues/${leagueId}/matches`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <title>League Settings | EARLY ACCESSS</title>
   <style>
     :root {
@@ -658,7 +661,8 @@
                 const endLbl = s.end_at ? new Date(s.end_at).toLocaleString() : "-";
                 const activeBadge = s.is_active ? '<span class="pill">Current</span>' : '';
                 const activateBtn = s.is_active ? '' : `<button type="button" class="btn ghost sm activateSeasonBtn" data-season-id="${Number(s.id)}">Activate</button>`;
-                return `<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong>${esc(s.name || ("Season " + s.id))}</strong> ${activeBadge}<div class="muted" style="font-size:.82rem;">${esc(startLbl)} - ${esc(endLbl)}</div></div><div>${activateBtn}</div></div>`;
+                const closeBtn = !s.end_at || (s.is_active) ? `<button type="button" class="btn ghost sm closeSeasonBtn" data-season-id="${Number(s.id)}" style="color:var(--danger);">Close</button>` : '';
+                return `<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong>${esc(s.name || ("Season " + s.id))}</strong> ${activeBadge}<div class="muted" style="font-size:.82rem;">${esc(startLbl)} - ${esc(endLbl)}</div></div><div style="display:flex;gap:6px;">${activateBtn}${closeBtn}</div></div>`;
               }).join("")
             : '<div class="muted">No seasons yet.</div>';
         }
@@ -746,16 +750,31 @@
     });
 
     document.getElementById("seasonList")?.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".activateSeasonBtn");
-      if (!btn) return;
-      const sid = Number(btn.dataset.seasonId || 0);
-      if (!sid) return;
-      try {
-        await apiFetch(`/leagues/${leagueId}/seasons/${sid}/activate`, { method: "POST" });
-        show("Season activated.", "", "seasonStatus");
-        await load();
-      } catch (err) {
-        show(err.message || "Failed to activate season.", "error", "seasonStatus");
+      const activateBtn = e.target.closest(".activateSeasonBtn");
+      if (activateBtn) {
+        const sid = Number(activateBtn.dataset.seasonId || 0);
+        if (!sid) return;
+        try {
+          await apiFetch(`/leagues/${leagueId}/seasons/${sid}/activate`, { method: "POST" });
+          show("Season activated.", "", "seasonStatus");
+          await load();
+        } catch (err) {
+          show(err.message || "Failed to activate season.", "error", "seasonStatus");
+        }
+        return;
+      }
+      const closeBtn = e.target.closest(".closeSeasonBtn");
+      if (closeBtn) {
+        const sid = Number(closeBtn.dataset.seasonId || 0);
+        if (!sid) return;
+        if (!confirm("Close this season? This marks it as ended and it cannot be re-opened.")) return;
+        try {
+          await apiFetch(`/leagues/${leagueId}/seasons/${sid}/close`, { method: "POST" });
+          show("Season closed.", "", "seasonStatus");
+          await load();
+        } catch (err) {
+          show(err.message || "Failed to close season.", "error", "seasonStatus");
+        }
       }
     });
 

@@ -1,8 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <title>League | EARLY ACCESSS</title>
   <style>
     :root {
@@ -94,6 +97,13 @@
           <div>
             <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Scheduled</div>
             <div id="upcomingMatches"><p class="muted">No upcoming matches.</p></div>
+          </div>
+          <div id="matchHistorySection" style="display:none;margin-top:14px;">
+            <div class="row" style="justify-content:space-between;margin-bottom:6px;">
+              <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Match history</div>
+              <button type="button" class="btn ghost sm" id="historyToggleBtn" style="font-size:.78rem;">Show all</button>
+            </div>
+            <div id="matchHistoryList"></div>
           </div>
         </div>
 
@@ -310,12 +320,35 @@
 
       var lastSec=document.getElementById("lastMatchSection");
       var lastEl=document.getElementById("lastMatch");
+      var histSec=document.getElementById("matchHistorySection");
+      var histList=document.getElementById("matchHistoryList");
       if(completed.length){
         var mt=completed[0];
         lastSec.style.display="block";
-        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mt.score_a ?? "?")+" \u2013 "+esc(mt.score_b ?? "?")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
+        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mt.score_a ?? \"?\")+" \u2013 "+esc(mt.score_b ?? \"?\")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
       } else {
         lastSec.style.display="none";
+      }
+      // Match history list
+      var HISTORY_PREVIEW=3;
+      var historyExpanded=false;
+      function renderHistoryItems(){
+        if(!completed.length){histSec.style.display="none";return;}
+        histSec.style.display="block";
+        var items=historyExpanded?completed:completed.slice(0,HISTORY_PREVIEW);
+        histList.innerHTML=items.map(function(m){
+          return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(m.title)+"</strong><span class=\"pill\">"+esc(m.score_a ?? \"?\")+" \u2013 "+esc(m.score_b ?? \"?\")+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(m.scheduled_at))+(m.location?" \u00B7 "+esc(m.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+m.id+"\">Details</a></div></div>";
+        }).join("");
+        var btn=document.getElementById("historyToggleBtn");
+        if(btn){
+          btn.style.display=completed.length>HISTORY_PREVIEW?"":"none";
+          btn.textContent=historyExpanded?"Show less":"Show all ("+completed.length+")";
+        }
+      }
+      renderHistoryItems();
+      var toggleBtn=document.getElementById("historyToggleBtn");
+      if(toggleBtn){
+        toggleBtn.onclick=function(){historyExpanded=!historyExpanded;renderHistoryItems();};
       }
 
       var upEl=document.getElementById("upcomingMatches");
@@ -385,7 +418,7 @@
       items.sort(function(a,b){ return Number(b.row.sr_points||0)-Number(a.row.sr_points||0); });
       tbody.innerHTML=items.map(function(it){
         var r=it.row;
-        return "<tr><td class=\"mt-name\">"+esc(r.display_name||r.username)+"</td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
+        return "<tr><td class=\"mt-name\"><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
       }).join("");
     }
 
@@ -449,7 +482,7 @@
       var rows=Array.isArray(active.rows)?active.rows:[];
       bodyEl.innerHTML=rows.map(function(r){
         var wr=(Number(r.attendance||0)>0)?Math.round(100*Number(r.wins||0)/Number(r.attendance||0)):0;
-        return "<tr><td class=\"mt-name\">"+esc(r.display_name||r.username)+"</td><td>"+esc(r.attendance||0)+"</td><td>"+esc(r.wins||0)+" ("+wr+"%)</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
+        return "<tr><td class=\"mt-name\"><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+esc(r.attendance||0)+"</td><td>"+esc(r.wins||0)+" ("+wr+"%)</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
       }).join("") || '<tr><td colspan="7" class="muted">No players.</td></tr>';
 
       var currentUserStats=document.getElementById("currentUserStats");

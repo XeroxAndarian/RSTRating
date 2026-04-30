@@ -1,0 +1,191 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <title>Account Settings | EARLY ACCESS</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Roboto","Segoe UI",sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); min-height:100vh; }
+    .wrap { max-width:620px; margin:0 auto; padding:24px 16px 40px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:18px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:14px; }
+    h2 { margin:0 0 14px; font-size:1.05rem; }
+    .field { margin-bottom:14px; }
+    .field label { display:block; font-weight:700; font-size:.88rem; margin-bottom:5px; }
+    .field input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:var(--panel-soft); color:var(--text); font:inherit; }
+    .field input:disabled { opacity:.5; cursor:not-allowed; }
+    .btn { border:none; border-radius:9px; padding:9px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .muted { color:var(--muted); }
+    .status { min-height:18px; font-size:.88rem; color:var(--muted); margin-top:8px; }
+    .status.error { color:var(--danger); }
+    .status.ok { color:var(--accent); }
+    .hint { font-size:.8rem; color:var(--muted); margin-top:4px; }
+    .avatar { width:64px; height:64px; border-radius:50%; background:var(--accent); color:#fff; font-size:1.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">Account Settings</h1>
+        <div class="muted" style="font-size:.88rem;margin-top:2px;">Update your profile and credentials.</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn ghost" href="./lobby.html">← Lobby</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="avatar" id="avatarEl">?</div>
+      <div id="profileSummary" class="muted" style="font-size:.88rem;margin-bottom:8px;">Loading...</div>
+
+      <h2>Display name</h2>
+      <div class="field">
+        <label for="displayNameInput">Display name</label>
+        <input id="displayNameInput" type="text" maxlength="60" placeholder="Leave blank to use username">
+      </div>
+      <button class="btn primary" id="saveDisplayNameBtn" type="button">Save display name</button>
+      <div class="status" id="displayNameStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Change password</h2>
+      <div class="field">
+        <label for="currentPwInput">Current password</label>
+        <input id="currentPwInput" type="password" placeholder="Your current password" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="newPwInput">New password</label>
+        <input id="newPwInput" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+        <div class="hint">Leave blank to keep current password.</div>
+      </div>
+      <button class="btn primary" id="savePasswordBtn" type="button">Change password</button>
+      <div class="status" id="passwordStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Change email</h2>
+      <div class="field">
+        <label for="emailInput">New email address</label>
+        <input id="emailInput" type="email" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="emailPwInput">Current password (required to change email)</label>
+        <input id="emailPwInput" type="password" placeholder="Your current password" autocomplete="current-password">
+      </div>
+      <button class="btn primary" id="saveEmailBtn" type="button">Change email</button>
+      <div class="status" id="emailStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Account info</h2>
+      <div id="accountInfo" class="muted" style="font-size:.88rem;line-height:1.6;">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark"); })();
+    const darkBtn = document.getElementById("darkModeToggle");
+    function syncDark(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
+    syncDark();
+    darkBtn.addEventListener("click", () => {
+      const d = document.documentElement.getAttribute("data-theme") === "dark";
+      if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+      else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+      syncDark();
+    });
+
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    let me = null;
+
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function setStatus(id, msg, kind){ const el = document.getElementById(id); el.textContent = msg; el.className = kind ? "status " + kind : "status"; }
+
+    async function apiFetch(path, opts){
+      const headers = Object.assign({}, opts?.headers || {});
+      const tok = getToken(); if(tok) headers.Authorization = "Bearer " + tok;
+      const res = await fetch(getApiBase() + path, Object.assign({}, opts || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if(!res.ok) throw new Error((body && body.detail) || "Request failed");
+      return body;
+    }
+
+    function renderMe(user){
+      me = user;
+      const initials = (user.display_name || user.username || "?")[0].toUpperCase();
+      document.getElementById("avatarEl").textContent = initials;
+      document.getElementById("profileSummary").textContent = "@" + user.username + (user.display_name ? " · " + user.display_name : "");
+      document.getElementById("displayNameInput").value = user.display_name || "";
+      document.getElementById("accountInfo").innerHTML =
+        "<div><strong>Username:</strong> " + esc(user.username) + "</div>" +
+        "<div><strong>Email:</strong> " + esc(user.email || "—") + "</div>" +
+        "<div><strong>Role:</strong> " + esc(user.role || "member") + "</div>" +
+        "<div><strong>GMMR:</strong> " + Number(user.global_rating || 0).toFixed(1) + "</div>" +
+        "<div><strong>Recovery token:</strong> <span style=\"font-family:monospace;\">" + esc(user.recovery_token || user.recovery_id || "—") + "</span></div>";
+    }
+
+    document.getElementById("saveDisplayNameBtn").addEventListener("click", async () => {
+      const val = document.getElementById("displayNameInput").value.trim();
+      try {
+        const updated = await apiFetch("/auth/me", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ display_name: val || null }) });
+        renderMe(updated);
+        setStatus("displayNameStatus", "Display name updated.", "ok");
+      } catch(e){ setStatus("displayNameStatus", e.message || "Failed.", "error"); }
+    });
+
+    document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+      const cur = document.getElementById("currentPwInput").value;
+      const nw = document.getElementById("newPwInput").value;
+      if(!cur){ setStatus("passwordStatus", "Current password is required.", "error"); return; }
+      if(!nw){ setStatus("passwordStatus", "New password cannot be empty.", "error"); return; }
+      if(nw.length < 8){ setStatus("passwordStatus", "New password must be at least 8 characters.", "error"); return; }
+      try {
+        await apiFetch("/auth/me", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ current_password: cur, new_password: nw }) });
+        document.getElementById("currentPwInput").value = "";
+        document.getElementById("newPwInput").value = "";
+        setStatus("passwordStatus", "Password changed successfully.", "ok");
+      } catch(e){ setStatus("passwordStatus", e.message || "Failed.", "error"); }
+    });
+
+    document.getElementById("saveEmailBtn").addEventListener("click", async () => {
+      const email = document.getElementById("emailInput").value.trim();
+      const cur = document.getElementById("emailPwInput").value;
+      if(!email){ setStatus("emailStatus", "Email cannot be empty.", "error"); return; }
+      if(!cur){ setStatus("emailStatus", "Current password is required.", "error"); return; }
+      try {
+        const updated = await apiFetch("/auth/me", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email, current_password: cur }) });
+        renderMe(updated);
+        document.getElementById("emailInput").value = "";
+        document.getElementById("emailPwInput").value = "";
+        setStatus("emailStatus", "Email changed successfully.", "ok");
+      } catch(e){ setStatus("emailStatus", e.message || "Failed.", "error"); }
+    });
+
+    async function load(){
+      try {
+        const user = await apiFetch("/auth/me");
+        renderMe(user);
+      } catch(e){
+        document.getElementById("profileSummary").textContent = "Not signed in.";
+        document.getElementById("accountInfo").textContent = "Please sign in to manage your account.";
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

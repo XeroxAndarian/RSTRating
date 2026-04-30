@@ -1,0 +1,39 @@
+{
+  "name": "RST Rating",
+  "short_name": "RST",
+  "description": "Football league management and player rating platform.",
+  "start_url": "./lobby.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1f8a4c",
+  "background_color": "#e9f7ef",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Lobby",
+      "url": "./lobby.html",
+      "description": "Go to the main lobby"
+    },
+    {
+      "name": "Leaderboard",
+      "url": "./leaderboard.html",
+      "description": "View global leaderboard"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <title>Notifications | EARLY ACCESS</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Roboto","Segoe UI",sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); min-height:100vh; }
+    .wrap { max-width:760px; margin:0 auto; padding:24px 16px 40px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
+    .btn { border:none; border-radius:9px; padding:8px 12px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .muted { color:var(--muted); }
+    .notif { border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; background:var(--panel-soft); display:flex; gap:12px; align-items:flex-start; cursor:pointer; transition:background .12s; }
+    .notif:hover { background:var(--panel); }
+    .notif.unread { background:rgba(31,138,76,.08); border-color:rgba(31,138,76,.35); }
+    .notif .icon { font-size:1.5rem; flex-shrink:0; margin-top:2px; }
+    .notif .body { flex:1; min-width:0; }
+    .notif .n-title { font-weight:700; font-size:.95rem; }
+    .notif .n-msg { color:var(--muted); font-size:.85rem; margin-top:2px; }
+    .notif .n-time { color:var(--muted); font-size:.78rem; margin-top:4px; }
+    .notif .badge { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:6px; }
+    .empty { text-align:center; padding:40px 20px; color:var(--muted); }
+    .status { min-height:20px; color:var(--muted); font-size:.9rem; margin-top:8px; }
+    .status.error { color:var(--danger); }
+    .filter-bar { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+    .filter-btn { border:1px solid var(--line); background:var(--panel-soft); color:var(--text); border-radius:8px; padding:5px 12px; font:inherit; font-size:.84rem; cursor:pointer; font-weight:700; }
+    .filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">Notifications</h1>
+        <div class="muted" style="font-size:.88rem;margin-top:2px;">Activity related to you, your leagues and friends.</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn ghost" href="./lobby.html">← Lobby</a>
+        <button class="btn primary" id="markAllReadBtn" type="button">Mark all read</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="unread">Unread</button>
+      <button class="filter-btn" data-filter="match">Match</button>
+      <button class="filter-btn" data-filter="league">League</button>
+      <button class="filter-btn" data-filter="social">Social</button>
+    </div>
+
+    <div id="notifList"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark"); })();
+    const darkBtn = document.getElementById("darkModeToggle");
+    function syncDark(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
+    syncDark();
+    darkBtn.addEventListener("click", () => {
+      const d = document.documentElement.getAttribute("data-theme") === "dark";
+      if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+      else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+      syncDark();
+    });
+
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    let allNotifs = [];
+    let currentFilter = "all";
+
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function show(msg, kind){ const el = document.getElementById("status"); el.textContent = msg; el.className = kind ? "status "+kind : "status"; }
+
+    async function apiFetch(path, opts){
+      const headers = Object.assign({}, opts?.headers || {});
+      const tok = getToken(); if(tok) headers.Authorization = "Bearer " + tok;
+      const res = await fetch(getApiBase() + path, Object.assign({}, opts || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if(!res.ok) throw new Error((body && body.detail) || "Request failed");
+      return body;
+    }
+
+    const ICONS = {
+      match_started: "⚽", match_finished: "🏁", goal: "⚽", match_event: "📋",
+      friend_request: "👋", friend_accepted: "🤝", league_approved: "✅",
+      league_rejected: "❌", league_announcement: "📢", fan_event: "⭐"
+    };
+    function notifIcon(type){ return ICONS[type] || "🔔"; }
+    function notifCategory(type){
+      if(["match_started","match_finished","goal","match_event"].includes(type)) return "match";
+      if(["league_approved","league_rejected","league_announcement"].includes(type)) return "league";
+      if(["friend_request","friend_accepted","fan_event"].includes(type)) return "social";
+      return "other";
+    }
+    function timeAgo(iso){
+      const diff = Date.now() - new Date(iso).getTime();
+      if(diff < 60000) return "just now";
+      if(diff < 3600000) return Math.floor(diff/60000) + "m ago";
+      if(diff < 86400000) return Math.floor(diff/3600000) + "h ago";
+      return new Date(iso).toLocaleDateString();
+    }
+
+    function notifLink(n){
+      const d = n.data || {};
+      if(d.match_id) return "./match.html?id=" + d.match_id;
+      if(d.league_id) return "./league.html?id=" + d.league_id;
+      if(d.from_user_id) return "./player.html?id=" + d.from_user_id;
+      return null;
+    }
+
+    function renderNotifs(){
+      const list = document.getElementById("notifList");
+      let items = allNotifs;
+      if(currentFilter === "unread") items = items.filter(n => !n.read);
+      else if(currentFilter === "match") items = items.filter(n => notifCategory(n.notif_type) === "match");
+      else if(currentFilter === "league") items = items.filter(n => notifCategory(n.notif_type) === "league");
+      else if(currentFilter === "social") items = items.filter(n => notifCategory(n.notif_type) === "social");
+
+      if(!items.length){
+        list.innerHTML = '<div class="empty"><div style="font-size:2.5rem;">🔔</div><div style="margin-top:8px;">No notifications here.</div></div>';
+        return;
+      }
+      list.innerHTML = items.map(n =>
+        `<div class="notif${n.read ? "" : " unread"}" data-id="${n.id}" data-link="${esc(notifLink(n) || "")}">
+          <div class="icon">${notifIcon(n.notif_type)}</div>
+          <div class="body">
+            <div class="n-title">${esc(n.title)}</div>
+            <div class="n-msg">${esc(n.message)}</div>
+            <div class="n-time">${timeAgo(n.created_at)}</div>
+          </div>
+          ${n.read ? "" : '<div class="badge"></div>'}
+        </div>`
+      ).join("");
+    }
+
+    document.getElementById("notifList").addEventListener("click", async (e) => {
+      const item = e.target.closest(".notif");
+      if(!item) return;
+      const id = Number(item.dataset.id);
+      const link = item.dataset.link;
+      // Mark as read
+      if(!item.classList.contains("unread-done")){
+        item.classList.remove("unread");
+        item.classList.add("unread-done");
+        const n = allNotifs.find(x => x.id === id);
+        if(n) n.read = true;
+        try { await apiFetch("/notifications/" + id + "/read", { method:"PATCH" }); } catch {}
+      }
+      if(link) window.location.href = link;
+    });
+
+    document.getElementById("markAllReadBtn").addEventListener("click", async () => {
+      try {
+        await apiFetch("/notifications/read-all", { method:"PATCH" });
+        allNotifs.forEach(n => n.read = true);
+        renderNotifs();
+        show("All notifications marked as read.");
+      } catch(e){ show(e.message || "Failed.", "error"); }
+    });
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        renderNotifs();
+      });
+    });
+
+    async function load(){
+      try {
+        allNotifs = await apiFetch("/notifications");
+        renderNotifs();
+      } catch(e){ show(e.message || "Failed to load notifications.", "error"); }
+    }
+
+    load();
+  </script>
+</body>
+</html>

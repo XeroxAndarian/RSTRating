@@ -1,0 +1,186 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <title>Global Leaderboard | EARLY ACCESS</title>
+  <style>
+    :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
+    [data-theme="dark"] { --bg:#0e1714; --panel:#16241f; --panel-soft:#1b2d27; --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --danger:#ef6f66; --line:rgba(231,245,238,.2); --bg-a:#101b17; --bg-b:#0b1411; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Roboto","Segoe UI",sans-serif; background:linear-gradient(135deg,var(--bg-a),var(--bg-b)); color:var(--text); min-height:100vh; }
+    .wrap { max-width:860px; margin:0 auto; padding:24px 16px 40px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; }
+    .btn { border:none; border-radius:9px; padding:8px 12px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+    .btn.primary { background:var(--accent); color:#fff; }
+    .btn.ghost { background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .muted { color:var(--muted); }
+    input[type=search], input[type=text] { padding:9px 12px; border:1px solid var(--line); border-radius:9px; background:var(--panel-soft); color:var(--text); font:inherit; min-width:220px; }
+    table { width:100%; border-collapse:collapse; margin-top:4px; }
+    thead th { text-align:left; padding:8px 10px; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:2px solid var(--line); white-space:nowrap; }
+    tbody tr { border-bottom:1px solid var(--line); cursor:pointer; transition:background .1s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:rgba(31,138,76,.06); }
+    td { padding:10px 10px; font-size:.92rem; }
+    td.rank { font-weight:700; color:var(--muted); width:50px; }
+    td.rank.gold { color:#d4af37; }
+    td.rank.silver { color:#aaa; }
+    td.rank.bronze { color:#cd7f32; }
+    td.name { font-weight:700; }
+    td.name a { color:var(--accent); text-decoration:none; }
+    td.name a:hover { text-decoration:underline; }
+    td.mmr { font-weight:700; font-family:ui-monospace,monospace; }
+    .me-row { background:rgba(31,138,76,.12) !important; }
+    .status { min-height:20px; color:var(--muted); font-size:.88rem; margin-top:8px; }
+    .status.error { color:var(--danger); }
+    .pager { display:flex; gap:8px; margin-top:14px; justify-content:center; align-items:center; }
+    .pager .page-info { color:var(--muted); font-size:.88rem; }
+    .medal { font-size:1.1rem; }
+    .search-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">🏆 Global Leaderboard</h1>
+        <div class="muted" style="font-size:.88rem;margin-top:2px;">Ranked by Global Match & Match Rating (GMMR).</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn ghost" href="./lobby.html">← Lobby</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="search-row">
+        <input type="search" id="searchInput" placeholder="Search by name..." autocomplete="off">
+        <button class="btn primary" id="searchBtn" type="button">Search</button>
+        <button class="btn ghost" id="clearBtn" type="button" style="display:none;">Clear</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>GMMR</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="pager" id="pager" style="display:none;">
+        <button class="btn ghost" id="prevBtn" type="button">← Prev</button>
+        <span class="page-info" id="pageInfo">Page 1</span>
+        <button class="btn ghost" id="nextBtn" type="button">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark"); })();
+    const darkBtn = document.getElementById("darkModeToggle");
+    function syncDark(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
+    syncDark();
+    darkBtn.addEventListener("click", () => {
+      const d = document.documentElement.getAttribute("data-theme") === "dark";
+      if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+      else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+      syncDark();
+    });
+
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    const LIMIT = 50;
+    let page = 1;
+    let currentQ = "";
+    let meId = null;
+
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function show(msg, kind){ const el = document.getElementById("status"); el.textContent = msg; el.className = kind ? "status "+kind : "status"; }
+
+    async function apiFetch(path, opts){
+      const headers = Object.assign({}, opts?.headers || {});
+      const tok = getToken(); if(tok) headers.Authorization = "Bearer " + tok;
+      const res = await fetch(getApiBase() + path, Object.assign({}, opts || {}, { headers }));
+      let body = null; try { body = await res.json(); } catch {}
+      if(!res.ok) throw new Error((body && body.detail) || "Request failed");
+      return body;
+    }
+
+    function rankClass(r){ return r === 1 ? "rank gold" : r === 2 ? "rank silver" : r === 3 ? "rank bronze" : "rank"; }
+    function rankMedal(r){ return r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : ""; }
+
+    async function loadPage(){
+      show("Loading…");
+      const pager = document.getElementById("pager");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      try {
+        const params = new URLSearchParams({ page, limit: LIMIT });
+        if(currentQ) params.set("q", currentQ);
+        const rows = await apiFetch("/players/leaderboard?" + params);
+        const tbody = document.getElementById("tbody");
+        if(!rows.length && page === 1){
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;" class="muted">No players found.</td></tr>';
+          pager.style.display = "none";
+          show("");
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const isMe = meId && Number(r.id) === Number(meId);
+          const medal = rankMedal(r.rank);
+          return `<tr class="${isMe ? "me-row" : ""}" onclick="window.location.href='./player.html?id=${r.id}'">
+            <td class="${rankClass(r.rank)}">${medal || r.rank}</td>
+            <td class="name"><a href="./player.html?id=${r.id}" onclick="event.stopPropagation();">${esc(r.display_name || r.username)}</a>${r.display_name ? `<span class="muted" style="font-weight:normal;font-size:.82rem;"> @${esc(r.username)}</span>` : ""}</td>
+            <td class="mmr">${Number(r.global_rating).toFixed(1)}</td>
+          </tr>`;
+        }).join("");
+        show("");
+        pager.style.display = "flex";
+        document.getElementById("pageInfo").textContent = "Page " + page;
+        prevBtn.disabled = page <= 1;
+        nextBtn.disabled = rows.length < LIMIT;
+      } catch(e){ show(e.message || "Failed to load leaderboard.", "error"); }
+    }
+
+    document.getElementById("prevBtn").addEventListener("click", () => { if(page > 1){ page--; loadPage(); } });
+    document.getElementById("nextBtn").addEventListener("click", () => { page++; loadPage(); });
+
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      currentQ = document.getElementById("searchInput").value.trim();
+      page = 1;
+      document.getElementById("clearBtn").style.display = currentQ ? "" : "none";
+      loadPage();
+    });
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      document.getElementById("searchInput").value = "";
+      currentQ = "";
+      page = 1;
+      document.getElementById("clearBtn").style.display = "none";
+      loadPage();
+    });
+    document.getElementById("searchInput").addEventListener("keydown", (e) => {
+      if(e.key === "Enter") document.getElementById("searchBtn").click();
+    });
+
+    async function load(){
+      try { const u = await apiFetch("/auth/me"); meId = u.id; } catch {}
+      await loadPage();
+    }
+
+    load();
+  </script>
+</body>
+</html>

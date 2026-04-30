@@ -3190,6 +3190,53 @@ def reject_friend_request(request_id: int, current_user: sqlite3.Row = Depends(r
     return MessageOut(detail="Friend request rejected.")
 
 
+@app.get("/players/me/friends", response_model=list[PlayerSearchOut])
+def get_my_friends(current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[PlayerSearchOut]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.display_name, COALESCE(u.global_rating, 1000.0) AS global_rating
+            FROM friendships f
+            JOIN users u ON u.id = f.friend_user_id
+            WHERE f.user_id = ?
+            ORDER BY u.username
+            """,
+            (user_id,),
+        ).fetchall()
+        result = []
+        for r in rows:
+            result.append(PlayerSearchOut(
+                id=int(r["id"]),
+                username=str(r["username"]),
+                display_name=r["display_name"],
+                global_rating=float(r["global_rating"]),
+                is_friend=True,
+                has_pending_outgoing_request=False,
+                has_pending_incoming_request=False,
+                is_following=False,
+            ))
+    return result
+
+
+@app.delete("/players/{friend_user_id}/friendship", response_model=MessageOut)
+def remove_friendship(friend_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM friendships WHERE (user_id = ? AND friend_user_id = ?) OR (user_id = ? AND friend_user_id = ?)",
+            (user_id, friend_user_id, friend_user_id, user_id),
+        )
+        conn.execute(
+            """UPDATE friend_requests SET status = 'removed', updated_at = ?
+               WHERE ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+               AND status = 'accepted'""",
+            (utc_now_iso(), user_id, friend_user_id, friend_user_id, user_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Friendship removed.")
+
+
 @app.post("/players/{target_user_id}/follow", response_model=FollowStateOut)
 def follow_player(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> FollowStateOut:
     follower_id = int(current_user["id"])
@@ -6225,3 +6272,83 @@ def mark_notifications_read(current_user: sqlite3.Row = Depends(resolve_current_
         conn.execute("UPDATE notifications SET read = 1 WHERE user_id = ?", (user_id,))
         conn.commit()
     return MessageOut(detail="All notifications marked as read.")
+
+
+@app.patch("/notifications/{notification_id}/read", response_model=MessageOut)
+def mark_notification_read(notification_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        row = conn.execute("SELECT id, user_id FROM notifications WHERE id = ?", (notification_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+        if int(row["user_id"]) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your notification")
+        conn.execute("UPDATE notifications SET read = 1 WHERE id = ?", (notification_id,))
+        conn.commit()
+    return MessageOut(detail="Notification marked as read.")
+
+
+class LeaderboardPlayerOut(BaseModel):
+    id: int
+    username: str
+    display_name: str | None = None
+    global_rating: float
+    rank: int
+
+
+@app.get("/players/leaderboard", response_model=list[LeaderboardPlayerOut])
+def get_players_leaderboard(
+    q: str = "",
+    page: int = 1,
+    limit: int = 50,
+) -> list[LeaderboardPlayerOut]:
+    page = max(1, page)
+    limit = min(100, max(1, limit))
+    offset = (page - 1) * limit
+    with get_conn() as conn:
+        if q.strip():
+            rows = conn.execute(
+                """SELECT id, username, display_name, COALESCE(global_rating, 1000.0) AS global_rating,
+                   ROW_NUMBER() OVER (ORDER BY COALESCE(global_rating,1000.0) DESC) AS rank
+                   FROM users WHERE is_active = 1 AND role != 'admin'
+                   AND (LOWER(username) LIKE ? OR LOWER(COALESCE(display_name,'')) LIKE ?)
+                   ORDER BY global_rating DESC LIMIT ? OFFSET ?""",
+                (f"%{q.lower()}%", f"%{q.lower()}%", limit, offset),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT id, username, display_name, COALESCE(global_rating, 1000.0) AS global_rating,
+                   ROW_NUMBER() OVER (ORDER BY COALESCE(global_rating,1000.0) DESC) AS rank
+                   FROM users WHERE is_active = 1 AND role != 'admin'
+                   ORDER BY global_rating DESC LIMIT ? OFFSET ?""",
+                (limit, offset),
+            ).fetchall()
+    return [
+        LeaderboardPlayerOut(
+            id=int(r["id"]),
+            username=str(r["username"]),
+            display_name=r["display_name"],
+            global_rating=float(r["global_rating"]),
+            rank=int(r["rank"]),
+        )
+        for r in rows
+    ]
+
+
+@app.post("/leagues/{league_id}/seasons/{season_id}/close", response_model=MessageOut)
+def close_league_season(league_id: int, season_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        row = conn.execute(
+            "SELECT id, is_active FROM league_seasons WHERE id = ? AND league_id = ?",
+            (season_id, league_id),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+        conn.execute(
+            "UPDATE league_seasons SET is_active = 0, end_at = COALESCE(end_at, ?) WHERE id = ?",
+            (utc_now_iso(), season_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Season closed.")
+
