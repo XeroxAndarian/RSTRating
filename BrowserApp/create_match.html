@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
+  <script src="./toast.js"></script>
   <title>Create Match | EARLY ACCESSS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -165,7 +166,14 @@
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
-    function show(msg, kind) { statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
+    function show(msg, kind) {
+      statusEl.textContent = msg;
+      statusEl.className = kind ? `status ${kind}` : "status";
+      if (msg && window.showToast) {
+        const toastKind = kind === "error" ? "error" : (kind === "ok" ? "ok" : "info");
+        window.showToast(msg, toastKind);
+      }
+    }
     function setVisibility(v) {
       visibility = v === "private" ? "private" : "public";
       document.querySelectorAll("#visibilityRow .mode-chip").forEach(btn => {

@@ -3,7 +3,7 @@
  * Cache-first strategy for static HTML, JS, and CSS assets.
  */
 
-var CACHE_NAME = "rst-rating-v1";
+var CACHE_NAME = "rst-rating-v2";
 
 var PRECACHE_URLS = [
   "./lobby.html",
@@ -22,6 +22,7 @@ var PRECACHE_URLS = [
   "./invite.html",
   "./discover.html",
   "./preview.html",
+  "./palette.js",
   "./toast.js",
   "./manifest.json"
 ];
@@ -57,6 +58,26 @@ self.addEventListener("fetch", function (event) {
   if (url.hostname !== self.location.hostname && !url.hostname.includes("localhost")) return;
   // Skip API requests — let them go to network always
   if (url.pathname.startsWith("/api/") || url.port === "8000") return;
+
+  // For page navigations, prefer fresh network response and fall back to cache.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).then(function (response) {
+        if (response && response.status === 200 && response.type === "basic") {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) {
+            cache.put(event.request, clone);
+          });
+        }
+        return response;
+      }).catch(function () {
+        return caches.match(event.request).then(function (cached) {
+          return cached || caches.match("./lobby.html");
+        });
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then(function (cached) {
