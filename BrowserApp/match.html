@@ -128,8 +128,8 @@
       <div class="events-grid">
         <div class="events-col">
           <div class="row" style="justify-content:space-between;">
-            <div class="goal-side"><span id="eventsATitle">Team A</span><button class="btn primary icon-btn" id="goalBtnA" type="button" data-live="goal" data-team="a" title="Goal">⚽</button></div>
-            <div class="goal-side"><button class="btn primary icon-btn" id="goalBtnB" type="button" data-live="goal" data-team="b" title="Goal">⚽</button><span id="eventsBTitle">Team B</span></div>
+            <div class="goal-side"><span id="eventsATitle">Team A</span><button class="btn ghost icon-btn" id="cornerBtnA" type="button" data-live="corner" data-team="a" title="Corner">🏳️</button><button class="btn primary icon-btn" id="goalBtnA" type="button" data-live="goal" data-team="a" title="Goal">⚽</button></div>
+            <div class="goal-side"><button class="btn primary icon-btn" id="goalBtnB" type="button" data-live="goal" data-team="b" title="Goal">⚽</button><button class="btn ghost icon-btn" id="cornerBtnB" type="button" data-live="corner" data-team="b" title="Corner">🏳️</button><span id="eventsBTitle">Team B</span></div>
           </div>
           <div id="eventLog" class="log-list"></div>
         </div>
@@ -238,6 +238,8 @@
     const statusEl = document.getElementById("status");
     const goalBtnA = document.getElementById("goalBtnA");
     const goalBtnB = document.getElementById("goalBtnB");
+    const cornerBtnA = document.getElementById("cornerBtnA");
+    const cornerBtnB = document.getElementById("cornerBtnB");
 
     const ADJECTIVES = ["Swift", "Iron", "Bold", "Rapid", "Mighty", "Prime", "Fierce", "Royal", "Urban", "Classic"];
     const NOUNS = ["Falcons", "Titans", "Wolves", "Strikers", "United", "Rangers", "Storm", "Warriors", "Athletic", "Legends"];
@@ -363,6 +365,7 @@
       const teamBName = m?.team_b_name || "Team B";
 
       const rows = [];
+      const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
       events.forEach((e) => {
         if (e.event_type === "assist") return;
         const team = e.team === "b" ? "b" : "a";
@@ -371,31 +374,51 @@
         const min = minutesLabel(e.event_seconds);
         let text = "";
         if (isCensored()) {
-          if (e.event_type === "goal") text = `⚽ ${esc(teamName)} scored - ${min}`;
-          else if (e.event_type === "own_goal") text = `🥅 Own goal (${esc(teamName)}) - ${min}`;
-          else if (e.event_type === "injury") text = `🚑 Injury - ${min}`;
-          else if (e.event_type === "yellow_card") text = `🟨 Yellow card - ${min}`;
-          else if (e.event_type === "red_card") text = `🟥 Red card - ${min}`;
-          else if (e.event_type === "offside") text = `🚩 Offside - ${min}`;
-          else text = `${esc(e.event_type)} - ${min}`;
+          if (e.event_type === "goal") text = pick([`⚽ ${esc(teamName)} finish a flowing attack`, `⚽ ${esc(teamName)} convert from close range`, `⚽ ${esc(teamName)} break the deadlock`], e.id);
+          else if (e.event_type === "own_goal") text = pick([`🥅 Defensive mix-up gifts ${esc(teamName)} a goal`, `🥅 ${esc(teamName)} benefit from an own goal`], e.id);
+          else if (e.event_type === "injury") text = `🚑 Medical staff called for treatment`;
+          else if (e.event_type === "yellow_card") text = `🟨 Referee shows a yellow card`;
+          else if (e.event_type === "red_card") text = `🟥 Straight red shown after the challenge`;
+          else if (e.event_type === "offside") text = `🚩 Attack stopped for offside`;
+          else if (e.event_type === "corner") text = `🏳️ ${esc(teamName)} win a corner`;
+          else if (e.event_type === "foul") text = `🤚 Foul awarded to the opposition`;
+          else text = `${esc(e.event_type)}`;
         } else {
           if (e.event_type === "goal") {
             const assists = assistsByKey.get(key) || [];
             const assist = assists.shift();
-            const assistText = assist ? ` (${esc(playerName(assist.user_id))})` : "";
-            text = `⚽ ${esc(playerName(e.user_id))}${assistText} - ${min}`;
+            if (assist) {
+              text = pick([
+                `⚽ ${esc(playerName(e.user_id))} scores after a pass from ${esc(playerName(assist.user_id))}`,
+                `⚽ Brilliant link-up: ${esc(playerName(assist.user_id))} sets up ${esc(playerName(e.user_id))}`,
+                `⚽ ${esc(playerName(e.user_id))} finishes from ${esc(playerName(assist.user_id))}'s delivery`
+              ], e.id);
+            } else {
+              text = pick([
+                `⚽ ${esc(playerName(e.user_id))} finds the net`,
+                `⚽ ${esc(playerName(e.user_id))} strikes and scores`,
+                `⚽ ${esc(playerName(e.user_id))} makes it count`
+              ], e.id);
+            }
           } else if (e.event_type === "own_goal") {
-            text = `🥅 ${esc(playerName(e.user_id))} - ${min}`;
+            text = pick([
+              `🥅 ${esc(playerName(e.user_id))} turns it into their own net`,
+              `🥅 Unlucky touch from ${esc(playerName(e.user_id))} results in an own goal`
+            ], e.id);
           } else if (e.event_type === "injury") {
-            text = `🚑 ${esc(playerName(e.user_id))} - ${min}`;
+            text = `🚑 ${esc(playerName(e.user_id))} goes down and needs treatment`;
           } else if (e.event_type === "yellow_card") {
-            text = `🟨 ${esc(playerName(e.user_id))} - ${min}`;
+            text = `🟨 ${esc(playerName(e.user_id))} is booked by the referee`;
           } else if (e.event_type === "red_card") {
-            text = `🟥 ${esc(playerName(e.user_id))} - ${min}`;
+            text = `🟥 ${esc(playerName(e.user_id))} is sent off`;
           } else if (e.event_type === "offside") {
-            text = `🚩 ${esc(playerName(e.user_id))} - ${min}`;
+            text = `🚩 ${esc(playerName(e.user_id))} is caught offside`;
+          } else if (e.event_type === "corner") {
+            text = `🏳️ ${esc(teamName)} earn a corner kick`;
+          } else if (e.event_type === "foul") {
+            text = `🤚 ${esc(playerName(e.user_id))} commits a foul`;
           } else {
-            text = `${esc(e.event_type)} - ${min}`;
+            text = `${esc(e.event_type)}`;
           }
         }
         rows.push({ id: e.id, team: e.team, text, time: min, type: e.event_type, created_at: e.created_at });
@@ -521,9 +544,16 @@
         const cardsControls = (liveControls && m.cards_enabled) ? `<button class="btn ghost icon-btn" data-live="yellow_card" data-team="${team}" data-player="${uid}" title="Yellow card">🟨</button><button class="btn danger icon-btn" data-live="red_card" data-team="${team}" data-player="${uid}" title="Red card">🟥</button>` : "";
         const injuryControl = liveControls ? `<button class="btn ghost icon-btn" data-live="injury" data-team="${team}" data-player="${uid}" title="Injury">🚑</button>` : "";
         const offsideControl = (liveControls && m.offsides_enabled) ? `<button class="btn ghost icon-btn" data-live="offside" data-team="${team}" data-player="${uid}" title="Offside">🚩</button>` : "";
-        const controls = liveControls ? `<span class="player-actions">${injuryControl}${cardsControls}${offsideControl}</span>` : "";
+        const foulControl = (liveControls && m.fouls_enabled) ? `<button class="btn ghost icon-btn" data-live="foul" data-team="${team}" data-player="${uid}" title="Foul">🤚</button>` : "";
+        const controls = liveControls ? `<span class="player-actions">${injuryControl}${cardsControls}${offsideControl}${foulControl}</span>` : "";
         return `<div class="player-line"><span>${esc(name)}${rate}</span><span class="player-actions" style="align-items:center;">${statsHtml}${move}${controls}</span></div>`;
       }).join("") || '<div class="muted small">No players.</div>';
+
+      if (isCensored() && m.visibility === "private" && m.teams_confirmed) {
+        teamAPlayers.innerHTML = `<h4>${esc(m.team_a_name || "Team A")}</h4><div class="list"><div class="muted small">Teams are hidden as match is set to private.</div></div>`;
+        teamBPlayers.innerHTML = `<h4>${esc(m.team_b_name || "Team B")}</h4><div class="list"><div class="muted small">Teams are hidden as match is set to private.</div></div>`;
+        return;
+      }
 
       teamAPlayers.innerHTML = `<h4>${esc(m.team_a_name || "Team A")}</h4><div class="list">${mkPlayers(teamA, "a")}</div>`;
       teamBPlayers.innerHTML = `<h4>${esc(m.team_b_name || "Team B")}</h4><div class="list">${mkPlayers(teamB, "b")}</div>`;
@@ -563,6 +593,8 @@
       const showGoalButtons = isAdmin() && (detail.match.status === "live" || (detail.match.status === "finished" && editingEvents));
       goalBtnA.style.display = showGoalButtons ? "inline-flex" : "none";
       goalBtnB.style.display = showGoalButtons ? "inline-flex" : "none";
+      cornerBtnA.style.display = (showGoalButtons && detail.match.corners_enabled) ? "inline-flex" : "none";
+      cornerBtnB.style.display = (showGoalButtons && detail.match.corners_enabled) ? "inline-flex" : "none";
     }
 
     function render(){
@@ -641,7 +673,7 @@
       leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
 
       const hasTeams = hasGeneratedTeams(m);
-      const showRegistrations = ["registration_open", "registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status);
+      const showRegistrations = (m.status === "registration_open") || (m.status === "registration_closed" && !m.teams_confirmed);
       const showTeams = ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       const showEvents = ["live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       teamsCard.style.display = (showRegistrations || showTeams) ? "block" : "none";
@@ -842,6 +874,7 @@
       const normalGoalStep = document.getElementById("normalGoalStep");
       const ownGoalStep = document.getElementById("ownGoalStep");
       const assistRow = document.getElementById("assistRow");
+      const eventPlayerLabel = document.getElementById("eventPlayerLabel");
       const eventSeconds = document.getElementById("eventSeconds");
       const eventSecondsLabel = document.getElementById("eventSecondsLabel");
 
@@ -853,9 +886,10 @@
       // Default goal type to normal
       document.getElementById("goalTypeNormal").checked = true;
       goalTypeStep.style.display = isGoal ? "block" : "none";
-      normalGoalStep.style.display = "block";
+      normalGoalStep.style.display = pendingEvent.eventType === "corner" ? "none" : "block";
       ownGoalStep.style.display = "none";
       assistRow.style.display = isGoal ? "block" : "none";
+      eventPlayerLabel.textContent = pendingEvent.eventType === "foul" ? "Player committing foul" : "Player";
       assistToggle.checked = false;
       assistPlayer.style.display = "none";
       // Build assist list (excludes scorer - updated on scorer change)
@@ -911,7 +945,7 @@
           scorer_user_id: (!isOwnGoal && isGoal) ? eventPlayer : null,
           assist_user_id: assist || null,
           own_goal_user_id: ownGoalPlayerVal || null,
-          player_user_id: (!isGoal) ? eventPlayer : null,
+          player_user_id: (!isGoal && pendingEvent.eventType !== "corner") ? eventPlayer : null,
           event_seconds: (detail.match.status === "finished" && editingEvents) ? customSeconds : null,
         };
 

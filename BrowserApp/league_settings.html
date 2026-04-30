@@ -105,9 +105,35 @@
           <input id="settingAutoAccept" type="checkbox" style="width:auto;">
           <label for="settingAutoAccept" style="margin:0;font-weight:700;">Auto-accept new members</label>
         </div>
+        <div>
+          <label for="settingRatingConfig">Rating parameters (JSON)</label>
+          <textarea id="settingRatingConfig" rows="7" placeholder='{"sr_start_points":1000,"sr_goal_points":10,"sr_assist_points":6,"sr_own_goal_points":-2,"sr_win_points":20,"sr_draw_points":0,"sr_loss_points":-20}'></textarea>
+          <div class="muted" style="font-size:.8rem;margin-top:4px;">Editable per-league SR parameters. LMMR and GMMR remain derived from match stats.</div>
+        </div>
         <button class="btn primary" id="saveSettingsBtn" type="button" style="align-self:flex-start;">Save settings</button>
         <div class="status" id="settingsStatus"></div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom:10px;">Seasons</h2>
+      <div class="row" style="align-items:flex-end;">
+        <div style="flex:1;min-width:220px;">
+          <label for="newSeasonName">New season name</label>
+          <input id="newSeasonName" type="text" maxlength="80" placeholder="Season 2">
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <label for="newSeasonStart">Season start</label>
+          <input id="newSeasonStart" type="datetime-local">
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <label for="newSeasonEnd">Season end</label>
+          <input id="newSeasonEnd" type="datetime-local">
+        </div>
+        <button class="btn primary" id="createSeasonBtn" type="button">Create season</button>
+      </div>
+      <div id="seasonList" class="stack" style="margin-top:10px;"></div>
+      <div class="status" id="seasonStatus"></div>
     </div>
 
     <!-- Match presets -->
@@ -602,10 +628,11 @@
       if (!leagueId){ show("Missing league id.", "error"); return; }
       if (!getToken()){ show("Please sign in first.", "error"); return; }
       try {
-        const [det, invItems, banItems] = await Promise.all([
+        const [det, invItems, banItems, seasonsItems] = await Promise.all([
           apiFetch(`/leagues/${leagueId}`),
           apiFetch(`/leagues/${leagueId}/invites`).catch(() => []),
           apiFetch(`/leagues/${leagueId}/bans`).catch(() => []),
+          apiFetch(`/leagues/${leagueId}/seasons`).catch(() => []),
         ]);
         detail = det;
         allInvites = Array.isArray(invItems) ? invItems : (invItems?.invites || []);
@@ -619,8 +646,22 @@
         document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
         document.getElementById("settingFeeType").value = lg.fee_type || "none";
         document.getElementById("settingFeeValue").value = Number(lg.fee_value || 0);
+        document.getElementById("settingRatingConfig").value = JSON.stringify(lg.rating_config || {}, null, 2);
         matchPresets = Array.isArray(lg.match_presets) ? [...lg.match_presets] : [];
         renderSettingsPresetList();
+        const seasonItems = Array.isArray(seasonsItems) ? seasonsItems : [];
+        const seasonListEl = document.getElementById("seasonList");
+        if (seasonListEl) {
+          seasonListEl.innerHTML = seasonItems.length
+            ? seasonItems.map((s) => {
+                const startLbl = s.start_at ? new Date(s.start_at).toLocaleString() : "-";
+                const endLbl = s.end_at ? new Date(s.end_at).toLocaleString() : "-";
+                const activeBadge = s.is_active ? '<span class="pill">Current</span>' : '';
+                const activateBtn = s.is_active ? '' : `<button type="button" class="btn ghost sm activateSeasonBtn" data-season-id="${Number(s.id)}">Activate</button>`;
+                return `<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong>${esc(s.name || ("Season " + s.id))}</strong> ${activeBadge}<div class="muted" style="font-size:.82rem;">${esc(startLbl)} - ${esc(endLbl)}</div></div><div>${activateBtn}</div></div>`;
+              }).join("")
+            : '<div class="muted">No seasons yet.</div>';
+        }
 
         renderMembers();
         renderDiscipline();
@@ -652,12 +693,20 @@
 
     // Save settings
     document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
+      let ratingConfig = null;
+      try {
+        ratingConfig = JSON.parse(document.getElementById("settingRatingConfig").value || "{}");
+      } catch {
+        show("Rating parameters must be valid JSON.", "error", "settingsStatus");
+        return;
+      }
       const payload = {
         name: document.getElementById("settingName").value.trim() || null,
         description: document.getElementById("settingDesc").value.trim() || null,
         auto_accept_members: document.getElementById("settingAutoAccept").checked,
         fee_type: document.getElementById("settingFeeType").value,
         fee_value: Number(document.getElementById("settingFeeValue").value) || 0,
+        rating_config: ratingConfig,
       };
       try {
         await apiFetch(`/leagues/${leagueId}/settings`, {
@@ -668,6 +717,46 @@
         show("Settings saved.", "", "settingsStatus");
         await load();
       } catch(e){ show(e.message || "Failed.", "error", "settingsStatus"); }
+    });
+
+    document.getElementById("createSeasonBtn")?.addEventListener("click", async () => {
+      const nm = (document.getElementById("newSeasonName").value || "").trim();
+      const startRaw = (document.getElementById("newSeasonStart").value || "").trim();
+      const endRaw = (document.getElementById("newSeasonEnd").value || "").trim();
+      if (!nm) { show("Season name is required.", "error", "seasonStatus"); return; }
+      if (!startRaw || !endRaw) { show("Season start and end are required.", "error", "seasonStatus"); return; }
+      const startIso = new Date(startRaw).toISOString();
+      const endIso = new Date(endRaw).toISOString();
+      if (new Date(endIso) <= new Date(startIso)) { show("Season end must be after start.", "error", "seasonStatus"); return; }
+      const shouldActivate = new Date(startIso) <= new Date() && new Date() < new Date(endIso);
+      try {
+        await apiFetch(`/leagues/${leagueId}/seasons`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: nm, start_at: startIso, end_at: endIso, activate: shouldActivate }),
+        });
+        document.getElementById("newSeasonName").value = "";
+        document.getElementById("newSeasonStart").value = "";
+        document.getElementById("newSeasonEnd").value = "";
+        show(shouldActivate ? "Season created and activated." : "Season scheduled.", "", "seasonStatus");
+        await load();
+      } catch (e) {
+        show(e.message || "Failed to create season.", "error", "seasonStatus");
+      }
+    });
+
+    document.getElementById("seasonList")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".activateSeasonBtn");
+      if (!btn) return;
+      const sid = Number(btn.dataset.seasonId || 0);
+      if (!sid) return;
+      try {
+        await apiFetch(`/leagues/${leagueId}/seasons/${sid}/activate`, { method: "POST" });
+        show("Season activated.", "", "seasonStatus");
+        await load();
+      } catch (err) {
+        show(err.message || "Failed to activate season.", "error", "seasonStatus");
+      }
     });
 
     // New invite

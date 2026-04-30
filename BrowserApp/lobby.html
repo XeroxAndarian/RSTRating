@@ -985,6 +985,7 @@
                         🔔 <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
                     </button>
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <a class="ghost" id="adminConsoleBtn" href="./admin.html" title="Admin console" style="display:none;text-decoration:none;">🛡</a>
                     <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings">⚙</button>
                     <button class="danger" id="logoutButton" type="button" title="Sign out">🚪</button>
                 </div>
@@ -1113,13 +1114,34 @@
         <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
             <div>
                 <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">—</strong></p>
+                <p class="subtle" style="margin:0;">Recovery ID: <strong id="acctRecoveryId">—</strong></p>
             </div>
             <form id="updateProfileForm" class="stack" style="gap:8px;">
                 <label for="acctDisplayName">Display name</label>
                 <input id="acctDisplayName" type="text" placeholder="Your display name" maxlength="40">
+                <label for="acctEmail">Email</label>
+                <input id="acctEmail" type="email" placeholder="your@email.com" maxlength="255">
+                <label for="acctCurrentPassword">Current password</label>
+                <input id="acctCurrentPassword" type="password" minlength="6" placeholder="Required for email or password change">
+                <label for="acctNewPassword">New password</label>
+                <input id="acctNewPassword" type="password" minlength="6" placeholder="Leave blank to keep current password">
                 <button class="button" type="submit" style="align-self:flex-start;padding:7px 16px;">Save</button>
                 <p class="hint" id="acctUpdateMsg" style="display:none;"></p>
             </form>
+            <div>
+                <h4 style="margin:0 0 8px;font-size:0.95rem;">Password reset token</h4>
+                <p class="hint" style="margin:0 0 8px;">Generate a token here and use it in the reset form if needed.</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button class="ghost" id="acctGenerateResetTokenBtn" type="button" style="padding:7px 12px;">Generate token</button>
+                    <button class="ghost" id="acctCopyResetTokenBtn" type="button" style="padding:7px 12px;">Copy</button>
+                </div>
+                <input id="acctResetToken" type="text" readonly placeholder="No token generated yet" style="margin-top:8px;">
+                <p class="hint" id="acctResetTokenMeta" style="margin:6px 0 0;"></p>
+            </div>
+            <div id="acctAdminTools" style="display:none;">
+                <h4 style="margin:0 0 8px;font-size:0.95rem;">Admin</h4>
+                <a class="ghost" href="./admin.html" style="display:inline-flex;text-decoration:none;padding:7px 14px;">Open admin console</a>
+            </div>
             <div>
                 <h4 style="margin:0 0 8px;font-size:0.95rem;">Your leagues</h4>
                 <div id="acctLeagueList" style="display:flex;flex-direction:column;gap:6px;">
@@ -1812,6 +1834,8 @@
             const adminSignedIn = isAdmin();
             if (backupSection) backupSection.style.display = adminSignedIn ? "block" : "none";
             if (devToolsSection) devToolsSection.style.display = adminSignedIn ? "block" : "none";
+            const adminConsoleBtn = document.getElementById("adminConsoleBtn");
+            if (adminConsoleBtn) adminConsoleBtn.style.display = adminSignedIn ? "inline-flex" : "none";
 
             renderInviteEntry();
 
@@ -2077,8 +2101,18 @@
             // Fill in current user info
             const uname = document.getElementById("acctUsername");
             if (uname && currentUser) uname.textContent = currentUser.username || currentUser.name;
+            const recovery = document.getElementById("acctRecoveryId");
+            if (recovery && currentUser) recovery.textContent = currentUser.recovery_id || "—";
             const dispInput = document.getElementById("acctDisplayName");
             if (dispInput && currentUser) dispInput.value = currentUser.display_name || currentUser.name || "";
+            const emailInput = document.getElementById("acctEmail");
+            if (emailInput && currentUser) emailInput.value = currentUser.email || "";
+            const tokenInput = document.getElementById("acctResetToken");
+            const tokenMeta = document.getElementById("acctResetTokenMeta");
+            if (tokenInput) tokenInput.value = "";
+            if (tokenMeta) tokenMeta.textContent = "";
+            const adminTools = document.getElementById("acctAdminTools");
+            if (adminTools) adminTools.style.display = isAdmin() ? "block" : "none";
             renderAcctLeagueList();
         }
         function closeAcctDrawer() {
@@ -2122,16 +2156,76 @@
                 e.preventDefault();
                 const msg = document.getElementById("acctUpdateMsg");
                 const displayName = document.getElementById("acctDisplayName").value.trim();
+                const email = document.getElementById("acctEmail").value.trim();
+                const currentPassword = document.getElementById("acctCurrentPassword").value;
+                const newPassword = document.getElementById("acctNewPassword").value;
+                const payload = { display_name: displayName };
+                if (email !== (currentUser && currentUser.email ? currentUser.email : "")) payload.email = email;
+                if (newPassword) payload.new_password = newPassword;
+                if (payload.email || payload.new_password) payload.current_password = currentPassword;
                 try {
-                    await apiFetch("/users/me", {
+                    const updated = await apiFetch("/auth/me", {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ display_name: displayName })
+                        body: JSON.stringify(payload)
                     });
-                    if (currentUser) currentUser.display_name = displayName;
+                    currentUser = updated;
+                    const currentPasswordInput = document.getElementById("acctCurrentPassword");
+                    const newPasswordInput = document.getElementById("acctNewPassword");
+                    if (currentPasswordInput) currentPasswordInput.value = "";
+                    if (newPasswordInput) newPasswordInput.value = "";
                     if (msg) { msg.textContent = "Saved!"; msg.style.display = "block"; setTimeout(() => msg.style.display = "none", 2000); }
                 } catch (e) {
                     if (msg) { msg.textContent = e.message || "Failed."; msg.style.display = "block"; }
+                }
+            });
+        }
+
+        const acctGenerateResetTokenBtn = document.getElementById("acctGenerateResetTokenBtn");
+        const acctCopyResetTokenBtn = document.getElementById("acctCopyResetTokenBtn");
+        if (acctGenerateResetTokenBtn) {
+            acctGenerateResetTokenBtn.addEventListener("click", async () => {
+                const tokenInput = document.getElementById("acctResetToken");
+                const tokenMeta = document.getElementById("acctResetTokenMeta");
+                if (!currentUser) {
+                    showStatus("Please sign in first.", "error");
+                    return;
+                }
+                try {
+                    const response = await apiFetch("/auth/password-reset-request", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ recovery_id: currentUser.recovery_id || null, email: currentUser.email || null })
+                    });
+                    if (tokenInput) tokenInput.value = response.token || "";
+                    if (tokenMeta) {
+                        const exp = response.expires_at ? new Date(response.expires_at).toLocaleString() : "";
+                        tokenMeta.textContent = exp ? ("Expires: " + exp) : "";
+                    }
+                    showStatus(response.detail || "Reset token generated.", "ok");
+                } catch (e) {
+                    showStatus(e.message || "Failed to generate reset token.", "error");
+                }
+            });
+        }
+        if (acctCopyResetTokenBtn) {
+            acctCopyResetTokenBtn.addEventListener("click", async () => {
+                const tokenInput = document.getElementById("acctResetToken");
+                const value = tokenInput ? tokenInput.value.trim() : "";
+                if (!value) {
+                    showStatus("Generate a token first.", "error");
+                    return;
+                }
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(value);
+                    } else {
+                        tokenInput.select();
+                        document.execCommand("copy");
+                    }
+                    showStatus("Reset token copied.", "ok");
+                } catch (e) {
+                    showStatus("Could not copy token.", "error");
                 }
             });
         }

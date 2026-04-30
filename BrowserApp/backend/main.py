@@ -17,6 +17,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel, ConfigDict, Field
 
+try:
+    import numpy as np
+except Exception:
+    np = None
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = BASE_DIR / "data" / "accounts.db"
@@ -72,7 +77,10 @@ class UserOut(BaseModel):
     surname: str
     nicknames: list[str]
     display_name: str | None
+    recovery_id: str | None = None
     role: str
+    is_active: bool = True
+    terminated_at: str | None = None
     created_at: str
 
 
@@ -102,6 +110,7 @@ class TokenOut(BaseModel):
 
 class UpdateMePayload(BaseModel):
     display_name: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=255)
     current_password: str | None = Field(default=None, min_length=6, max_length=200)
     new_password: str | None = Field(default=None, min_length=6, max_length=200)
 
@@ -190,13 +199,66 @@ class BackupImportData(BaseModel):
 
 
 class PasswordResetRequestPayload(BaseModel):
-    email: str = Field(max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    recovery_id: str | None = Field(default=None, min_length=6, max_length=32)
 
 
 class PasswordResetPayload(BaseModel):
-    email: str = Field(max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    recovery_id: str | None = Field(default=None, min_length=6, max_length=32)
     token: str = Field(min_length=32, max_length=128)
     new_password: str = Field(min_length=6, max_length=200)
+
+
+class AdminPasswordResetPayload(BaseModel):
+    new_password: str | None = Field(default=None, min_length=6, max_length=200)
+
+
+class AdminPasswordResetOut(BaseModel):
+    detail: str
+    password: str
+
+
+class LeagueApprovalPayload(BaseModel):
+    status: str = Field(pattern=r"^(approved|rejected)$")
+    note: str | None = Field(default=None, max_length=300)
+
+
+class AdminUserOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    display_name: str | None
+    role: str
+    recovery_id: str | None
+    is_active: bool
+    terminated_at: str | None
+    created_at: str
+    updated_at: str
+    attendance: int
+    wins: int
+    goals: int
+    assists: int
+    global_rating: float
+    league_count: int
+    owned_league_count: int
+
+
+class AdminLeagueOut(BaseModel):
+    id: int
+    name: str
+    football_type: str
+    goal_size: str
+    region: str
+    description: str | None
+    owner_id: int
+    owner_username: str
+    member_count: int
+    approval_status: str
+    approved_at: str | None
+    approval_note: str | None
+    created_at: str
+    updated_at: str
 
 
 class LeagueCreatePayload(BaseModel):
@@ -208,6 +270,7 @@ class LeagueCreatePayload(BaseModel):
     fee_type: str = Field(default="none", pattern=r"^(none|yearly|monthly|per_attendance)$")
     fee_value: float | None = Field(default=None, ge=0)
     match_presets: list[dict] = Field(default_factory=list)
+    rating_config: dict = Field(default_factory=dict)
 
 
 class LeagueSettingsPayload(BaseModel):
@@ -220,6 +283,7 @@ class LeagueSettingsPayload(BaseModel):
     fee_type: str | None = Field(default=None, pattern=r"^(none|yearly|monthly|per_attendance)$")
     fee_value: float | None = Field(default=None, ge=0)
     match_presets: list[dict] | None = None
+    rating_config: dict | None = None
 
 
 class LeagueBanPayload(BaseModel):
@@ -307,6 +371,10 @@ class LeagueOut(BaseModel):
     fee_type: str
     fee_value: float
     match_presets: list[dict]
+    rating_config: dict
+    approval_status: str = "approved"
+    approved_at: str | None = None
+    approval_note: str | None = None
 
 
 class LeagueInviteOut(BaseModel):
@@ -370,12 +438,28 @@ class MessageOut(BaseModel):
     detail: str
 
 
+class PasswordResetRequestOut(BaseModel):
+    detail: str
+    token: str
+    expires_at: str
+    note: str
+
+
 # ====================== MATCH MANAGEMENT MODELS ======================
 
 MATCH_STATUS = frozenset({"upcoming", "registration_open", "registration_closed", "live", "finished", "completed", "cancelled"})
 ELO_K = 32.0
 WAITLIST_OFFER_MINUTES = 15
 UNDO_WINDOW_SECONDS = 30
+DEFAULT_RATING_CONFIG = {
+    "sr_start_points": 1000.0,
+    "sr_goal_points": 10.0,
+    "sr_assist_points": 6.0,
+    "sr_own_goal_points": -2.0,
+    "sr_win_points": 20.0,
+    "sr_draw_points": 0.0,
+    "sr_loss_points": -20.0,
+}
 
 
 class MatchCreatePayload(BaseModel):
@@ -388,6 +472,8 @@ class MatchCreatePayload(BaseModel):
     visibility: str = Field(default="public", pattern=r"^(public|private)$")
     cards_enabled: bool = Field(default=True)
     offsides_enabled: bool = Field(default=False)
+    corners_enabled: bool = Field(default=False)
+    fouls_enabled: bool = Field(default=False)
 
 
 class MatchOut(BaseModel):
@@ -418,6 +504,8 @@ class MatchOut(BaseModel):
     visibility: str
     cards_enabled: bool
     offsides_enabled: bool
+    corners_enabled: bool
+    fouls_enabled: bool
 
 
 class MatchRegistrationOut(BaseModel):
@@ -449,7 +537,7 @@ class MatchDetailOut(BaseModel):
 
 
 class MatchLiveEventPayload(BaseModel):
-    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card|pause|resume|offside)$")
+    event_type: str = Field(default="goal", pattern=r"^(goal|own_goal|injury|yellow_card|red_card|pause|resume|offside|corner|foul)$")
     team: str | None = Field(default=None, pattern=r"^[ab]$")
     scorer_user_id: int | None = None
     assist_user_id: int | None = None
@@ -473,6 +561,41 @@ class NotificationOut(BaseModel):
     data: dict
     read: bool
     created_at: str
+
+
+class LeagueSeasonOut(BaseModel):
+    id: int
+    league_id: int
+    name: str
+    is_active: bool
+    start_at: str | None = None
+    end_at: str | None = None
+    created_at: str
+
+
+class LeagueSeasonCreatePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    activate: bool = Field(default=False)
+    start_at: str | None = Field(default=None, max_length=40)
+    end_at: str | None = Field(default=None, max_length=40)
+
+
+class LeaguePlayerStatsTabRow(BaseModel):
+    user_id: int
+    username: str
+    display_name: str | None
+    attendance: int
+    wins: int
+    goals: int
+    assists: int
+    lmmr: float
+    sr_points: float
+
+
+class LeaguePlayerStatsTabOut(BaseModel):
+    key: str
+    label: str
+    rows: list[LeaguePlayerStatsTabRow]
 
 
 def utc_now() -> datetime:
@@ -556,6 +679,14 @@ def infer_football_type(old_sport: str | None) -> str:
     return "outdoor"
 
 
+def _generate_recovery_id(conn: sqlite3.Connection) -> str:
+    while True:
+        candidate = f"RST-{secrets.token_hex(4).upper()}"
+        row = conn.execute("SELECT 1 FROM users WHERE recovery_id = ?", (candidate,)).fetchone()
+        if row is None:
+            return candidate
+
+
 def init_db() -> None:
     with get_conn() as conn:
         conn.execute(
@@ -585,12 +716,25 @@ def init_db() -> None:
         ensure_column(conn, "users", "surname", "TEXT")
         ensure_column(conn, "users", "nicknames", "TEXT")
         ensure_column(conn, "users", "display_name", "TEXT")
+        ensure_column(conn, "users", "recovery_id", "TEXT")
+        ensure_column(conn, "users", "is_active", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(conn, "users", "terminated_at", "TEXT")
         ensure_column(conn, "users", "attendance", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "wins", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "goals", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "assists", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "users", "global_rating", "REAL NOT NULL DEFAULT 1000")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE email IS NOT NULL")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_recovery_id_unique ON users(recovery_id) WHERE recovery_id IS NOT NULL")
+
+        users_without_recovery = conn.execute(
+            "SELECT id FROM users WHERE recovery_id IS NULL OR recovery_id = ''"
+        ).fetchall()
+        for row in users_without_recovery:
+            conn.execute(
+                "UPDATE users SET recovery_id = ? WHERE id = ?",
+                (_generate_recovery_id(conn), int(row["id"])),
+            )
 
         conn.execute(
             """
@@ -619,6 +763,7 @@ def init_db() -> None:
                 fee_type TEXT NOT NULL DEFAULT 'none',
                 fee_value REAL NOT NULL DEFAULT 0,
                 match_presets_json TEXT NOT NULL DEFAULT '[]',
+                rating_config_json TEXT NOT NULL DEFAULT '{}',
                 owner_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -634,6 +779,13 @@ def init_db() -> None:
         ensure_column(conn, "leagues", "fee_type", "TEXT NOT NULL DEFAULT 'none'")
         ensure_column(conn, "leagues", "fee_value", "REAL NOT NULL DEFAULT 0")
         ensure_column(conn, "leagues", "match_presets_json", "TEXT NOT NULL DEFAULT '[]'")
+        ensure_column(conn, "leagues", "rating_config_json", "TEXT NOT NULL DEFAULT '{}' ")
+        ensure_column(conn, "leagues", "approval_status", "TEXT NOT NULL DEFAULT 'approved'")
+        ensure_column(conn, "leagues", "approved_at", "TEXT")
+        ensure_column(conn, "leagues", "approved_by_user_id", "INTEGER")
+        ensure_column(conn, "leagues", "approval_note", "TEXT")
+
+        conn.execute("UPDATE leagues SET approval_status = 'approved' WHERE approval_status IS NULL OR approval_status = ''")
 
         rows = conn.execute("SELECT id, sport, football_type FROM leagues").fetchall()
         for row in rows:
@@ -669,6 +821,23 @@ def init_db() -> None:
             conn.execute("UPDATE leagues SET invite_code = ? WHERE id = ?", (code, int(row["id"])))
 
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_leagues_invite_code ON leagues(invite_code)")
+
+        leagues_missing_cfg = conn.execute(
+            "SELECT id, rating_config_json FROM leagues"
+        ).fetchall()
+        for row in leagues_missing_cfg:
+            try:
+                parsed = json.loads(str(row["rating_config_json"] or "{}"))
+                if not isinstance(parsed, dict):
+                    parsed = {}
+            except Exception:
+                parsed = {}
+            merged_cfg = dict(DEFAULT_RATING_CONFIG)
+            merged_cfg.update(parsed)
+            conn.execute(
+                "UPDATE leagues SET rating_config_json = ? WHERE id = ?",
+                (json.dumps(merged_cfg), int(row["id"])),
+            )
 
         conn.execute(
             """
@@ -782,6 +951,44 @@ def init_db() -> None:
         ensure_column(conn, "matches", "visibility", "TEXT NOT NULL DEFAULT 'public'")
         ensure_column(conn, "matches", "cards_enabled", "INTEGER NOT NULL DEFAULT 1")
         ensure_column(conn, "matches", "offsides_enabled", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "matches", "corners_enabled", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "matches", "fouls_enabled", "INTEGER NOT NULL DEFAULT 0")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_seasons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 0,
+                start_at TEXT,
+                end_at TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE
+            )
+            """
+        )
+        ensure_column(conn, "league_seasons", "start_at", "TEXT")
+        ensure_column(conn, "league_seasons", "end_at", "TEXT")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_season_player_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                season_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                attendance INTEGER NOT NULL DEFAULT 0,
+                wins INTEGER NOT NULL DEFAULT 0,
+                goals INTEGER NOT NULL DEFAULT 0,
+                assists INTEGER NOT NULL DEFAULT 0,
+                own_goals INTEGER NOT NULL DEFAULT 0,
+                points REAL NOT NULL DEFAULT 1000,
+                UNIQUE(season_id, user_id),
+                FOREIGN KEY(season_id) REFERENCES league_seasons(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
 
         # Ensure one-time unique index and backfill preview tokens for existing rows.
         conn.execute(
@@ -806,12 +1013,16 @@ def init_db() -> None:
                 position INTEGER NOT NULL DEFAULT 0,
                 registered_at TEXT NOT NULL,
                 offered_at TEXT,
+                rating_snapshot_lmmr REAL,
+                rating_snapshot_gmmr REAL,
                 UNIQUE(match_id, user_id),
                 FOREIGN KEY(match_id) REFERENCES matches(id) ON DELETE CASCADE,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             )
             """
         )
+        ensure_column(conn, "match_registrations", "rating_snapshot_lmmr", "REAL")
+        ensure_column(conn, "match_registrations", "rating_snapshot_gmmr", "REAL")
 
         conn.execute(
             """
@@ -846,8 +1057,29 @@ def init_db() -> None:
             """
         )
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
+
         # auto_accept_members flag on leagues
         ensure_column(conn, "leagues", "auto_accept_members", "INTEGER NOT NULL DEFAULT 1")
+
+        leagues = conn.execute("SELECT id FROM leagues").fetchall()
+        for league in leagues:
+            existing_active = conn.execute(
+                "SELECT id FROM league_seasons WHERE league_id = ? AND is_active = 1 LIMIT 1",
+                (int(league["id"]),),
+            ).fetchone()
+            if existing_active is None:
+                conn.execute(
+                    "INSERT INTO league_seasons (league_id, name, is_active, start_at, end_at, created_at) VALUES (?, 'Season 1', 1, ?, NULL, ?)",
+                    (int(league["id"]), utc_now_iso(), utc_now_iso()),
+                )
 
         conn.execute(
             """
@@ -909,6 +1141,11 @@ def ensure_admin_account() -> None:
     with get_conn() as conn:
         existing_admin = conn.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1").fetchone()
         if existing_admin is not None:
+            conn.execute(
+                "UPDATE users SET is_active = 1, terminated_at = NULL WHERE id = ?",
+                (int(existing_admin["id"]),),
+            )
+            conn.commit()
             return
 
         existing_username = conn.execute("SELECT id FROM users WHERE username = ?", (ADMIN_USERNAME,)).fetchone()
@@ -918,10 +1155,11 @@ def ensure_admin_account() -> None:
                 """
                 UPDATE users
                 SET role = 'admin', email = COALESCE(email, ?), name = COALESCE(name, 'Admin'),
-                    surname = COALESCE(surname, 'User'), updated_at = ?
+                    surname = COALESCE(surname, 'User'), display_name = COALESCE(display_name, 'Administrator'),
+                    recovery_id = COALESCE(recovery_id, ?), is_active = 1, terminated_at = NULL, updated_at = ?
                 WHERE id = ?
                 """,
-                (normalize_email(ADMIN_EMAIL), created_at, existing_username["id"]),
+                (normalize_email(ADMIN_EMAIL), _generate_recovery_id(conn), created_at, existing_username["id"]),
             )
             conn.commit()
             return
@@ -929,14 +1167,15 @@ def ensure_admin_account() -> None:
         conn.execute(
             """
             INSERT INTO users (username, password_hash, email, name, surname, nicknames, display_name, role,
-                               attendance, wins, goals, assists, global_rating, created_at, updated_at)
+                               recovery_id, is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at)
             VALUES (?, ?, ?, 'Admin', 'User', '[]', 'Administrator', 'admin',
-                    0, 0, 0, 0, ?, ?, ?)
+                    ?, 1, NULL, 0, 0, 0, 0, ?, ?, ?)
             """,
             (
                 ADMIN_USERNAME,
                 hash_password(ADMIN_PASSWORD),
                 normalize_email(ADMIN_EMAIL),
+                _generate_recovery_id(conn),
                 DEFAULT_GLOBAL_RATING,
                 created_at,
                 created_at,
@@ -1280,8 +1519,8 @@ def find_user_by_username(username: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         return conn.execute(
             """
-            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, role,
-                   attendance, wins, goals, assists, global_rating, created_at, updated_at
+            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, recovery_id, role,
+                   is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at
             FROM users
             WHERE username = ?
             """,
@@ -1293,8 +1532,8 @@ def find_user_by_id(user_id: int) -> sqlite3.Row | None:
     with get_conn() as conn:
         return conn.execute(
             """
-            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, role,
-                   attendance, wins, goals, assists, global_rating, created_at, updated_at
+            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, recovery_id, role,
+                   is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at
             FROM users
             WHERE id = ?
             """,
@@ -1307,12 +1546,25 @@ def find_user_by_email(email: str) -> sqlite3.Row | None:
     with get_conn() as conn:
         return conn.execute(
             """
-            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, role,
-                   attendance, wins, goals, assists, global_rating, created_at, updated_at
+            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, recovery_id, role,
+                   is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at
             FROM users
             WHERE lower(email) = ?
             """,
             (normalized_email,),
+        ).fetchone()
+
+
+def find_user_by_recovery_id(recovery_id: str) -> sqlite3.Row | None:
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT id, username, password_hash, email, name, surname, nicknames, display_name, recovery_id, role,
+                   is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at
+            FROM users
+            WHERE recovery_id = ?
+            """,
+            (recovery_id.strip().upper(),),
         ).fetchone()
 
 
@@ -1325,7 +1577,10 @@ def serialize_user(row: sqlite3.Row) -> UserOut:
         surname=str(row["surname"] or ""),
         nicknames=nicknames_from_db(row["nicknames"]),
         display_name=row["display_name"],
+        recovery_id=(str(row["recovery_id"]) if "recovery_id" in row.keys() and row["recovery_id"] is not None else None),
         role=str(row["role"]),
+        is_active=bool(int(row["is_active"] or 0)) if "is_active" in row.keys() else True,
+        terminated_at=(str(row["terminated_at"]) if "terminated_at" in row.keys() and row["terminated_at"] is not None else None),
         created_at=str(row["created_at"]),
     )
 
@@ -1349,6 +1604,16 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
     except (ValueError, TypeError):
         match_presets = []
 
+    raw_cfg = row["rating_config_json"] if "rating_config_json" in row.keys() else "{}"
+    try:
+        rating_config = json.loads(str(raw_cfg or "{}"))
+        if not isinstance(rating_config, dict):
+            rating_config = {}
+    except (ValueError, TypeError):
+        rating_config = {}
+    merged_cfg = dict(DEFAULT_RATING_CONFIG)
+    merged_cfg.update(rating_config)
+
     return LeagueOut(
         id=int(row["id"]),
         name=str(row["name"]),
@@ -1366,6 +1631,10 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
         fee_type=str(row["fee_type"] or "none"),
         fee_value=float(row["fee_value"] or 0),
         match_presets=match_presets,
+        rating_config=merged_cfg,
+        approval_status=str(row["approval_status"] or "approved") if "approval_status" in row.keys() else "approved",
+        approved_at=(str(row["approved_at"]) if "approved_at" in row.keys() and row["approved_at"] is not None else None),
+        approval_note=(str(row["approval_note"]) if "approval_note" in row.keys() and row["approval_note"] is not None else None),
     )
 
 
@@ -1432,6 +1701,8 @@ def resolve_current_user(credentials: HTTPAuthorizationCredentials | None = Depe
     user = find_user_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not bool(int(user["is_active"] or 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
     return user
 
 
@@ -1455,6 +1726,10 @@ def fetch_league_for_user(conn: sqlite3.Connection, league_id: int, user_id: int
             l.fee_type,
             l.fee_value,
             l.match_presets_json,
+            l.rating_config_json,
+            l.approval_status,
+            l.approved_at,
+            l.approval_note,
             l.owner_id,
             l.created_at,
             l.auto_accept_members,
@@ -1488,6 +1763,10 @@ def fetch_user_leagues(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.R
             l.fee_type,
             l.fee_value,
             l.match_presets_json,
+            l.rating_config_json,
+            l.approval_status,
+            l.approved_at,
+            l.approval_note,
             l.owner_id,
             l.created_at,
             l.auto_accept_members,
@@ -1671,6 +1950,29 @@ def require_league_owner(conn: sqlite3.Connection, league_id: int, user_id: int)
     return league
 
 
+def require_league_approved(conn: sqlite3.Connection, league_id: int) -> sqlite3.Row:
+    league = conn.execute(
+        "SELECT id, name, approval_status FROM leagues WHERE id = ?",
+        (league_id,),
+    ).fetchone()
+    if league is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+    if str(league["approval_status"] or "approved") != "approved":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="League is awaiting admin approval")
+    return league
+
+
+def _find_password_reset_user(email: str | None, recovery_id: str | None) -> sqlite3.Row | None:
+    if recovery_id is not None and recovery_id.strip():
+        return find_user_by_recovery_id(recovery_id)
+    if email is not None and email.strip():
+        return find_user_by_email(email)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Provide either email or recovery_id",
+    )
+
+
 def invite_preview_row(conn: sqlite3.Connection, token: str) -> sqlite3.Row | None:
     return conn.execute(
         """
@@ -1683,6 +1985,7 @@ def invite_preview_row(conn: sqlite3.Connection, token: str) -> sqlite3.Row | No
             li.use_count,
             li.revoked,
             l.name AS league_name,
+            l.approval_status,
             l.football_type,
             l.goal_size,
             l.description,
@@ -1741,27 +2044,36 @@ def register(payload: RegisterPayload) -> UserOut:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
     created_at = utc_now_iso()
     with get_conn() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO users (username, password_hash, email, name, surname, nicknames, display_name, role,
-                               attendance, wins, goals, assists, global_rating, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'player', 0, 0, 0, 0, ?, ?, ?)
-            """,
-            (
-                payload.username.strip(),
-                hash_password(payload.password),
-                normalized_email,
-                payload.name.strip(),
-                payload.surname.strip(),
-                nicknames_to_db(payload.nicknames),
-                payload.display_name.strip() if payload.display_name else None,
-                DEFAULT_GLOBAL_RATING,
-                created_at,
-                created_at,
-            ),
-        )
-        conn.commit()
-        user_id = cursor.lastrowid
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO users (username, password_hash, email, name, surname, nicknames, display_name, role,
+                                   recovery_id, is_active, terminated_at, attendance, wins, goals, assists, global_rating, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'player', ?, 1, NULL, 0, 0, 0, 0, ?, ?, ?)
+                """,
+                (
+                    payload.username.strip(),
+                    hash_password(payload.password),
+                    normalized_email,
+                    payload.name.strip(),
+                    payload.surname.strip(),
+                    nicknames_to_db(payload.nicknames),
+                    payload.display_name.strip() if payload.display_name else None,
+                    _generate_recovery_id(conn),
+                    DEFAULT_GLOBAL_RATING,
+                    created_at,
+                    created_at,
+                ),
+            )
+            conn.commit()
+            user_id = cursor.lastrowid
+        except sqlite3.IntegrityError as exc:
+            message = str(exc).lower()
+            if "users.email" in message or "idx_users_email_unique" in message:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists") from exc
+            if "users.username" in message:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists") from exc
+            raise
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create user")
     user = find_user_by_id(int(user_id))
@@ -1775,6 +2087,8 @@ def login(payload: LoginPayload) -> TokenOut:
     user = find_user_by_username(payload.username)
     if user is None or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+    if not bool(int(user["is_active"] or 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
     token = create_access_token(subject=f"user:{user['id']}")
     return TokenOut(access_token=token, expires_in_minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
@@ -1791,6 +2105,19 @@ def update_me(payload: UpdateMePayload, current_user: sqlite3.Row = Depends(reso
     if payload.display_name is not None:
         updates.append("display_name = ?")
         params.append(payload.display_name.strip() or None)
+    if payload.email is not None:
+        normalized_email = normalize_email(payload.email)
+        if not normalized_email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email cannot be empty")
+        existing_email_user = find_user_by_email(normalized_email)
+        if existing_email_user is not None and int(existing_email_user["id"]) != int(current_user["id"]):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
+        if payload.current_password is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password required")
+        if not verify_password(payload.current_password, current_user["password_hash"]):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is wrong")
+        updates.append("email = ?")
+        params.append(normalized_email)
     if payload.new_password is not None:
         if payload.current_password is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password required")
@@ -1804,8 +2131,14 @@ def update_me(payload: UpdateMePayload, current_user: sqlite3.Row = Depends(reso
     params.append(utc_now_iso())
     params.append(str(current_user["id"]))
     with get_conn() as conn:
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", tuple(params))
-        conn.commit()
+        try:
+            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", tuple(params))
+            conn.commit()
+        except sqlite3.IntegrityError as exc:
+            message = str(exc).lower()
+            if "users.email" in message or "idx_users_email_unique" in message:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists") from exc
+            raise
     updated_user = find_user_by_id(int(current_user["id"]))
     if updated_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User no longer exists")
@@ -2143,31 +2476,37 @@ def download_db(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> 
     )
 
 
-@app.post("/auth/password-reset-request")
-def request_password_reset(payload: PasswordResetRequestPayload) -> dict[str, str]:
-    user = find_user_by_email(payload.email)
+@app.post("/auth/password-reset-request", response_model=PasswordResetRequestOut)
+def request_password_reset(payload: PasswordResetRequestPayload) -> PasswordResetRequestOut:
+    user = _find_password_reset_user(payload.email, payload.recovery_id)
     if user is None:
-        return {"detail": "If an account exists with this email, a reset link has been sent."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not bool(int(user["is_active"] or 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
     reset_token = secrets.token_urlsafe(32)
     expires_at = (utc_now() + timedelta(minutes=30)).isoformat()
     with get_conn() as conn:
+        conn.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (int(user["id"]),))
         conn.execute(
             "INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
             (user["id"], reset_token, expires_at, utc_now_iso()),
         )
         conn.commit()
-    return {
-        "detail": "Password reset token generated. Use this token in the reset endpoint.",
-        "token": reset_token,
-        "note": "In production, this token would be sent via email.",
-    }
+    return PasswordResetRequestOut(
+        detail="Password reset token generated. Use this token in the reset endpoint.",
+        token=reset_token,
+        expires_at=expires_at,
+        note="In production, this token would be sent by email or another verified recovery channel.",
+    )
 
 
 @app.post("/auth/password-reset", response_model=MessageOut)
 def reset_password(payload: PasswordResetPayload) -> MessageOut:
-    user = find_user_by_email(payload.email)
+    user = _find_password_reset_user(payload.email, payload.recovery_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not bool(int(user["is_active"] or 0)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
     with get_conn() as conn:
         token_row = conn.execute(
             "SELECT id, expires_at FROM password_reset_tokens WHERE user_id = ? AND token = ? ORDER BY created_at DESC LIMIT 1",
@@ -2182,7 +2521,7 @@ def reset_password(payload: PasswordResetPayload) -> MessageOut:
             "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
             (hash_password(payload.new_password), utc_now_iso(), user["id"]),
         )
-        conn.execute("DELETE FROM password_reset_tokens WHERE id = ?", (token_row["id"],))
+        conn.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (int(user["id"]),))
         conn.commit()
     return MessageOut(detail="Password reset successfully. You can now log in with your new password.")
 
@@ -2259,11 +2598,14 @@ def leave_league(
 def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depends(resolve_current_user)) -> LeagueOut:
     created_at = utc_now_iso()
     user_id = int(current_user["id"])
+    is_admin_creator = str(current_user["role"] or "") == "admin"
+    approval_status = "approved" if is_admin_creator else "pending"
+    approved_at = created_at if is_admin_creator else None
     with get_conn() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, fee_type, fee_value, match_presets_json, owner_id, created_at, updated_at)
-            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, fee_type, fee_value, match_presets_json, rating_config_json, approval_status, approved_at, approved_by_user_id, approval_note, owner_id, created_at, updated_at)
+            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.name.strip(),
@@ -2275,6 +2617,11 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
                 payload.fee_type,
                 float(payload.fee_value or 0),
                 json.dumps(payload.match_presets or []),
+                json.dumps({**DEFAULT_RATING_CONFIG, **(payload.rating_config or {})}),
+                approval_status,
+                approved_at,
+                user_id if is_admin_creator else None,
+                None,
                 user_id,
                 created_at,
                 created_at,
@@ -2291,6 +2638,10 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
         conn.execute(
             "INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
             (int(league_id), user_id, float(current_user["global_rating"] or DEFAULT_GLOBAL_RATING)),
+        )
+        conn.execute(
+            "INSERT INTO league_seasons (league_id, name, is_active, created_at) VALUES (?, 'Season 1', 1, ?)",
+            (int(league_id), created_at),
         )
         conn.commit()
 
@@ -2352,12 +2703,232 @@ def update_league_settings(
         if payload.match_presets is not None:
             updates.append("match_presets_json = ?")
             params.append(json.dumps(payload.match_presets))
+        if payload.rating_config is not None:
+            merged_cfg = dict(DEFAULT_RATING_CONFIG)
+            merged_cfg.update(payload.rating_config)
+            updates.append("rating_config_json = ?")
+            params.append(json.dumps(merged_cfg))
         if not updates:
             return MessageOut(detail="Nothing to update.")
         params.append(league_id)
         conn.execute(f"UPDATE leagues SET {', '.join(updates)} WHERE id = ?", params)
         conn.commit()
     return MessageOut(detail="League settings updated.")
+
+
+@app.post("/leagues/{league_id}/seasons", response_model=LeagueSeasonOut, status_code=status.HTTP_201_CREATED)
+def create_league_season(
+    league_id: int,
+    payload: LeagueSeasonCreatePayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> LeagueSeasonOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        start_at_iso = _parse_optional_utc_iso(payload.start_at, "start_at")
+        end_at_iso = _parse_optional_utc_iso(payload.end_at, "end_at")
+        _validate_season_window(start_at_iso, end_at_iso)
+        if start_at_iso is not None:
+            conn.execute(
+                """
+                UPDATE league_seasons
+                SET end_at = ?
+                WHERE league_id = ?
+                  AND end_at IS NULL
+                  AND id IN (
+                    SELECT id FROM league_seasons
+                    WHERE league_id = ?
+                      AND COALESCE(start_at, created_at) < ?
+                  )
+                """,
+                (start_at_iso, league_id, league_id, start_at_iso),
+            )
+        _assert_season_window_available(conn, league_id, start_at_iso, end_at_iso)
+
+        auto_active = _season_is_active_at(start_at_iso, end_at_iso, utc_now())
+        should_activate = bool(payload.activate or auto_active)
+        if should_activate and not auto_active and (start_at_iso is not None or end_at_iso is not None):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot activate a season outside its scheduled start/end window",
+            )
+
+        if should_activate:
+            conn.execute("UPDATE league_seasons SET is_active = 0 WHERE league_id = ?", (league_id,))
+
+        created_at = utc_now_iso()
+        cursor = conn.execute(
+            "INSERT INTO league_seasons (league_id, name, is_active, start_at, end_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (league_id, payload.name.strip(), 1 if should_activate else 0, start_at_iso, end_at_iso, created_at),
+        )
+        season_id = cursor.lastrowid
+        if season_id is None:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create season")
+        _sync_league_season_activation(conn, league_id)
+        conn.commit()
+    return LeagueSeasonOut(
+        id=int(season_id),
+        league_id=league_id,
+        name=payload.name.strip(),
+        is_active=bool(should_activate),
+        start_at=start_at_iso,
+        end_at=end_at_iso,
+        created_at=created_at,
+    )
+
+
+@app.get("/leagues/{league_id}/seasons", response_model=list[LeagueSeasonOut])
+def list_league_seasons(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeagueSeasonOut]:
+    with get_conn() as conn:
+        require_membership(conn, league_id, int(current_user["id"]))
+        _sync_league_season_activation(conn, league_id)
+        rows = conn.execute(
+            "SELECT id, league_id, name, is_active, start_at, end_at, created_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
+            (league_id,),
+        ).fetchall()
+        conn.commit()
+    return [
+        LeagueSeasonOut(
+            id=int(r["id"]),
+            league_id=int(r["league_id"]),
+            name=str(r["name"]),
+            is_active=bool(int(r["is_active"] or 0)),
+            start_at=str(r["start_at"]) if r["start_at"] else None,
+            end_at=str(r["end_at"]) if r["end_at"] else None,
+            created_at=str(r["created_at"]),
+        )
+        for r in rows
+    ]
+
+
+@app.post("/leagues/{league_id}/seasons/{season_id}/activate", response_model=MessageOut)
+def activate_league_season(league_id: int, season_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        row = conn.execute(
+            "SELECT id, start_at, end_at FROM league_seasons WHERE id = ? AND league_id = ?",
+            (season_id, league_id),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season not found")
+        if not _season_is_active_at(row["start_at"], row["end_at"], utc_now()):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Season cannot be activated outside its scheduled window",
+            )
+        conn.execute("UPDATE league_seasons SET is_active = 0 WHERE league_id = ?", (league_id,))
+        conn.execute("UPDATE league_seasons SET is_active = 1 WHERE id = ?", (season_id,))
+        _sync_league_season_activation(conn, league_id)
+        conn.commit()
+    return MessageOut(detail="Season activated.")
+
+
+@app.post("/admin/recompute-gmmr", response_model=MessageOut)
+def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    with get_conn() as conn:
+        updated = _maybe_run_hierarchical_gmmr_recompute(conn, force=True)
+        conn.commit()
+    return MessageOut(detail=f"Hierarchical GMMR recompute finished. Updated {updated} players.")
+
+
+@app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
+def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeaguePlayerStatsTabOut]:
+    with get_conn() as conn:
+        require_membership(conn, league_id, int(current_user["id"]))
+        _sync_league_season_activation(conn, league_id)
+
+        general_rows = conn.execute(
+            """
+            SELECT u.id AS user_id, u.username, u.display_name,
+                   COALESCE(lps.attendance, 0) AS attendance,
+                   COALESCE(lps.wins, 0) AS wins,
+                   COALESCE(lps.goals, 0) AS goals,
+                   COALESCE(lps.assists, 0) AS assists,
+                   COALESCE(lps.rating, ?) AS lmmr
+            FROM league_memberships AS lm
+            JOIN users AS u ON u.id = lm.user_id
+            LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+            WHERE lm.league_id = ?
+            ORDER BY lmmr DESC, u.username
+            """,
+            (DEFAULT_GLOBAL_RATING, league_id),
+        ).fetchall()
+
+        tabs: list[LeaguePlayerStatsTabOut] = [
+            LeaguePlayerStatsTabOut(
+                key="general",
+                label="General",
+                rows=[
+                    LeaguePlayerStatsTabRow(
+                        user_id=int(r["user_id"]),
+                        username=str(r["username"]),
+                        display_name=r["display_name"],
+                        attendance=int(r["attendance"]),
+                        wins=int(r["wins"]),
+                        goals=int(r["goals"]),
+                        assists=int(r["assists"]),
+                        lmmr=float(r["lmmr"]),
+                        sr_points=0.0,
+                    )
+                    for r in general_rows
+                ],
+            )
+        ]
+
+        seasons = conn.execute(
+            "SELECT id, name, is_active, start_at, end_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
+            (league_id,),
+        ).fetchall()
+
+        for season in seasons:
+            rows = conn.execute(
+                """
+                SELECT u.id AS user_id, u.username, u.display_name,
+                       COALESCE(ss.attendance, 0) AS attendance,
+                       COALESCE(ss.wins, 0) AS wins,
+                       COALESCE(ss.goals, 0) AS goals,
+                       COALESCE(ss.assists, 0) AS assists,
+                       COALESCE(lps.rating, ?) AS lmmr,
+                       COALESCE(ss.points, ?) AS sr_points
+                FROM league_memberships AS lm
+                JOIN users AS u ON u.id = lm.user_id
+                LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+                LEFT JOIN league_season_player_stats AS ss ON ss.season_id = ? AND ss.user_id = lm.user_id
+                WHERE lm.league_id = ?
+                ORDER BY sr_points DESC, lmmr DESC, u.username
+                """,
+                (DEFAULT_GLOBAL_RATING, DEFAULT_RATING_CONFIG["sr_start_points"], int(season["id"]), league_id),
+            ).fetchall()
+            label = str(season["name"])
+            if season["start_at"] or season["end_at"]:
+                start_lbl = str(season["start_at"] or "?")[:10]
+                end_lbl = str(season["end_at"] or "...")[:10]
+                label += f" ({start_lbl} to {end_lbl})"
+            if int(season["is_active"] or 0):
+                label += " (Current)"
+            tabs.append(
+                LeaguePlayerStatsTabOut(
+                    key=f"season-{int(season['id'])}",
+                    label=label,
+                    rows=[
+                        LeaguePlayerStatsTabRow(
+                            user_id=int(r["user_id"]),
+                            username=str(r["username"]),
+                            display_name=r["display_name"],
+                            attendance=int(r["attendance"]),
+                            wins=int(r["wins"]),
+                            goals=int(r["goals"]),
+                            assists=int(r["assists"]),
+                            lmmr=float(r["lmmr"]),
+                            sr_points=float(r["sr_points"]),
+                        )
+                        for r in rows
+                    ],
+                )
+            )
+
+            conn.commit()
+
+    return tabs
 
 
 @app.post("/leagues/{league_id}/members/{member_user_id}/ban", response_model=MessageOut)
@@ -2621,6 +3192,7 @@ def create_league_invite(
     token = secrets.token_urlsafe(18)
     with get_conn() as conn:
         league = require_league_manager(conn, league_id, int(current_user["id"]))
+        require_league_approved(conn, league_id)
         cursor = conn.execute(
             """
             INSERT INTO league_invites (league_id, token, created_by_user_id, created_at, expires_at, max_uses, use_count, revoked)
@@ -2684,6 +3256,8 @@ def preview_league_invite(token: str) -> InvitePreviewOut:
         invite = invite_preview_row(conn, token.strip())
     if invite is None or int(invite["revoked"]) == 1:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    if str(invite["approval_status"] or "approved") != "approved":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="League is awaiting admin approval")
     expires_at = invite["expires_at"]
     if expires_at is not None and utc_now() > datetime.fromisoformat(str(expires_at)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invite has expired")
@@ -2715,6 +3289,7 @@ def accept_league_invite(payload: InviteAcceptPayload, current_user: sqlite3.Row
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invite has already been used")
 
         league_id = int(invite["league_id"])
+        require_league_approved(conn, league_id)
         user_id = int(current_user["id"])
         # Check if user is banned from this league
         ban = conn.execute(
@@ -2770,6 +3345,181 @@ def backdoor_login(payload: BackdoorPayload) -> TokenOut:
     return TokenOut(access_token=token, expires_in_minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
 
+@app.get("/admin/overview")
+def admin_overview(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> dict[str, int]:
+    with get_conn() as conn:
+        users_total = int(conn.execute("SELECT COUNT(*) FROM users").fetchone()[0])
+        users_active = int(conn.execute("SELECT COUNT(*) FROM users WHERE COALESCE(is_active, 1) = 1").fetchone()[0])
+        leagues_total = int(conn.execute("SELECT COUNT(*) FROM leagues").fetchone()[0])
+        leagues_pending = int(conn.execute("SELECT COUNT(*) FROM leagues WHERE COALESCE(approval_status, 'approved') = 'pending'").fetchone()[0])
+        leagues_rejected = int(conn.execute("SELECT COUNT(*) FROM leagues WHERE COALESCE(approval_status, 'approved') = 'rejected'").fetchone()[0])
+    return {
+        "users_total": users_total,
+        "users_active": users_active,
+        "leagues_total": leagues_total,
+        "leagues_pending": leagues_pending,
+        "leagues_rejected": leagues_rejected,
+    }
+
+
+@app.get("/admin/users", response_model=list[AdminUserOut])
+def admin_list_users(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> list[AdminUserOut]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.email, u.display_name, u.role, u.recovery_id, u.is_active, u.terminated_at,
+                   u.created_at, u.updated_at, u.attendance, u.wins, u.goals, u.assists, u.global_rating,
+                   (SELECT COUNT(*) FROM league_memberships AS lm WHERE lm.user_id = u.id) AS league_count,
+                   (SELECT COUNT(*) FROM leagues AS l WHERE l.owner_id = u.id) AS owned_league_count
+            FROM users AS u
+            ORDER BY COALESCE(u.is_active, 1) DESC, u.created_at DESC, u.id DESC
+            """
+        ).fetchall()
+    return [
+        AdminUserOut(
+            id=int(r["id"]),
+            username=str(r["username"]),
+            email=str(r["email"] or ""),
+            display_name=r["display_name"],
+            role=str(r["role"]),
+            recovery_id=(str(r["recovery_id"]) if r["recovery_id"] is not None else None),
+            is_active=bool(int(r["is_active"] or 0)),
+            terminated_at=(str(r["terminated_at"]) if r["terminated_at"] is not None else None),
+            created_at=str(r["created_at"]),
+            updated_at=str(r["updated_at"]),
+            attendance=int(r["attendance"] or 0),
+            wins=int(r["wins"] or 0),
+            goals=int(r["goals"] or 0),
+            assists=int(r["assists"] or 0),
+            global_rating=float(r["global_rating"] or DEFAULT_GLOBAL_RATING),
+            league_count=int(r["league_count"] or 0),
+            owned_league_count=int(r["owned_league_count"] or 0),
+        )
+        for r in rows
+    ]
+
+
+@app.get("/admin/leagues", response_model=list[AdminLeagueOut])
+def admin_list_leagues(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> list[AdminLeagueOut]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT l.id, l.name, l.football_type, l.goal_size, l.region, l.description,
+                   l.owner_id, owner.username AS owner_username,
+                   l.approval_status, l.approved_at, l.approval_note, l.created_at, l.updated_at,
+                   (SELECT COUNT(*) FROM league_memberships AS lm WHERE lm.league_id = l.id) AS member_count
+            FROM leagues AS l
+            JOIN users AS owner ON owner.id = l.owner_id
+            ORDER BY CASE COALESCE(l.approval_status, 'approved') WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END,
+                     l.created_at DESC, l.id DESC
+            """
+        ).fetchall()
+    return [
+        AdminLeagueOut(
+            id=int(r["id"]),
+            name=str(r["name"]),
+            football_type=str(r["football_type"]),
+            goal_size=str(r["goal_size"]),
+            region=str(r["region"] or "Unknown"),
+            description=r["description"],
+            owner_id=int(r["owner_id"]),
+            owner_username=str(r["owner_username"]),
+            member_count=int(r["member_count"] or 0),
+            approval_status=str(r["approval_status"] or "approved"),
+            approved_at=(str(r["approved_at"]) if r["approved_at"] is not None else None),
+            approval_note=(str(r["approval_note"]) if r["approval_note"] is not None else None),
+            created_at=str(r["created_at"]),
+            updated_at=str(r["updated_at"]),
+        )
+        for r in rows
+    ]
+
+
+@app.patch("/admin/leagues/{league_id}/approval", response_model=MessageOut)
+def admin_update_league_approval(
+    league_id: int,
+    payload: LeagueApprovalPayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> MessageOut:
+    with get_conn() as conn:
+        league = conn.execute("SELECT id, name FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        if league is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        approved_at = utc_now_iso() if payload.status == "approved" else None
+        conn.execute(
+            """
+            UPDATE leagues
+            SET approval_status = ?, approved_at = ?, approved_by_user_id = ?, approval_note = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (payload.status, approved_at, int(current_admin["id"]), payload.note, utc_now_iso(), league_id),
+        )
+        conn.commit()
+    return MessageOut(detail=f"League '{league['name']}' marked as {payload.status}.")
+
+
+@app.post("/admin/users/{user_id}/force-password-reset", response_model=AdminPasswordResetOut)
+def admin_force_password_reset(
+    user_id: int,
+    payload: AdminPasswordResetPayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> AdminPasswordResetOut:
+    with get_conn() as conn:
+        user = conn.execute("SELECT id, username, role FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if int(user["id"]) == int(current_admin["id"]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use the account settings page to change your own password")
+        new_password = payload.new_password or secrets.token_urlsafe(9)
+        conn.execute(
+            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+            (hash_password(new_password), utc_now_iso(), user_id),
+        )
+        conn.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user_id,))
+        conn.commit()
+    return AdminPasswordResetOut(detail=f"Password reset for {user['username']}.", password=new_password)
+
+
+@app.post("/admin/users/{user_id}/block", response_model=MessageOut)
+def admin_block_user(user_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    with get_conn() as conn:
+        user = conn.execute("SELECT id, username, role, is_active FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if int(user["id"]) == int(current_admin["id"]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot block the current account")
+        if not bool(int(user["is_active"] or 0)):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account is already blocked")
+        conn.execute(
+            "UPDATE users SET is_active = 0, terminated_at = ?, updated_at = ? WHERE id = ?",
+            (utc_now_iso(), utc_now_iso(), user_id),
+        )
+        conn.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user_id,))
+        conn.commit()
+    return MessageOut(detail=f"Account '{user['username']}' blocked.")
+
+
+@app.post("/admin/users/{user_id}/unblock", response_model=MessageOut)
+def admin_unblock_user(user_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    with get_conn() as conn:
+        user = conn.execute("SELECT id, username, role, is_active FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if bool(int(user["is_active"] or 0)):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Account is already active")
+        conn.execute(
+            "UPDATE users SET is_active = 1, terminated_at = NULL, updated_at = ? WHERE id = ?",
+            (utc_now_iso(), user_id),
+        )
+        conn.commit()
+    return MessageOut(detail=f"Account '{user['username']}' unblocked.")
+
+
+@app.post("/admin/users/{user_id}/terminate", response_model=MessageOut)
+def admin_terminate_user(user_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    return admin_block_user(user_id, current_admin)
+
+
 def _serialize_join_request(row: sqlite3.Row) -> LeagueJoinRequestOut:
     return LeagueJoinRequestOut(
         id=int(row["id"]),
@@ -2798,6 +3548,7 @@ def join_league_by_code(payload: JoinLeagueByCodePayload, current_user: sqlite3.
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite code not found")
 
         league_id = int(league["id"])
+        require_league_approved(conn, league_id)
         # Check if user is banned from this league
         ban = conn.execute(
             "SELECT id FROM league_bans WHERE league_id = ? AND user_id = ?",
@@ -2845,6 +3596,7 @@ def discover_leagues(
         params: list = [user_id]
         where_clauses = [
             "l.id NOT IN (SELECT league_id FROM league_memberships WHERE user_id = ?)",
+            "COALESCE(l.approval_status, 'approved') = 'approved'",
         ]
         if region and region.strip():
             where_clauses.append("LOWER(l.region) = LOWER(?)")
@@ -2908,6 +3660,7 @@ def create_join_request(
         league_exists = conn.execute("SELECT id FROM leagues WHERE id = ?", (league_id,)).fetchone()
         if league_exists is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
+        require_league_approved(conn, league_id)
         existing_member = conn.execute(
             "SELECT id FROM league_memberships WHERE league_id = ? AND user_id = ?",
             (league_id, user_id),
@@ -3054,8 +3807,277 @@ def _elo_update(rating: float, opp_avg: float, won: bool, drew: bool = False, k:
     return round(rating + k * (actual - expected), 2)
 
 
+def _load_league_rating_config(conn: sqlite3.Connection, league_id: int) -> dict:
+    row = conn.execute("SELECT rating_config_json FROM leagues WHERE id = ?", (league_id,)).fetchone()
+    cfg = dict(DEFAULT_RATING_CONFIG)
+    if row is None:
+        return cfg
+    try:
+        raw = json.loads(str(row["rating_config_json"] or "{}"))
+        if isinstance(raw, dict):
+            cfg.update(raw)
+    except Exception:
+        pass
+    return cfg
+
+
+def _fit_hierarchical_map_backend(
+    y: list[float],
+    league_idx: list[int],
+    mu_global: float = 1500.0,
+    sigma_obs: float = 50.0,
+    sigma_player: float = 200.0,
+    sigma_league: float = 100.0,
+) -> list[float]:
+    if np is None or not y:
+        return y
+
+    y_arr = np.asarray(y, dtype=float)
+    idx_arr = np.asarray(league_idx, dtype=int)
+    n = len(y_arr)
+    leagues = np.unique(idx_arr)
+    g_count = len(leagues)
+
+    league_map = {old: new for new, old in enumerate(leagues)}
+    mapped = np.array([league_map[v] for v in idx_arr], dtype=int)
+    n_g = np.bincount(mapped, minlength=g_count)
+
+    p_obs = 1.0 / (sigma_obs ** 2)
+    p_player = 1.0 / (sigma_player ** 2)
+    p_league = 1.0 / (sigma_league ** 2)
+
+    size = n + g_count
+    A = np.zeros((size, size), dtype=float)
+    b = np.zeros(size, dtype=float)
+
+    for i in range(n):
+        g = mapped[i]
+        A[i, i] = p_obs + p_player
+        A[i, n + g] = -p_player
+        b[i] = p_obs * y_arr[i]
+
+    for g in range(g_count):
+        rows = np.where(mapped == g)[0]
+        for i in rows:
+            A[n + g, i] = -p_player
+        A[n + g, n + g] = n_g[g] * p_player + p_league
+        b[n + g] = p_league * mu_global
+
+    try:
+        sol = np.linalg.solve(A, b)
+    except Exception:
+        sol = np.linalg.pinv(A) @ b
+
+    theta_map = sol[:n]
+    return [float(v) for v in theta_map]
+
+
+def _recompute_global_rating_hierarchical(conn: sqlite3.Connection) -> int:
+    rows = conn.execute(
+        "SELECT user_id, league_id, rating, attendance FROM league_player_stats WHERE attendance > 0"
+    ).fetchall()
+    if not rows:
+        return 0
+
+    y: list[float] = []
+    leagues: list[int] = []
+    user_ids: list[int] = []
+    weights: list[int] = []
+    for r in rows:
+        y.append(float(r["rating"] or DEFAULT_GLOBAL_RATING))
+        leagues.append(int(r["league_id"]))
+        user_ids.append(int(r["user_id"]))
+        weights.append(max(1, int(r["attendance"] or 0)))
+
+    theta = _fit_hierarchical_map_backend(
+        y,
+        leagues,
+        mu_global=DEFAULT_GLOBAL_RATING,
+        sigma_obs=60.0,
+        sigma_player=180.0,
+        sigma_league=120.0,
+    )
+
+    agg_sum: dict[int, float] = {}
+    agg_w: dict[int, int] = {}
+    for i, uid in enumerate(user_ids):
+        w = weights[i]
+        agg_sum[uid] = agg_sum.get(uid, 0.0) + theta[i] * w
+        agg_w[uid] = agg_w.get(uid, 0) + w
+
+    now_iso = utc_now_iso()
+    count = 0
+    for uid, total in agg_sum.items():
+        w = agg_w[uid]
+        if w <= 0:
+            continue
+        gmmr = round(total / w, 2)
+        conn.execute(
+            "UPDATE users SET global_rating = ?, updated_at = ? WHERE id = ?",
+            (gmmr, now_iso, uid),
+        )
+        count += 1
+    return count
+
+
+def _maybe_run_hierarchical_gmmr_recompute(conn: sqlite3.Connection, force: bool = False) -> int:
+    interval_minutes = 30
+    meta_key = "last_hierarchical_gmmr_recompute_at"
+    if not force:
+        last_row = conn.execute("SELECT value FROM app_meta WHERE key = ?", (meta_key,)).fetchone()
+        if last_row is not None:
+            try:
+                last_dt = datetime.fromisoformat(str(last_row["value"]))
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=timezone.utc)
+                if utc_now() - last_dt < timedelta(minutes=interval_minutes):
+                    return 0
+            except Exception:
+                pass
+
+    updated = _recompute_global_rating_hierarchical(conn)
+    conn.execute(
+        "INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (meta_key, utc_now_iso()),
+    )
+    return updated
+
+
+def _parse_optional_utc_iso(value: str | None, field_name: str) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {field_name}. Expected ISO datetime",
+        ) from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat()
+
+
+def _validate_season_window(start_at_iso: str | None, end_at_iso: str | None) -> None:
+    if start_at_iso is None or end_at_iso is None:
+        return
+    start_dt = datetime.fromisoformat(start_at_iso)
+    end_dt = datetime.fromisoformat(end_at_iso)
+    if end_dt <= start_dt:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Season end_at must be after start_at",
+        )
+
+
+def _season_is_active_at(start_at_raw: str | None, end_at_raw: str | None, at_dt: datetime) -> bool:
+    start_dt = datetime.fromisoformat(str(start_at_raw)) if start_at_raw else None
+    end_dt = datetime.fromisoformat(str(end_at_raw)) if end_at_raw else None
+    if start_dt is not None and at_dt < start_dt:
+        return False
+    if end_dt is not None and at_dt >= end_dt:
+        return False
+    return True
+
+
+def _windows_overlap(
+    start_a_raw: str | None,
+    end_a_raw: str | None,
+    start_b_raw: str | None,
+    end_b_raw: str | None,
+) -> bool:
+    start_a = datetime.fromisoformat(str(start_a_raw)) if start_a_raw else datetime.min.replace(tzinfo=timezone.utc)
+    end_a = datetime.fromisoformat(str(end_a_raw)) if end_a_raw else datetime.max.replace(tzinfo=timezone.utc)
+    start_b = datetime.fromisoformat(str(start_b_raw)) if start_b_raw else datetime.min.replace(tzinfo=timezone.utc)
+    end_b = datetime.fromisoformat(str(end_b_raw)) if end_b_raw else datetime.max.replace(tzinfo=timezone.utc)
+    return start_a < end_b and start_b < end_a
+
+
+def _assert_season_window_available(
+    conn: sqlite3.Connection,
+    league_id: int,
+    start_at_iso: str | None,
+    end_at_iso: str | None,
+) -> None:
+    rows = conn.execute(
+        "SELECT id, name, start_at, end_at FROM league_seasons WHERE league_id = ?",
+        (league_id,),
+    ).fetchall()
+    for row in rows:
+        if _windows_overlap(start_at_iso, end_at_iso, row["start_at"], row["end_at"]):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Season window overlaps with '{row['name']}'",
+            )
+
+
+def _sync_league_season_activation(conn: sqlite3.Connection, league_id: int) -> int | None:
+    rows = conn.execute(
+        "SELECT id, start_at, end_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at), id",
+        (league_id,),
+    ).fetchall()
+    now_dt = utc_now()
+    eligible = [r for r in rows if _season_is_active_at(r["start_at"], r["end_at"], now_dt)]
+    active_id = int(eligible[-1]["id"]) if eligible else None
+
+    conn.execute("UPDATE league_seasons SET is_active = 0 WHERE league_id = ?", (league_id,))
+    if active_id is not None:
+        conn.execute("UPDATE league_seasons SET is_active = 1 WHERE id = ?", (active_id,))
+    return active_id
+
+
+def _ensure_active_season(conn: sqlite3.Connection, league_id: int) -> int:
+    active_id = _sync_league_season_activation(conn, league_id)
+    if active_id is not None:
+        return active_id
+
+    now_iso = utc_now_iso()
+    cursor = conn.execute(
+        "INSERT INTO league_seasons (league_id, name, is_active, start_at, end_at, created_at) VALUES (?, ?, 1, ?, NULL, ?)",
+        (league_id, "Season 1", now_iso, now_iso),
+    )
+    season_id = cursor.lastrowid
+    if season_id is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create active season")
+    return int(season_id)
+
+
+def _match_active_elapsed_seconds(conn: sqlite3.Connection, match_id: int, started_at_iso: str) -> int:
+    started_at = datetime.fromisoformat(str(started_at_iso))
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    absolute_elapsed = int((utc_now() - started_at).total_seconds())
+    absolute_elapsed = max(0, absolute_elapsed)
+
+    markers = conn.execute(
+        "SELECT event_type, event_seconds FROM match_events WHERE match_id = ? AND undone = 0 AND event_type IN ('pause','resume') ORDER BY event_seconds, created_at",
+        (match_id,),
+    ).fetchall()
+
+    paused_total = 0
+    paused_from: int | None = None
+    for marker in markers:
+        ev_type = str(marker["event_type"])
+        ev_sec = int(marker["event_seconds"])
+        if ev_type == "pause":
+            paused_from = ev_sec
+        elif ev_type == "resume" and paused_from is not None:
+            paused_total += max(0, ev_sec - paused_from)
+            paused_from = None
+
+    if paused_from is not None:
+        paused_total += max(0, absolute_elapsed - paused_from)
+
+    return max(0, absolute_elapsed - paused_total)
+
+
 def _recompute_global_rating(conn: sqlite3.Connection, user_id: int) -> None:
-    """Recompute global_rating as attendance-weighted average of all league ratings."""
+    """Recompute global_rating as attendance-weighted average with Bayesian shrinkage to prior."""
     rows = conn.execute(
         "SELECT rating, attendance FROM league_player_stats WHERE user_id = ? AND attendance > 0",
         (user_id,),
@@ -3066,6 +4088,8 @@ def _recompute_global_rating(conn: sqlite3.Connection, user_id: int) -> None:
     if total_att == 0:
         return
     weighted = sum(float(r["rating"]) * int(r["attendance"]) for r in rows) / total_att
+    prior_weight = 10.0
+    weighted = ((weighted * total_att) + (DEFAULT_GLOBAL_RATING * prior_weight)) / (total_att + prior_weight)
     conn.execute(
         "UPDATE users SET global_rating = ?, updated_at = ? WHERE id = ?",
         (round(weighted, 2), utc_now_iso(), user_id),
@@ -3170,6 +4194,8 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
     score_a = int(match["score_a"])
     score_b = int(match["score_b"])
     league_id = int(match["league_id"])
+    season_id = _ensure_active_season(conn, league_id)
+    cfg = _load_league_rating_config(conn, league_id)
 
     if not team_a_ids and not team_b_ids:
         return
@@ -3196,6 +4222,7 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
     ).fetchall()
 
     goals_by_player: dict[int, int] = {}
+    own_goals_by_player: dict[int, int] = {}
     assists_by_player: dict[int, int] = {}
     for ev in events:
         uid = ev["user_id"]
@@ -3204,6 +4231,8 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
         uid = int(uid)
         if ev["event_type"] == "goal":
             goals_by_player[uid] = goals_by_player.get(uid, 0) + 1
+        elif ev["event_type"] == "own_goal":
+            own_goals_by_player[uid] = own_goals_by_player.get(uid, 0) + 1
         elif ev["event_type"] == "assist":
             assists_by_player[uid] = assists_by_player.get(uid, 0) + 1
 
@@ -3259,6 +4288,57 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
         )
         _recompute_global_rating(conn, uid)
 
+        # Seasonal SR points and seasonal-only counters
+        season_row = conn.execute(
+            "SELECT id, attendance, wins, goals, assists, own_goals, points FROM league_season_player_stats WHERE season_id = ? AND user_id = ?",
+            (season_id, uid),
+        ).fetchone()
+        won_bonus = float(cfg["sr_win_points"]) if won else (float(cfg["sr_draw_points"]) if drew else float(cfg["sr_loss_points"]))
+        delta_points = (
+            goals_by_player.get(uid, 0) * float(cfg["sr_goal_points"])
+            + assists_by_player.get(uid, 0) * float(cfg["sr_assist_points"])
+            + own_goals_by_player.get(uid, 0) * float(cfg["sr_own_goal_points"])
+            + won_bonus
+        )
+        if season_row is None:
+            start_points = float(cfg["sr_start_points"])
+            conn.execute(
+                """
+                INSERT INTO league_season_player_stats (season_id, user_id, attendance, wins, goals, assists, own_goals, points)
+                VALUES (?, ?, 1, ?, ?, ?, ?, ?)
+                """,
+                (
+                    season_id,
+                    uid,
+                    1 if won else 0,
+                    goals_by_player.get(uid, 0),
+                    assists_by_player.get(uid, 0),
+                    own_goals_by_player.get(uid, 0),
+                    round(start_points + delta_points, 2),
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE league_season_player_stats
+                SET attendance = attendance + 1,
+                    wins = wins + ?,
+                    goals = goals + ?,
+                    assists = assists + ?,
+                    own_goals = own_goals + ?,
+                    points = points + ?
+                WHERE id = ?
+                """,
+                (
+                    1 if won else 0,
+                    goals_by_player.get(uid, 0),
+                    assists_by_player.get(uid, 0),
+                    own_goals_by_player.get(uid, 0),
+                    round(delta_points, 2),
+                    int(season_row["id"]),
+                ),
+            )
+
 
 # ============================================================
 # MATCH SERIALIZERS
@@ -3293,6 +4373,8 @@ def _serialize_match(row: sqlite3.Row, my_registration_status: str | None = None
         visibility=str(row["visibility"] if row["visibility"] else "public"),
         cards_enabled=bool(int(row["cards_enabled"]) if row["cards_enabled"] is not None else 1),
         offsides_enabled=bool(int(row["offsides_enabled"]) if row["offsides_enabled"] is not None else 0),
+        corners_enabled=bool(int(row["corners_enabled"]) if row["corners_enabled"] is not None else 0),
+        fouls_enabled=bool(int(row["fouls_enabled"]) if row["fouls_enabled"] is not None else 0),
     )
 
 
@@ -3355,7 +4437,15 @@ def _auto_sync_registration_state(conn: sqlite3.Connection, match_id: int) -> No
             )
 
     current = conn.execute("SELECT status FROM matches WHERE id = ?", (match_id,)).fetchone()
-    if current is not None and str(current["status"]) == "registration_open" and now >= close_at:
+    current_status = str(current["status"]) if current is not None else status_now
+    # Close registration 15 min before kickoff
+    if current_status == "registration_open" and now >= close_at:
+        conn.execute(
+            "UPDATE matches SET status = 'registration_closed', updated_at = ? WHERE id = ?",
+            (utc_now_iso(), match_id),
+        )
+    # Additionally, if match is still upcoming/open at exact kickoff time, force close
+    elif current_status in {"upcoming", "registration_open"} and now >= scheduled:
         conn.execute(
             "UPDATE matches SET status = 'registration_closed', updated_at = ? WHERE id = ?",
             (utc_now_iso(), match_id),
@@ -3380,14 +4470,15 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
     user_id = int(current_user["id"])
     with get_conn() as conn:
         require_league_manager(conn, league_id, user_id)
+        require_league_approved(conn, league_id)
         cursor = conn.execute(
             """
             INSERT INTO matches (league_id, title, location, scheduled_at, registration_opens_at,
                                  max_participants, notes, status, team_a, team_b, score_a, score_b,
                                  team_a_name, team_b_name, teams_confirmed,
-                                 visibility, cards_enabled, offsides_enabled,
+                                 visibility, cards_enabled, offsides_enabled, corners_enabled, fouls_enabled,
                                  created_by, created_at, updated_at, preview_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, 'Team A', 'Team B', 0, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'upcoming', '[]', '[]', 0, 0, 'Team A', 'Team B', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 league_id,
@@ -3400,6 +4491,8 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
                 payload.visibility,
                 int(payload.cards_enabled),
                 int(payload.offsides_enabled),
+                int(payload.corners_enabled),
+                int(payload.fouls_enabled),
                 user_id,
                 created_at,
                 created_at,
@@ -3447,10 +4540,12 @@ def list_league_matches(league_id: int, current_user: sqlite3.Row = Depends(reso
 
 
 @app.get("/matches/{match_id}", response_model=MatchDetailOut)
-def get_match_detail(match_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> MatchDetailOut:
+def get_match_detail(match_id: int, credentials: HTTPAuthorizationCredentials | sqlite3.Row | None = Depends(bearer_scheme)) -> MatchDetailOut:
     # Resolve optional user - allow unauthenticated for public matches
     user_id: int | None = None
-    if credentials is not None and credentials.scheme.lower() == "bearer":
+    if isinstance(credentials, sqlite3.Row):
+        user_id = int(credentials["id"])
+    elif credentials is not None and credentials.scheme.lower() == "bearer":
         try:
             payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
             subject = str(payload.get("sub", ""))
@@ -3469,8 +4564,6 @@ def get_match_detail(match_id: int, credentials: HTTPAuthorizationCredentials | 
             "SELECT 1 FROM league_memberships WHERE league_id = ? AND user_id = ?",
             (league_id, user_id),
         ).fetchone() is not None
-        if visibility == "private" and not is_member:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This match is private")
         _auto_sync_registration_state(conn, match_id)
         _advance_waitlist(conn, match_id)
         conn.commit()
@@ -3482,8 +4575,8 @@ def get_match_detail(match_id: int, credentials: HTTPAuthorizationCredentials | 
         reg_rows = conn.execute(
             """
             SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position,
-                   COALESCE(lps.rating, ?) AS seasonal_rating,
-                   COALESCE(u.global_rating, ?) AS global_rating
+                 COALESCE(mr.rating_snapshot_lmmr, lps.rating, ?) AS seasonal_rating,
+                 COALESCE(mr.rating_snapshot_gmmr, u.global_rating, ?) AS global_rating
             FROM match_registrations AS mr
             JOIN users AS u ON u.id = mr.user_id
             LEFT JOIN league_player_stats AS lps ON lps.league_id = ? AND lps.user_id = mr.user_id
@@ -3563,8 +4656,8 @@ def get_match_detail_preview(preview_token: str) -> MatchDetailOut:
         reg_rows = conn.execute(
             """
             SELECT mr.user_id, u.username, u.display_name, mr.status, mr.registered_at, mr.position,
-                   COALESCE(lps.rating, ?) AS seasonal_rating,
-                   COALESCE(u.global_rating, ?) AS global_rating
+                 COALESCE(mr.rating_snapshot_lmmr, lps.rating, ?) AS seasonal_rating,
+                 COALESCE(mr.rating_snapshot_gmmr, u.global_rating, ?) AS global_rating
             FROM match_registrations AS mr
             JOIN users AS u ON u.id = mr.user_id
             LEFT JOIN league_player_stats AS lps ON lps.league_id = ? AND lps.user_id = mr.user_id
@@ -3902,6 +4995,23 @@ def start_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
             "UPDATE matches SET status = 'live', team_a = ?, team_b = ?, started_at = ?, updated_at = ? WHERE id = ?",
             (json.dumps(team_a), json.dumps(team_b), utc_now_iso(), utc_now_iso(), match_id),
         )
+        conn.execute(
+            """
+            UPDATE match_registrations
+            SET rating_snapshot_lmmr = (
+                    SELECT COALESCE(lps.rating, ?)
+                    FROM league_player_stats AS lps
+                    WHERE lps.league_id = ? AND lps.user_id = match_registrations.user_id
+                ),
+                rating_snapshot_gmmr = (
+                    SELECT COALESCE(u.global_rating, ?)
+                    FROM users AS u
+                    WHERE u.id = match_registrations.user_id
+                )
+            WHERE match_id = ? AND status IN ('registered','waitlisted','offered')
+            """,
+            (DEFAULT_GLOBAL_RATING, int(row["league_id"]), DEFAULT_GLOBAL_RATING, match_id),
+        )
         conn.commit()
 
     return get_match_detail(match_id, current_user)
@@ -3924,7 +5034,7 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         else:
             if started_at is None:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match has no start time")
-            elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+            elapsed_seconds = _match_active_elapsed_seconds(conn, match_id, str(started_at))
         now_iso = utc_now_iso()
 
         team_a = {int(uid) for uid in json.loads(str(row["team_a"] or "[]"))}
@@ -3936,7 +5046,7 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
         actor_user_id: int | None = None
         score_team: str | None = None
 
-        if event_type in {"goal", "own_goal", "injury", "yellow_card", "red_card", "offside"} and payload.team not in {"a", "b"}:
+        if event_type in {"goal", "own_goal", "injury", "yellow_card", "red_card", "offside", "corner", "foul"} and payload.team not in {"a", "b"}:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="team must be 'a' or 'b' for this event")
 
         if event_type == "goal":
@@ -3956,13 +5066,17 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
             actor_user_id = int(own_goal_user_id)
             score_team = payload.team
 
-        elif event_type in {"injury", "yellow_card", "red_card"}:
+        elif event_type in {"injury", "yellow_card", "red_card", "foul"}:
             card_user_id = payload.player_user_id or payload.scorer_user_id
             if card_user_id is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="player_user_id is required for this event")
             if int(card_user_id) not in scoring_team_players:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected player must belong to the selected team")
             actor_user_id = int(card_user_id)
+            score_team = payload.team
+
+        elif event_type == "corner":
+            actor_user_id = None
             score_team = payload.team
 
         elif event_type in {"pause", "resume"}:
@@ -4040,7 +5154,7 @@ def pause_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
         if last_marker is not None and str(last_marker["event_type"]) == "pause":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is already paused")
 
-        elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+        elapsed_seconds = _match_active_elapsed_seconds(conn, match_id, str(started_at))
         now_iso = utc_now_iso()
         cursor = conn.execute(
             "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'pause', NULL, NULL, ?, ?, 0)",
@@ -4084,7 +5198,7 @@ def resume_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curr
         if last_marker is None or str(last_marker["event_type"]) != "pause":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match is not paused")
 
-        elapsed_seconds = int((utc_now() - datetime.fromisoformat(str(started_at))).total_seconds())
+        elapsed_seconds = _match_active_elapsed_seconds(conn, match_id, str(started_at))
         now_iso = utc_now_iso()
         cursor = conn.execute(
             "INSERT INTO match_events (match_id, event_type, user_id, team, event_seconds, created_at, undone) VALUES (?, 'resume', NULL, NULL, ?, ?, 0)",
@@ -4173,6 +5287,7 @@ def confirm_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_cur
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match must be in finished state to confirm")
 
         _apply_match_stats(conn, match_id)
+        _maybe_run_hierarchical_gmmr_recompute(conn, force=True)
         conn.execute(
             "UPDATE matches SET status = 'completed', updated_at = ? WHERE id = ?",
             (utc_now_iso(), match_id),

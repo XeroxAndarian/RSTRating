@@ -84,6 +84,12 @@
           <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
             <input type="checkbox" id="offsides_enabled" name="offsides_enabled" style="width:auto;"> 🚩 Offsides tracking enabled
           </label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
+            <input type="checkbox" id="corners_enabled" name="corners_enabled" style="width:auto;"> 🏳️ Corners tracking enabled
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:0;">
+            <input type="checkbox" id="fouls_enabled" name="fouls_enabled" style="width:auto;"> 🤚 Fouls tracking enabled
+          </label>
         </div>
 
         <div class="row">
@@ -269,6 +275,8 @@
           visibility,
           cards_enabled: document.getElementById("cards_enabled").checked,
           offsides_enabled: document.getElementById("offsides_enabled").checked,
+          corners_enabled: document.getElementById("corners_enabled").checked,
+          fouls_enabled: document.getElementById("fouls_enabled").checked,
         };
         const match = await apiFetch(`/leagues/${leagueId}/matches`, {
           method: "POST",

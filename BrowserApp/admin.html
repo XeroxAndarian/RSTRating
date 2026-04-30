@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Console</title>
+  <style>
+    :root {
+      --bg:#edf3ee;
+      --panel:#ffffff;
+      --text:#102419;
+      --muted:#5f7468;
+      --line:rgba(16,36,25,.14);
+      --accent:#1d7c47;
+      --danger:#b42318;
+      --warn:#a16207;
+    }
+    [data-theme="dark"] {
+      --bg:#0f1713;
+      --panel:#18231d;
+      --text:#e0efe6;
+      --muted:#8aa193;
+      --line:rgba(224,239,230,.12);
+      --accent:#37b36c;
+      --danger:#f87171;
+      --warn:#fbbf24;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:1200px; margin:0 auto; padding:24px 16px 40px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn, a.btn { appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--text); padding:9px 14px; border-radius:10px; font:inherit; text-decoration:none; cursor:pointer; }
+    .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .btn.danger { background:var(--danger); border-color:var(--danger); color:#fff; }
+    .btn.warn { color:var(--warn); }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns:1fr; } }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; }
+    .stats { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+    @media (max-width:900px) { .stats { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+    .stat { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .stat .label { color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; }
+    .stat .value { margin-top:6px; font-size:1.4rem; font-weight:700; }
+    .list { display:flex; flex-direction:column; gap:10px; max-height:70vh; overflow:auto; }
+    .row { border:1px solid var(--line); border-radius:12px; padding:12px; }
+    .row-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .title { font-weight:700; }
+    .meta { color:var(--muted); font-size:.84rem; margin-top:4px; }
+    .pill { display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:.75rem; margin-left:6px; }
+    .pill.pending { color:var(--warn); }
+    .pill.rejected { color:var(--danger); }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .status { min-height:20px; color:var(--muted); margin-top:12px; }
+    .status.error { color:var(--danger); }
+    input { width:100%; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:inherit; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">Admin Console</h1>
+        <div style="color:var(--muted);margin-top:4px;">Manage platform users, league approvals, account blocking, and password resets.</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn" href="./lobby.html">← Lobby</a>
+        <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
+      </div>
+    </div>
+
+    <div class="stats" id="statsGrid"></div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="section-head">
+          <h2 style="margin:0;">Leagues</h2>
+          <input id="leagueSearch" type="text" placeholder="Search leagues or owners">
+        </div>
+        <div class="list" id="leagueList"><p class="meta">Loading…</p></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2 style="margin:0;">Users</h2>
+          <input id="userSearch" type="text" placeholder="Search users or emails">
+        </div>
+        <div class="list" id="userList"><p class="meta">Loading…</p></div>
+      </section>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme", "dark"); })();
+    document.getElementById("darkModeToggle").addEventListener("click", function(){
+      var dark = document.documentElement.getAttribute("data-theme") === "dark";
+      if (dark) { document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme", "light"); this.textContent = "🌙"; }
+      else { document.documentElement.setAttribute("data-theme", "dark"); localStorage.setItem("rs_theme", "dark"); this.textContent = "☀️"; }
+    });
+    if (document.documentElement.getAttribute("data-theme") === "dark") document.getElementById("darkModeToggle").textContent = "☀️";
+
+    var TOKEN_KEY = "rs_access_token", API_BASE_KEY = "rs_api_base_override";
+    var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    var users = [], leagues = [];
+
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"', '&quot;'); }
+    function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function show(msg, kind){ var el = document.getElementById("status"); el.textContent = msg; el.className = kind ? "status " + kind : "status"; }
+    async function apiFetch(path, options){
+      var headers = Object.assign({}, options && options.headers || {});
+      var token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      var res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers: headers }));
+      var body = null; try { body = await res.json(); } catch(e) {}
+      if (!res.ok) throw new Error((body && body.detail) || "Request failed");
+      return body;
+    }
+
+    function renderStats(data){
+      var grid = document.getElementById("statsGrid");
+      var items = [
+        ["Users", data.users_total],
+        ["Active users", data.users_active],
+        ["Leagues", data.leagues_total],
+        ["Pending leagues", data.leagues_pending],
+        ["Rejected leagues", data.leagues_rejected]
+      ];
+      grid.innerHTML = items.map(function(item){ return '<div class="stat"><div class="label">' + esc(item[0]) + '</div><div class="value">' + esc(item[1]) + '</div></div>'; }).join("");
+    }
+
+    function renderLeagues(){
+      var q = (document.getElementById("leagueSearch").value || "").toLowerCase();
+      var list = document.getElementById("leagueList");
+      var filtered = leagues.filter(function(l){ return !q || String(l.name).toLowerCase().includes(q) || String(l.owner_username).toLowerCase().includes(q); });
+      list.innerHTML = filtered.map(function(l){
+        var pillClass = l.approval_status === "pending" ? "pill pending" : l.approval_status === "rejected" ? "pill rejected" : "pill";
+        var actionHtml = '';
+        if (l.approval_status !== 'approved') actionHtml += '<button class="btn primary" data-league-action="approved" data-league-id="' + l.id + '">Approve</button>';
+        if (l.approval_status !== 'rejected') actionHtml += '<button class="btn warn" data-league-action="rejected" data-league-id="' + l.id + '">Reject</button>';
+        return '<div class="row"><div class="row-top"><div><div class="title">' + esc(l.name) + '<span class="' + pillClass + '">' + esc(l.approval_status) + '</span></div><div class="meta">Owner: ' + esc(l.owner_username) + ' · ' + esc(l.region) + ' · ' + esc(l.football_type) + '/' + esc(l.goal_size) + ' · Members ' + esc(l.member_count) + '</div><div class="meta">Created ' + esc(new Date(l.created_at).toLocaleString()) + (l.approval_note ? ' · Note: ' + esc(l.approval_note) : '') + '</div></div></div><div class="toolbar">' + actionHtml + '</div></div>';
+      }).join("") || '<p class="meta">No leagues found.</p>';
+    }
+
+    function renderUsers(){
+      var q = (document.getElementById("userSearch").value || "").toLowerCase();
+      var list = document.getElementById("userList");
+      var filtered = users.filter(function(u){ return !q || String(u.username).toLowerCase().includes(q) || String(u.email).toLowerCase().includes(q); });
+      list.innerHTML = filtered.map(function(u){
+        var pill = u.is_active ? '<span class="pill">active</span>' : '<span class="pill rejected">blocked</span>';
+        var resetBtn = u.is_active ? '<button class="btn" data-user-reset="' + u.id + '">Force reset</button>' : '';
+        var blockBtn = (u.is_active && u.role !== 'admin') ? '<button class="btn danger" data-user-block="' + u.id + '">Block</button>' : '';
+        var unblockBtn = (!u.is_active) ? '<button class="btn primary" data-user-unblock="' + u.id + '">Unblock</button>' : '';
+        return '<div class="row"><div class="row-top"><div><div class="title">' + esc(u.username) + pill + '</div><div class="meta">' + esc(u.email || '-') + ' · role ' + esc(u.role) + ' · recovery ' + esc(u.recovery_id || '-') + '</div><div class="meta">Leagues ' + esc(u.league_count) + ' · Owns ' + esc(u.owned_league_count) + ' · Rating ' + esc(Number(u.global_rating || 0).toFixed(1)) + '</div></div></div><div class="toolbar">' + resetBtn + blockBtn + unblockBtn + '</div></div>';
+      }).join("") || '<p class="meta">No users found.</p>';
+    }
+
+    async function load(){
+      try {
+        var me = await apiFetch('/auth/me');
+        if (!me || me.role !== 'admin') { show('Admin access required.', 'error'); return; }
+        var results = await Promise.all([
+          apiFetch('/admin/overview'),
+          apiFetch('/admin/users'),
+          apiFetch('/admin/leagues')
+        ]);
+        renderStats(results[0]);
+        users = Array.isArray(results[1]) ? results[1] : [];
+        leagues = Array.isArray(results[2]) ? results[2] : [];
+        renderUsers();
+        renderLeagues();
+        show('');
+      } catch (err) {
+        show(err.message || 'Failed to load admin console.', 'error');
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', load);
+    document.getElementById('leagueSearch').addEventListener('input', renderLeagues);
+    document.getElementById('userSearch').addEventListener('input', renderUsers);
+    document.getElementById('leagueList').addEventListener('click', async function(e){
+      var btn = e.target.closest('[data-league-action]');
+      if (!btn) return;
+      var note = window.prompt('Optional note for this approval decision:', '');
+      try {
+        await apiFetch('/admin/leagues/' + btn.dataset.leagueId + '/approval', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: btn.dataset.leagueAction, note: note || null })
+        });
+        await load();
+        show('League updated.');
+      } catch (err) { show(err.message || 'Failed.', 'error'); }
+    });
+    document.getElementById('userList').addEventListener('click', async function(e){
+      var resetBtn = e.target.closest('[data-user-reset]');
+      if (resetBtn) {
+        var chosen = window.prompt('Enter a new password for the user, or leave blank to auto-generate:', '');
+        try {
+          var response = await apiFetch('/admin/users/' + resetBtn.dataset.userReset + '/force-password-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_password: chosen || null })
+          });
+          window.alert('Temporary/new password: ' + response.password);
+          show(response.detail || 'Password reset.');
+        } catch (err) { show(err.message || 'Failed.', 'error'); }
+        return;
+      }
+      var blockBtn = e.target.closest('[data-user-block]');
+      if (blockBtn) {
+        if (!window.confirm('Temporarily block this account? The user will no longer be able to sign in until unblocked.')) return;
+        try {
+          var response2 = await apiFetch('/admin/users/' + blockBtn.dataset.userBlock + '/block', { method: 'POST' });
+          await load();
+          show(response2.detail || 'Account blocked.');
+        } catch (err) { show(err.message || 'Failed.', 'error'); }
+        return;
+      }
+      var unblockBtn = e.target.closest('[data-user-unblock]');
+      if (unblockBtn) {
+        try {
+          var response3 = await apiFetch('/admin/users/' + unblockBtn.dataset.userUnblock + '/unblock', { method: 'POST' });
+          await load();
+          show(response3.detail || 'Account unblocked.');
+        } catch (err) { show(err.message || 'Failed.', 'error'); }
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

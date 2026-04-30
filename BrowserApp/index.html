@@ -1006,6 +1006,7 @@
                                     <button class="button" type="submit">Enter Lobby</button>
                                 </form>
                                 <p class="hint">If you opened an invitation link, log in and accept it directly from this page.</p>
+                                <p class="hint">Need an account unblock or forgot your reset token? Contact league.manager.admin@protonmail.com.</p>
                             </div>
 
                             <div class="panel" id="registerPanel">
@@ -1033,10 +1034,13 @@
 
                         <section class="panel-card" id="resetSection" style="display:none;">
                             <h2 class="section-title">Forgot your password?</h2>
-                            <p class="subtle">Enter the email linked to your account to receive a reset token.</p>
+                            <p class="subtle">Enter your recovery ID. Email can still be used as a fallback.</p>
+                            <p class="hint" style="margin-top:6px;">If the token is forgotten, contact league.manager.admin@protonmail.com.</p>
                             <form class="stack" id="resetRequestForm" style="margin-top: 12px; margin-bottom: 14px;">
-                                <label for="resetEmail">Email</label>
-                                <input id="resetEmail" name="email" type="email" required>
+                                <label for="resetRecoveryId">Recovery ID</label>
+                                <input id="resetRecoveryId" name="recoveryId" type="text" minlength="6" maxlength="32" placeholder="RST-XXXXXXXX">
+                                <label for="resetEmail">Email (optional fallback)</label>
+                                <input id="resetEmail" name="email" type="email">
                                 <button class="ghost" type="submit">Send reset token</button>
                             </form>
                             <div id="resetTokenPanel" style="display: none;">
@@ -2021,10 +2025,16 @@
         resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
+                const recoveryId = resetRequestForm.recoveryId.value.trim();
+                const email = resetRequestForm.email.value.trim();
+                if (!recoveryId && !email) {
+                    showStatus("Enter your recovery ID or email.", "error");
+                    return;
+                }
                 const response = await apiFetch("/auth/password-reset-request", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: resetRequestForm.email.value.trim() })
+                    body: JSON.stringify({ recovery_id: recoveryId || null, email: email || null })
                 });
                 resetTokenPanel.style.display = "block";
                 showStatus(response.detail || "Reset token requested.", "ok");
@@ -2036,11 +2046,12 @@
         resetForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const email = resetRequestForm.email.value.trim();
+            const recoveryId = resetRequestForm.recoveryId.value.trim();
             const token = resetForm.token.value.trim();
             const newPassword = resetForm.newPassword.value;
             const passwordRepeat = resetForm.passwordRepeat.value;
-            if (!email) {
-                showStatus("Enter the email used for the reset request.", "error");
+            if (!email && !recoveryId) {
+                showStatus("Enter the recovery information used for the reset request.", "error");
                 return;
             }
             if (newPassword.length < 6) {
@@ -2055,7 +2066,7 @@
                 const response = await apiFetch("/auth/password-reset", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, token, new_password: newPassword })
+                    body: JSON.stringify({ email: email || null, recovery_id: recoveryId || null, token, new_password: newPassword })
                 });
                 resetForm.reset();
                 resetTokenPanel.style.display = "none";

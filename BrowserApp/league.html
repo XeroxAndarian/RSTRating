@@ -93,6 +93,42 @@
 
         <div class="card">
           <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+            <h2 style="margin:0;">Player stats</h2>
+            <span class="muted" style="font-size:.82rem;">General + seasons</span>
+          </div>
+          <div id="seasonManager" style="display:none;margin-bottom:10px;">
+            <div class="row" style="justify-content:flex-start;gap:8px;">
+              <select id="seasonSelect" style="max-width:280px;"></select>
+              <button type="button" class="btn ghost sm" id="activateSeasonBtn">Activate season</button>
+            </div>
+            <div class="row" style="justify-content:flex-start;gap:8px;margin-top:8px;">
+              <input id="newSeasonInput" type="text" maxlength="80" placeholder="New season name" style="max-width:280px;">
+              <input id="newSeasonStartInput" type="datetime-local" style="max-width:220px;" title="Season start">
+              <input id="newSeasonEndInput" type="datetime-local" style="max-width:220px;" title="Season end">
+              <button type="button" class="btn ghost sm" id="createSeasonBtn">Create season</button>
+            </div>
+          </div>
+          <div id="statsTabs" class="row" style="justify-content:flex-start;gap:6px;margin-bottom:8px;"></div>
+          <div style="overflow-x:auto;">
+            <table class="member-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Att</th>
+                  <th>W</th>
+                  <th>G</th>
+                  <th>A</th>
+                  <th>LMMR</th>
+                  <th>SR</th>
+                </tr>
+              </thead>
+              <tbody id="statsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row" style="justify-content:space-between;margin-bottom:10px;">
             <h2>Members</h2>
             <span id="memberCount" class="muted" style="font-size:.85rem;"></span>
           </div>
@@ -162,7 +198,8 @@
     var addMatchBtn=document.getElementById("addMatchBtn");
     var settingsBtn=document.getElementById("settingsBtn");
 
-    var detail=null, matches=[], joinRequests=[];
+    var detail=null, matches=[], joinRequests=[], statsTabs=[], seasons=[];
+    var activeStatsTabKey="general";
     var sortCol="rating", sortDir=-1;
 
     function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
@@ -189,13 +226,26 @@
 
     function renderMeta(){
       var lg=detail.league;
+      var activeSeason=Array.isArray(seasons)?seasons.find(function(s){return !!s.is_active;}):null;
+      var seasonBadge="";
+      var approvalLine="";
+      if(activeSeason){
+        var sStart=activeSeason.start_at?new Date(activeSeason.start_at).toLocaleDateString():"-";
+        var sEnd=activeSeason.end_at?new Date(activeSeason.end_at).toLocaleDateString():"...";
+        seasonBadge="<div><strong>Season:</strong> "+esc(activeSeason.name||"Current")+" <span class=\"pill\" style=\"font-size:.75rem;\">"+esc(sStart)+" – "+esc(sEnd)+"</span></div>";
+      }
+      if(lg.approval_status && lg.approval_status !== "approved"){
+        approvalLine="<div><strong>Status:</strong> <span class=\"pill\">"+esc(lg.approval_status)+(lg.approval_note?": "+esc(lg.approval_note):"")+"</span></div>";
+      }
       document.getElementById("meta").innerHTML=
         "<div><strong>Manager:</strong> "+esc(lg.owner_username)+"</div>"+
         "<div><strong>Region:</strong> "+esc(lg.region||"-")+"</div>"+
         "<div><strong>Type:</strong> "+esc(lg.football_type)+" / "+esc(lg.goal_size)+"</div>"+
         "<div><strong>Join:</strong> "+(lg.auto_accept_members?"Auto-accept":"Request only")+"</div>"+
         "<div><strong>Members:</strong> "+esc(lg.member_count)+"</div>"+
-        "<div><strong>Created:</strong> "+esc((lg.created_at||"").slice(0,10))+"</div>";
+        "<div><strong>Created:</strong> "+esc((lg.created_at||"").slice(0,10))+"</div>"+
+        approvalLine+
+        seasonBadge;
     }
 
     function renderMatches(){
@@ -203,7 +253,11 @@
       var completed=matches.filter(function(m){return m.status==="completed"||m.status==="finished";})
         .sort(function(a,b){return new Date(b.scheduled_at)-new Date(a.scheduled_at);});
       var upcoming=matches.filter(function(m){return ["upcoming","registration_open","registration_closed","live"].includes(m.status);})
-        .sort(function(a,b){return new Date(a.scheduled_at)-new Date(b.scheduled_at);});
+        .sort(function(a,b){
+          var pa=a.status==="live"?0:1, pb=b.status==="live"?0:1;
+          if(pa!==pb) return pa-pb;
+          return new Date(a.scheduled_at)-new Date(b.scheduled_at);
+        });
 
       var presetQuick=document.getElementById("presetQuick");
       var presets=(detail&&detail.league&&Array.isArray(detail.league.match_presets))?detail.league.match_presets:[];
@@ -241,8 +295,53 @@
         }else{
           regBtn="<span class=\"reg-opens-label\">Opens "+fmtShort(mt.registration_opens_at)+"</span>";
         }
-        return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">\uD83D\uDC65 "+regCount+"/"+esc(mt.max_participants)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a>"+regBtn+"</div></div>";
+        var statePill=(mt.status==="live")?"<span class=\"pill state-live\">LIVE</span>":"<span class=\"pill\">"+esc(mt.status.replace("_"," "))+"</span>";
+        return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"row\" style=\"gap:6px;\">"+statePill+"<span class=\"pill\">\uD83D\uDC65 "+regCount+"/"+esc(mt.max_participants)+"</span></span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a>"+regBtn+"</div></div>";
       }).join("");
+    }
+
+    function renderStatsTabs(){
+      var tabsEl=document.getElementById("statsTabs");
+      var bodyEl=document.getElementById("statsTbody");
+      if(!tabsEl||!bodyEl) return;
+      if(!Array.isArray(statsTabs)||!statsTabs.length){
+        tabsEl.innerHTML="";
+        bodyEl.innerHTML='<tr><td colspan="7" class="muted">No stats available yet.</td></tr>';
+        return;
+      }
+      if(!statsTabs.find(function(t){return t.key===activeStatsTabKey;})) activeStatsTabKey=statsTabs[0].key;
+      tabsEl.innerHTML=statsTabs.map(function(tab){
+        var cls=(tab.key===activeStatsTabKey)?"btn primary sm":"btn ghost sm";
+        return '<button type="button" class="'+cls+'" data-stat-tab="'+esc(tab.key)+'">'+esc(tab.label)+'</button>';
+      }).join("");
+
+      var active=statsTabs.find(function(t){return t.key===activeStatsTabKey;})||statsTabs[0];
+      var rows=Array.isArray(active.rows)?active.rows:[];
+      bodyEl.innerHTML=rows.map(function(r){
+        var wr=(Number(r.attendance||0)>0)?Math.round(100*Number(r.wins||0)/Number(r.attendance||0)):0;
+        return "<tr><td class=\"mt-name\">"+esc(r.display_name||r.username)+"</td><td>"+esc(r.attendance||0)+"</td><td>"+esc(r.wins||0)+" ("+wr+"%)</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
+      }).join("") || '<tr><td colspan="7" class="muted">No players.</td></tr>';
+    }
+
+    function renderSeasonManager(){
+      var wrap=document.getElementById("seasonManager");
+      var select=document.getElementById("seasonSelect");
+      if(!wrap||!select) return;
+      if(!canManage()){ wrap.style.display="none"; return; }
+      wrap.style.display="block";
+      var items=Array.isArray(seasons)?seasons:[];
+      if(!items.length){
+        select.innerHTML='<option value="">No seasons</option>';
+        return;
+      }
+      select.innerHTML=items.map(function(s){
+        var startLbl=s.start_at?new Date(s.start_at).toLocaleDateString():"?";
+        var endLbl=s.end_at?new Date(s.end_at).toLocaleDateString():"...";
+        var lbl=(s.name||("Season "+s.id))+" ["+startLbl+" - "+endLbl+"]"+(s.is_active?" (Current)":"");
+        return '<option value="'+Number(s.id)+'">'+esc(lbl)+'</option>';
+      }).join("");
+      var active=items.find(function(s){return !!s.is_active;});
+      if(active) select.value=String(active.id);
     }
 
     function renderMembers(){
@@ -299,7 +398,7 @@
       addMatchBtn.href="./create_match.html?league_id="+lg.id;
       settingsBtn.style.display=canManage()?"inline-flex":"none";
       settingsBtn.href="./league_settings.html?id="+lg.id;
-      renderMeta();renderMatches();renderMembers();renderJoinRequests();
+      renderMeta();renderMatches();renderMembers();renderJoinRequests();renderSeasonManager();renderStatsTabs();
     }
 
     document.getElementById("memberTable").addEventListener("click",function(e){
@@ -318,6 +417,36 @@
       if(unregBtn){try{await apiFetch("/matches/"+unregBtn.dataset.match+"/unregister",{method:"DELETE"});await load();show("Unregistered.");}catch(err){show(err.message||"Failed.","error");}return;}
       var reqBtn=e.target.closest(".joinReqDecision");
       if(reqBtn){try{await apiFetch("/leagues/"+leagueId+"/join-requests/"+Number(reqBtn.dataset.id),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision:reqBtn.dataset.decision})});await load();show("Request "+reqBtn.dataset.decision+"ed.");}catch(err){show(err.message||"Failed.","error");}return;}
+      var tabBtn=e.target.closest("[data-stat-tab]");
+      if(tabBtn){activeStatsTabKey=tabBtn.dataset.statTab||"general";renderStatsTabs();return;}
+      var activateBtn=e.target.closest("#activateSeasonBtn");
+      if(activateBtn){
+        var sid=Number((document.getElementById("seasonSelect")||{}).value||0);
+        if(!sid){show("Select a season first.","error");return;}
+        try{await apiFetch("/leagues/"+leagueId+"/seasons/"+sid+"/activate",{method:"POST"});await load();show("Season activated.");}catch(err){show(err.message||"Failed.","error");}
+        return;
+      }
+      var createBtn=e.target.closest("#createSeasonBtn");
+      if(createBtn){
+        var nm=((document.getElementById("newSeasonInput")||{}).value||"").trim();
+        var startRaw=((document.getElementById("newSeasonStartInput")||{}).value||"").trim();
+        var endRaw=((document.getElementById("newSeasonEndInput")||{}).value||"").trim();
+        if(!nm){show("Season name is required.","error");return;}
+        if(!startRaw||!endRaw){show("Set both season start and end.","error");return;}
+        var startIso=new Date(startRaw).toISOString();
+        var endIso=new Date(endRaw).toISOString();
+        if(new Date(endIso)<=new Date(startIso)){show("Season end must be after start.","error");return;}
+        var shouldActivate=new Date(startIso)<=new Date()&&new Date()<new Date(endIso);
+        try{
+          await apiFetch("/leagues/"+leagueId+"/seasons",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:nm,start_at:startIso,end_at:endIso,activate:shouldActivate})});
+          if(document.getElementById("newSeasonInput"))document.getElementById("newSeasonInput").value="";
+          if(document.getElementById("newSeasonStartInput"))document.getElementById("newSeasonStartInput").value="";
+          if(document.getElementById("newSeasonEndInput"))document.getElementById("newSeasonEndInput").value="";
+          await load();
+          show(shouldActivate?"Season created and activated.":"Season scheduled.");
+        }catch(err){show(err.message||"Failed.","error");}
+        return;
+      }
     });
 
     async function load(){
@@ -327,14 +456,18 @@
         var results=await Promise.all([
           apiFetch("/leagues/"+leagueId),
           apiFetch("/leagues/"+leagueId+"/matches"),
+          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(){return[];}),
+          apiFetch("/leagues/"+leagueId+"/seasons").catch(function(){return[];}),
           apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
         ]);
         detail=results[0];
         matches=Array.isArray(results[1])?results[1]:[];
-        joinRequests=Array.isArray(results[2])?results[2]:[];
+        statsTabs=Array.isArray(results[2])?results[2]:[];
+        seasons=Array.isArray(results[3])?results[3]:[];
+        joinRequests=Array.isArray(results[4])?results[4]:[];
         render();
-        var notifs=Array.isArray(results[3])?results[3]:(results[3]&&results[3].items||[]);
+        var notifs=Array.isArray(results[5])?results[5]:(results[5]&&results[5].items||[]);
         renderAnnouncements(notifs);
       }catch(err){
         show(err.message||"Failed loading league.","error");
