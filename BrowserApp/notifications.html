@@ -6,6 +6,7 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <script src="./palette.js"></script>
   <title>Notifications | EARLY ACCESS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -54,9 +55,9 @@
     <div class="filter-bar">
       <button class="filter-btn active" data-filter="all">All</button>
       <button class="filter-btn" data-filter="unread">Unread</button>
-      <button class="filter-btn" data-filter="match">Match</button>
-      <button class="filter-btn" data-filter="league">League</button>
-      <button class="filter-btn" data-filter="social">Social</button>
+      <button class="filter-btn" data-filter="matches">Matches you are in</button>
+      <button class="filter-btn" data-filter="leagues">Leagues you are in</button>
+      <button class="filter-btn" data-filter="fan">Fan / Following</button>
     </div>
 
     <div id="notifList"></div>
@@ -80,6 +81,7 @@
     const DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
     let allNotifs = [];
     let currentFilter = "all";
+    const params = new URLSearchParams(window.location.search);
 
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -102,9 +104,9 @@
     };
     function notifIcon(type){ return ICONS[type] || "🔔"; }
     function notifCategory(type){
-      if(["match_started","match_finished","goal","match_event"].includes(type)) return "match";
-      if(["league_approved","league_rejected","league_announcement"].includes(type)) return "league";
-      if(["friend_request","friend_accepted","fan_event"].includes(type)) return "social";
+      if(["match_started","match_finished","goal","match_event"].includes(type)) return "matches";
+      if(["league_approved","league_rejected","league_announcement"].includes(type)) return "leagues";
+      if(["friend_request","friend_accepted","fan_event"].includes(type)) return "fan";
       return "other";
     }
     function timeAgo(iso){
@@ -127,9 +129,9 @@
       const list = document.getElementById("notifList");
       let items = allNotifs;
       if(currentFilter === "unread") items = items.filter(n => !n.read);
-      else if(currentFilter === "match") items = items.filter(n => notifCategory(n.notif_type) === "match");
-      else if(currentFilter === "league") items = items.filter(n => notifCategory(n.notif_type) === "league");
-      else if(currentFilter === "social") items = items.filter(n => notifCategory(n.notif_type) === "social");
+      else if(currentFilter === "matches") items = items.filter(n => notifCategory(n.notif_type) === "matches");
+      else if(currentFilter === "leagues") items = items.filter(n => notifCategory(n.notif_type) === "leagues");
+      else if(currentFilter === "fan") items = items.filter(n => notifCategory(n.notif_type) === "fan");
 
       if(!items.length){
         list.innerHTML = '<div class="empty"><div style="font-size:2.5rem;">🔔</div><div style="margin-top:8px;">No notifications here.</div></div>';
@@ -184,6 +186,14 @@
 
     async function load(){
       try {
+        const initialFilter = params.get("filter");
+        if(initialFilter){
+          const allowed = ["all","unread","matches","leagues","fan"];
+          if(allowed.includes(initialFilter)){
+            currentFilter = initialFilter;
+            document.querySelectorAll(".filter-btn").forEach((b) => b.classList.toggle("active", b.dataset.filter === currentFilter));
+          }
+        }
         allNotifs = await apiFetch("/notifications");
         renderNotifs();
       } catch(e){ show(e.message || "Failed to load notifications.", "error"); }

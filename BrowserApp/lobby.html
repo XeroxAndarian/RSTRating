@@ -6,6 +6,7 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <script src="./palette.js"></script>
     <title>EARLY ACCESSS – Lobby</title>
     <style>
         :root {
@@ -821,41 +822,6 @@
         }
         .assist-player-btn:hover { border-color: var(--accent); }
 
-        /* ── Account Settings Drawer ──────────────────── */
-        .acct-drawer {
-            position: fixed;
-            top: 0; right: 0;
-            width: min(400px, 100vw);
-            height: 100vh;
-            background: var(--surface);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            z-index: 90;
-            transform: translateX(100%);
-            transition: transform 0.25s ease;
-            overflow: hidden;
-        }
-        .acct-drawer.open { transform: translateX(0); }
-        .acct-drawer-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            background: var(--panel-strong);
-        }
-        .acct-drawer-header h3 { margin: 0; font-size: 1.05rem; color: var(--text); }
-        .acct-drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-        .acct-section { margin-bottom: 22px; }
-        .acct-section h4 { margin: 0 0 10px; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-        .acct-input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); font: inherit; color: var(--text); box-sizing: border-box; }
-        .league-leave-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 0.88rem;
-        }
-        .league-leave-row:last-child { border-bottom: none; }
-
         /* ── Compact league table ──────────────────── */
         .league-table { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
         .league-row {
@@ -990,7 +956,7 @@
                     <button class="ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
                     <a class="ghost" href="./player.html" title="My player page" style="text-decoration:none;">👤</a>
                     <a class="ghost" id="adminConsoleBtn" href="./admin.html" title="Admin console" style="display:none;text-decoration:none;">🛡</a>
-                    <button class="ghost" id="acctSettingsBtn" type="button" title="Account settings">⚙</button>
+                    <a class="ghost" id="acctSettingsBtn" href="./account.html" title="Account settings" style="text-decoration:none;">⚙</a>
                     <button class="danger" id="logoutButton" type="button" title="Sign out">🚪</button>
                 </div>
             </div>
@@ -1084,6 +1050,7 @@
         <div class="notif-tab-bar">
             <button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>
             <button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>
+            <button class="notif-tab-btn" id="notifTabHistory" type="button">History</button>
         </div>
         <div class="notif-drawer-actions">
             <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>
@@ -1108,53 +1075,6 @@
         </div>
     </div>
     <div class="notif-backdrop" id="joinBackdrop" style="display:none;"></div>
-
-    <!-- Account Settings Drawer -->
-    <div class="acct-drawer" id="acctDrawer" aria-hidden="true">
-        <div class="notif-drawer-header">
-            <h3>Account Settings</h3>
-            <button class="icon-button" id="closeAcctDrawerBtn" type="button" aria-label="Close">✕</button>
-        </div>
-        <div style="padding:16px;display:flex;flex-direction:column;gap:18px;">
-            <div>
-                <p class="subtle" style="margin-bottom:4px;">Signed in as <strong id="acctUsername">—</strong></p>
-                <p class="subtle" style="margin:0;">Recovery Token: <strong id="acctRecoveryId">—</strong></p>
-            </div>
-            <form id="updateProfileForm" class="stack" style="gap:8px;">
-                <label for="acctDisplayName">Display name</label>
-                <input id="acctDisplayName" type="text" placeholder="Your display name" maxlength="40">
-                <label for="acctEmail">Email</label>
-                <input id="acctEmail" type="email" placeholder="your@email.com" maxlength="255">
-                <label for="acctCurrentPassword">Current password</label>
-                <input id="acctCurrentPassword" type="password" minlength="6" placeholder="Required for email or password change">
-                <label for="acctNewPassword">New password</label>
-                <input id="acctNewPassword" type="password" minlength="6" placeholder="Leave blank to keep current password">
-                <button class="button" type="submit" style="align-self:flex-start;padding:7px 16px;">Save</button>
-                <p class="hint" id="acctUpdateMsg" style="display:none;"></p>
-            </form>
-            <div>
-                <h4 style="margin:0 0 8px;font-size:0.95rem;">Password reset token</h4>
-                <p class="hint" style="margin:0 0 8px;">Generate a token here and use it in the reset form if needed.</p>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <button class="ghost" id="acctGenerateResetTokenBtn" type="button" style="padding:7px 12px;">Generate token</button>
-                    <button class="ghost" id="acctCopyResetTokenBtn" type="button" style="padding:7px 12px;">Copy</button>
-                </div>
-                <input id="acctResetToken" type="text" readonly placeholder="No token generated yet" style="margin-top:8px;">
-                <p class="hint" id="acctResetTokenMeta" style="margin:6px 0 0;"></p>
-            </div>
-            <div id="acctAdminTools" style="display:none;">
-                <h4 style="margin:0 0 8px;font-size:0.95rem;">Admin</h4>
-                <a class="ghost" href="./admin.html" style="display:inline-flex;text-decoration:none;padding:7px 14px;">Open admin console</a>
-            </div>
-            <div>
-                <h4 style="margin:0 0 8px;font-size:0.95rem;">Your leagues</h4>
-                <div id="acctLeagueList" style="display:flex;flex-direction:column;gap:6px;">
-                    <p class="hint">Loading…</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="notif-backdrop" id="acctBackdrop" style="display:none;"></div>
 
     <!-- Match Overlay -->
     <div class="match-overlay" id="matchOverlay" style="display:none;">
@@ -2092,148 +2012,6 @@
         const refreshLobbyBtn = document.getElementById("refreshLobbyBtn");
         if (refreshLobbyBtn) refreshLobbyBtn.addEventListener("click", refreshAndRender);
 
-        // Account settings drawer
-        const acctSettingsBtn = document.getElementById("acctSettingsBtn");
-        const acctDrawer = document.getElementById("acctDrawer");
-        const acctBackdrop = document.getElementById("acctBackdrop");
-        const closeAcctDrawerBtn = document.getElementById("closeAcctDrawerBtn");
-        function openAcctDrawer() {
-            if (!acctDrawer) return;
-            acctDrawer.classList.add("open");
-            acctDrawer.setAttribute("aria-hidden", "false");
-            if (acctBackdrop) acctBackdrop.style.display = "block";
-            // Fill in current user info
-            const uname = document.getElementById("acctUsername");
-            if (uname && currentUser) uname.textContent = currentUser.username || currentUser.name;
-            const recovery = document.getElementById("acctRecoveryId");
-            if (recovery && currentUser) recovery.textContent = currentUser.recovery_token || currentUser.recovery_id || "—";
-            const dispInput = document.getElementById("acctDisplayName");
-            if (dispInput && currentUser) dispInput.value = currentUser.display_name || currentUser.name || "";
-            const emailInput = document.getElementById("acctEmail");
-            if (emailInput && currentUser) emailInput.value = currentUser.email || "";
-            const tokenInput = document.getElementById("acctResetToken");
-            const tokenMeta = document.getElementById("acctResetTokenMeta");
-            if (tokenInput) tokenInput.value = "";
-            if (tokenMeta) tokenMeta.textContent = "";
-            const adminTools = document.getElementById("acctAdminTools");
-            if (adminTools) adminTools.style.display = isAdmin() ? "block" : "none";
-            renderAcctLeagueList();
-        }
-        function closeAcctDrawer() {
-            if (!acctDrawer) return;
-            acctDrawer.classList.remove("open");
-            acctDrawer.setAttribute("aria-hidden", "true");
-            if (acctBackdrop) acctBackdrop.style.display = "none";
-        }
-        if (acctSettingsBtn) acctSettingsBtn.addEventListener("click", openAcctDrawer);
-        if (closeAcctDrawerBtn) closeAcctDrawerBtn.addEventListener("click", closeAcctDrawer);
-        if (acctBackdrop) acctBackdrop.addEventListener("click", closeAcctDrawer);
-
-        function renderAcctLeagueList() {
-            const list = document.getElementById("acctLeagueList");
-            if (!list) return;
-            if (!lobbyState.leagues.length) {
-                list.innerHTML = '<p class="hint">No leagues.</p>';
-                return;
-            }
-            list.innerHTML = lobbyState.leagues.map(l => `
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">
-                    <span style="font-size:0.9rem;">${escapeHtml(l.name)}</span>
-                    ${l.member_role !== "owner" ? `<button class="ghost" data-leave-id="${l.id}" data-leave-name="${escapeHtml(l.name)}" style="padding:4px 10px;font-size:0.8rem;color:var(--danger);">Leave</button>` : '<span class="hint" style="font-size:0.75rem;">Manager</span>'}
-                </div>`).join("");
-            list.querySelectorAll("[data-leave-id]").forEach(btn => {
-                btn.addEventListener("click", async () => {
-                    if (!confirm(`Leave ${btn.dataset.leaveName}?`)) return;
-                    try {
-                        await apiFetch(`/leagues/${btn.dataset.leaveId}/leave`, { method: "POST" });
-                        showStatus("Left league.", "ok");
-                        await refreshAndRender();
-                        renderAcctLeagueList();
-                    } catch (e) { showStatus(e.message || "Failed.", "error"); }
-                });
-            });
-        }
-
-        const updateProfileForm = document.getElementById("updateProfileForm");
-        if (updateProfileForm) {
-            updateProfileForm.addEventListener("submit", async e => {
-                e.preventDefault();
-                const msg = document.getElementById("acctUpdateMsg");
-                const displayName = document.getElementById("acctDisplayName").value.trim();
-                const email = document.getElementById("acctEmail").value.trim();
-                const currentPassword = document.getElementById("acctCurrentPassword").value;
-                const newPassword = document.getElementById("acctNewPassword").value;
-                const payload = { display_name: displayName };
-                if (email !== (currentUser && currentUser.email ? currentUser.email : "")) payload.email = email;
-                if (newPassword) payload.new_password = newPassword;
-                if (payload.email || payload.new_password) payload.current_password = currentPassword;
-                try {
-                    const updated = await apiFetch("/auth/me", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload)
-                    });
-                    currentUser = updated;
-                    const currentPasswordInput = document.getElementById("acctCurrentPassword");
-                    const newPasswordInput = document.getElementById("acctNewPassword");
-                    if (currentPasswordInput) currentPasswordInput.value = "";
-                    if (newPasswordInput) newPasswordInput.value = "";
-                    if (msg) { msg.textContent = "Saved!"; msg.style.display = "block"; setTimeout(() => msg.style.display = "none", 2000); }
-                } catch (e) {
-                    if (msg) { msg.textContent = e.message || "Failed."; msg.style.display = "block"; }
-                }
-            });
-        }
-
-        const acctGenerateResetTokenBtn = document.getElementById("acctGenerateResetTokenBtn");
-        const acctCopyResetTokenBtn = document.getElementById("acctCopyResetTokenBtn");
-        if (acctGenerateResetTokenBtn) {
-            acctGenerateResetTokenBtn.addEventListener("click", async () => {
-                const tokenInput = document.getElementById("acctResetToken");
-                const tokenMeta = document.getElementById("acctResetTokenMeta");
-                if (!currentUser) {
-                    showStatus("Please sign in first.", "error");
-                    return;
-                }
-                try {
-                    const response = await apiFetch("/auth/password-reset-request", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ recovery_token: currentUser.recovery_token || currentUser.recovery_id || null })
-                    });
-                    if (tokenInput) tokenInput.value = response.token || "";
-                    if (tokenMeta) {
-                        const exp = response.expires_at ? new Date(response.expires_at).toLocaleString() : "";
-                        tokenMeta.textContent = exp ? ("Expires: " + exp) : "";
-                    }
-                    showStatus(response.detail || "Reset token generated.", "ok");
-                } catch (e) {
-                    showStatus(e.message || "Failed to generate reset token.", "error");
-                }
-            });
-        }
-        if (acctCopyResetTokenBtn) {
-            acctCopyResetTokenBtn.addEventListener("click", async () => {
-                const tokenInput = document.getElementById("acctResetToken");
-                const value = tokenInput ? tokenInput.value.trim() : "";
-                if (!value) {
-                    showStatus("Generate a token first.", "error");
-                    return;
-                }
-                try {
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        await navigator.clipboard.writeText(value);
-                    } else {
-                        tokenInput.select();
-                        document.execCommand("copy");
-                    }
-                    showStatus("Reset token copied.", "ok");
-                } catch (e) {
-                    showStatus("Could not copy token.", "error");
-                }
-            });
-        }
-
         if (resetRequestForm) resetRequestForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             try {
@@ -2445,11 +2223,17 @@
         }
 
         function setNotifTab(tab) {
+            if (tab === "history") {
+                window.location.href = "./notifications.html";
+                return;
+            }
             activeNotifTab = tab;
             const tabUnread = document.getElementById("notifTabUnread");
             const tabRead = document.getElementById("notifTabRead");
+            const tabHistory = document.getElementById("notifTabHistory");
             if (tabUnread) tabUnread.classList.toggle("active", tab === "unread");
             if (tabRead) tabRead.classList.toggle("active", tab === "read");
+            if (tabHistory) tabHistory.classList.remove("active");
             renderNotifList();
         }
 
@@ -2516,6 +2300,7 @@
         document.getElementById("notifBellButton").addEventListener("click", openNotifDrawer);
         document.getElementById("notifTabUnread").addEventListener("click", () => setNotifTab("unread"));
         document.getElementById("notifTabRead").addEventListener("click", () => setNotifTab("read"));
+        document.getElementById("notifTabHistory").addEventListener("click", () => setNotifTab("history"));
         document.getElementById("markAllReadButton").addEventListener("click", async () => {
             if (!currentUser) return;
             try {

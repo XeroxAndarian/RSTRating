@@ -6,6 +6,7 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <script src="./palette.js"></script>
   <title>Account Settings | EARLY ACCESS</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#fff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -30,6 +31,13 @@
     .status.ok { color:var(--accent); }
     .hint { font-size:.8rem; color:var(--muted); margin-top:4px; }
     .avatar { width:64px; height:64px; border-radius:50%; background:var(--accent); color:#fff; font-size:1.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+    .palette-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    @media (max-width:560px){ .palette-grid { grid-template-columns:1fr; } }
+    .palette-preview { border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--panel-soft); cursor:pointer; }
+    .palette-preview.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(31,138,76,.2) inset; }
+    .palette-preview .name { font-size:.82rem; font-weight:700; margin-bottom:6px; }
+    .swatches { display:flex; gap:6px; }
+    .swatches i { width:18px; height:18px; border-radius:999px; border:1px solid rgba(0,0,0,.2); display:inline-block; }
   </style>
 </head>
 <body>
@@ -90,6 +98,23 @@
     <div class="card">
       <h2>Account info</h2>
       <div id="accountInfo" class="muted" style="font-size:.88rem;line-height:1.6;">Loading...</div>
+    </div>
+
+    <div class="card">
+      <h2>Color palette</h2>
+      <div class="field">
+        <label for="paletteSelect">Choose app color palette</label>
+        <select id="paletteSelect" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel-soft);color:var(--text);font:inherit;">
+          <option value="forest">Forest</option>
+          <option value="ocean">Ocean</option>
+          <option value="sunset">Sunset</option>
+          <option value="graphite">Graphite</option>
+        </select>
+      </div>
+      <button class="btn primary" id="savePaletteBtn" type="button">Save palette</button>
+      <div class="hint">Applies to app pages. Login page keeps the original light/dark style.</div>
+      <div id="palettePreviewGrid" class="palette-grid"></div>
+      <div class="status" id="paletteStatus"></div>
     </div>
   </div>
 
@@ -175,6 +200,50 @@
       } catch(e){ setStatus("emailStatus", e.message || "Failed.", "error"); }
     });
 
+    document.getElementById("savePaletteBtn").addEventListener("click", () => {
+      const sel = document.getElementById("paletteSelect").value;
+      try {
+        if (window.RSPalette) {
+          window.RSPalette.apply(sel);
+        } else {
+          localStorage.setItem("rs_palette", sel);
+        }
+        setStatus("paletteStatus", "Palette updated.", "ok");
+        renderPalettePreviews(sel);
+      } catch (e) {
+        setStatus("paletteStatus", "Failed to update palette.", "error");
+      }
+    });
+
+    function renderPalettePreviews(activeKey){
+      const host = document.getElementById("palettePreviewGrid");
+      if(!host) return;
+      const list = (window.RSPalette && window.RSPalette.list) ? window.RSPalette.list : null;
+      if(!list){ host.innerHTML = ""; return; }
+      host.innerHTML = Object.keys(list).map((key) => {
+        const p = list[key];
+        const light = p.light || {};
+        return `<button type="button" class="palette-preview${key===activeKey?" active":""}" data-key="${key}">
+          <div class="name">${esc(p.name || key)}</div>
+          <div class="swatches">
+            <i style="background:${esc(light["--accent"] || "#999")}"></i>
+            <i style="background:${esc(light["--bg"] || "#eee")}"></i>
+            <i style="background:${esc(light["--panel"] || "#fff")}"></i>
+            <i style="background:${esc(light["--text"] || "#333")}"></i>
+          </div>
+        </button>`;
+      }).join("");
+      host.querySelectorAll(".palette-preview").forEach((el) => {
+        el.addEventListener("click", () => {
+          const key = el.dataset.key;
+          const select = document.getElementById("paletteSelect");
+          if(select) select.value = key;
+          if(window.RSPalette) window.RSPalette.apply(key);
+          renderPalettePreviews(key);
+        });
+      });
+    }
+
     async function load(){
       try {
         const user = await apiFetch("/auth/me");
@@ -183,6 +252,10 @@
         document.getElementById("profileSummary").textContent = "Not signed in.";
         document.getElementById("accountInfo").textContent = "Please sign in to manage your account.";
       }
+      const currentPalette = (window.RSPalette && window.RSPalette.get()) || localStorage.getItem("rs_palette") || "forest";
+      const paletteSelect = document.getElementById("paletteSelect");
+      if (paletteSelect) paletteSelect.value = currentPalette;
+      renderPalettePreviews(currentPalette);
     }
 
     load();
