@@ -35,7 +35,7 @@ FRONTEND_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "FRONTEND_ORIGINS",
-        "http://localhost:8000,http://127.0.0.1:8000,https://xeroxandarian.github.io",
+        "http://localhost:8000,http://127.0.0.1:8000,https://xeroxandarian.github.io,null",
     ).split(",")
     if origin.strip()
 ]
