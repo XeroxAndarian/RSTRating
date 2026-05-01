@@ -33,20 +33,25 @@
     * { box-sizing:border-box; }
     body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--text); }
     .wrap { max-width:1200px; margin:0 auto; padding:24px 16px 40px; }
-    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
     .actions { display:flex; gap:8px; flex-wrap:wrap; }
     .btn, a.btn { appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--text); padding:9px 14px; border-radius:10px; font:inherit; text-decoration:none; cursor:pointer; }
     .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
     .btn.danger { background:var(--danger); border-color:var(--danger); color:#fff; }
     .btn.warn { color:var(--warn); }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    @media (max-width: 900px) { .grid { grid-template-columns:1fr; } }
+    .btn:disabled { opacity:.45; cursor:default; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; }
     .stats { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; margin-bottom:16px; }
     @media (max-width:900px) { .stats { grid-template-columns:repeat(2, minmax(0,1fr)); } }
     .stat { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; }
     .stat .label { color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; }
     .stat .value { margin-top:6px; font-size:1.4rem; font-weight:700; }
+    .tabs { display:flex; gap:4px; border-bottom:2px solid var(--line); margin-bottom:16px; }
+    .tab { appearance:none; background:none; border:none; border-bottom:3px solid transparent; padding:10px 20px; font:inherit; font-weight:600; color:var(--muted); cursor:pointer; margin-bottom:-2px; border-radius:10px 10px 0 0; }
+    .tab:hover { color:var(--text); background:var(--panel); }
+    .tab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--panel); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
     .list { display:flex; flex-direction:column; gap:10px; max-height:70vh; overflow:auto; }
     .row { border:1px solid var(--line); border-radius:12px; padding:12px; }
     .row.clickable { cursor:pointer; }
@@ -57,10 +62,13 @@
     .pill.pending { color:var(--warn); }
     .pill.rejected { color:var(--danger); }
     .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+    .pager { display:none; gap:8px; justify-content:center; align-items:center; padding:10px 0; }
+    .pager.show { display:flex; }
     .status { min-height:20px; color:var(--muted); margin-top:12px; }
     .status.error { color:var(--danger); }
+    .status.ok { color:var(--accent); }
     input { width:100%; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:inherit; }
-    .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.52); z-index:900; align-items:center; justify-content:center; }
     .modal-overlay.open { display:flex; }
     .modal-box { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; max-width:460px; width:calc(100% - 32px); }
@@ -88,32 +96,55 @@
 
     <div class="stats" id="statsGrid"></div>
 
-    <div class="grid">
-      <section class="card">
+    <div class="tabs">
+      <button class="tab active" data-tab="leagues" type="button">Leagues</button>
+      <button class="tab" data-tab="matches" type="button">Matches</button>
+      <button class="tab" data-tab="users" type="button">Users</button>
+    </div>
+
+    <div id="tab-leagues" class="tab-panel active">
+      <div class="card">
         <div class="section-head">
           <h2 style="margin:0;">Leagues</h2>
-          <input id="leagueSearch" type="text" placeholder="Search leagues or owners">
+          <input id="leagueSearch" type="text" placeholder="Search leagues or owners" style="max-width:280px;">
         </div>
-        <div class="list" id="leagueList"><p class="meta">Loading…</p></div>
-        <div id="leaguePager" style="display:none;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px 0;">
-          <button class="btn" id="leaguePrevBtn" type="button">← Prev</button>
+        <div class="list" id="leagueList"><p class="meta">Loading...</p></div>
+        <div class="pager" id="leaguePager">
+          <button class="btn" id="leaguePrevBtn" type="button">&#8592; Prev</button>
           <span id="leaguePageInfo" class="meta" style="min-width:70px;text-align:center;">Page 1</span>
-          <button class="btn" id="leagueNextBtn" type="button">Next →</button>
+          <button class="btn" id="leagueNextBtn" type="button">Next &#8594;</button>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <section class="card">
+    <div id="tab-matches" class="tab-panel">
+      <div class="card">
+        <div class="section-head">
+          <h2 style="margin:0;">Matches</h2>
+          <input id="matchSearch" type="text" placeholder="Search by title or league" style="max-width:280px;">
+        </div>
+        <div class="list" id="matchList"><p class="meta">Loading...</p></div>
+        <div class="pager" id="matchPager">
+          <button class="btn" id="matchPrevBtn" type="button">&#8592; Prev</button>
+          <span id="matchPageInfo" class="meta" style="min-width:70px;text-align:center;">Page 1</span>
+          <button class="btn" id="matchNextBtn" type="button">Next &#8594;</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-users" class="tab-panel">
+      <div class="card">
         <div class="section-head">
           <h2 style="margin:0;">Users</h2>
-          <input id="userSearch" type="text" placeholder="Search users or emails">
+          <input id="userSearch" type="text" placeholder="Search users or emails" style="max-width:280px;">
         </div>
-        <div class="list" id="userList"><p class="meta">Loading…</p></div>
-        <div id="userPager" style="display:none;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px 0;">
-          <button class="btn" id="userPrevBtn" type="button">← Prev</button>
+        <div class="list" id="userList"><p class="meta">Loading...</p></div>
+        <div class="pager" id="userPager">
+          <button class="btn" id="userPrevBtn" type="button">&#8592; Prev</button>
           <span id="userPageInfo" class="meta" style="min-width:70px;text-align:center;">Page 1</span>
-          <button class="btn" id="userNextBtn" type="button">Next →</button>
+          <button class="btn" id="userNextBtn" type="button">Next &#8594;</button>
         </div>
-      </section>
+      </div>
     </div>
 
     <div class="status" id="status"></div>
@@ -194,10 +225,20 @@
     document.getElementById('modalConfirmBtn').addEventListener('click', function(){ if(_modalResolve) _modalResolve(true); });
     document.getElementById('adminModal').addEventListener('click', function(e){ if(e.target === this && _modalResolve) _modalResolve(false); });
 
+    document.querySelectorAll('.tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+
     var TOKEN_KEY = "rs_access_token", API_BASE_KEY = "rs_api_base_override";
     var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
     var HOSTED_API_BASE = "https://rstrating-accounts-api.onrender.com";
-    var users = [], leagues = [];
+    var users = [], leagues = [], matches = [];
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"', '&quot;'); }
     function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -252,15 +293,42 @@
         ["Users", data.users_total],
         ["Active users", data.users_active],
         ["Leagues", data.leagues_total],
-        ["Pending leagues", data.leagues_pending],
-        ["Rejected leagues", data.leagues_rejected]
+        ["Pending", data.leagues_pending],
+        ["Matches", matches.length]
       ];
       grid.innerHTML = items.map(function(item){ return '<div class="stat"><div class="label">' + esc(item[0]) + '</div><div class="value">' + esc(item[1]) + '</div></div>'; }).join("");
     }
 
     var ITEMS_PER_PAGE = 20;
     var leaguePage = 1;
+    var matchPage = 1;
     var userPage = 1;
+
+    function renderMatches(){
+      var q = (document.getElementById("matchSearch").value || "").toLowerCase();
+      var list = document.getElementById("matchList");
+      var filtered = matches.filter(function(m){ return !q || String(m.title).toLowerCase().includes(q) || String(m.league_name).toLowerCase().includes(q); });
+      var totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+      matchPage = Math.min(Math.max(1, matchPage), totalPages);
+      var paged = filtered.slice((matchPage - 1) * ITEMS_PER_PAGE, matchPage * ITEMS_PER_PAGE);
+      list.innerHTML = paged.map(function(m){
+        var sc = m.status === 'completed' ? m.score_a + ' - ' + m.score_b : '-';
+        var scPill = m.status === 'completed' ? 'pill' : m.status === 'cancelled' ? 'pill rejected' : 'pill pending';
+        return '<div class="row"><div class="row-top"><div>'
+          + '<div class="title">' + esc(m.title) + '<span class="' + scPill + '">' + esc(m.status) + '</span></div>'
+          + '<div class="meta">League: ' + esc(m.league_name) + ' &middot; Participants: ' + esc(m.participant_count) + ' &middot; Score: ' + sc + '</div>'
+          + '<div class="meta">' + esc(new Date(m.scheduled_at).toLocaleString()) + ' &middot; Created by ' + esc(m.created_by_username) + '</div>'
+          + '</div></div><div class="toolbar">'
+          + '<button class="btn danger" data-match-delete="' + m.id + '" data-match-title="' + esc(m.title) + '">Delete match</button>'
+          + '</div></div>';
+      }).join("") || '<p class="meta">No matches found.</p>';
+      var pagerEl = document.getElementById("matchPager");
+      pagerEl.className = filtered.length > ITEMS_PER_PAGE ? "pager show" : "pager";
+      document.getElementById("matchPageInfo").textContent = "Page " + matchPage + " / " + totalPages;
+      document.getElementById("matchPrevBtn").disabled = matchPage <= 1;
+      document.getElementById("matchNextBtn").disabled = matchPage >= totalPages;
+    }
+
 
     function renderLeagues(){
       var q = (document.getElementById("leagueSearch").value || "").toLowerCase();
@@ -277,12 +345,12 @@
         if (l.approval_status === 'pending') actionHtml += '<button class="btn warn" data-league-action="rejected" data-league-id="' + l.id + '">Reject</button>';
         if (!l.is_terminated) actionHtml += '<button class="btn warn" data-league-temp-terminate="' + l.id + '">Temp terminate</button>';
         if (l.is_terminated) actionHtml += '<button class="btn primary" data-league-unterminate="' + l.id + '">Unterminate</button>';
-        actionHtml += '<button class="btn danger" data-league-delete="' + l.id + '">Permanent terminate</button>';
+        actionHtml += '<button class="btn danger" data-league-delete="' + l.id + '" data-league-name="' + esc(l.name) + '">Delete</button>';
         return '<div class="row clickable" data-open-league="' + l.id + '"><div class="row-top"><div><div class="title">' + esc(l.name) + '<span class="' + pillClass + '">' + esc(l.approval_status) + '</span>' + terminatedPill + '</div><div class="meta">Owner: ' + esc(l.owner_username) + ' · ' + esc(l.region) + ' · ' + esc(l.football_type) + '/' + esc(l.goal_size) + ' · Members ' + esc(l.member_count) + '</div><div class="meta">Created ' + esc(new Date(l.created_at).toLocaleString()) + (l.approval_note ? ' · Note: ' + esc(l.approval_note) : '') + (l.terminated_until ? ' · Terminated until: ' + esc(new Date(l.terminated_until).toLocaleString()) : '') + '</div></div></div><div class="toolbar">' + actionHtml + '</div></div>';
       }).join("") || '<p class="meta">No leagues found.</p>';
       var pager = document.getElementById("leaguePager");
       var totalLeaguePages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-      pager.style.display = filtered.length > ITEMS_PER_PAGE ? "flex" : "none";
+      pager.className = filtered.length > ITEMS_PER_PAGE ? "pager show" : "pager";
       document.getElementById("leaguePageInfo").textContent = "Page " + leaguePage + " / " + totalLeaguePages;
       document.getElementById("leaguePrevBtn").disabled = leaguePage <= 1;
       document.getElementById("leagueNextBtn").disabled = leaguePage >= totalLeaguePages;
@@ -298,13 +366,14 @@
       list.innerHTML = paged.map(function(u){
         var pill = u.is_active ? '<span class="pill">active</span>' : '<span class="pill rejected">blocked</span>';
         var resetBtn = u.is_active ? '<button class="btn" data-user-reset="' + u.id + '">Reset password</button>' : '';
-        var blockBtn = (u.is_active && u.role !== 'admin') ? '<button class="btn danger" data-user-block="' + u.id + '">Block</button>' : '';
+        var blockBtn = (u.is_active && u.role !== 'admin') ? '<button class="btn warn" data-user-block="' + u.id + '">Block</button>' : '';
+        var deleteUserBtn = (u.role !== 'admin') ? '<button class="btn danger" data-user-delete="' + u.id + '" data-user-name="' + esc(u.username) + '">Delete user</button>' : '';
         var unblockBtn = (!u.is_active) ? '<button class="btn primary" data-user-unblock="' + u.id + '">Unblock</button>' : '';
-        return '<div class="row clickable" data-open-player="' + u.id + '"><div class="row-top"><div><div class="title">' + esc(u.username) + pill + '</div><div class="meta">' + esc(u.email || '-') + ' · role ' + esc(u.role) + ' · recovery token ' + esc(u.recovery_token || u.recovery_id || '-') + '</div><div class="meta">Leagues ' + esc(u.league_count) + ' · Owns ' + esc(u.owned_league_count) + ' · Rating ' + esc(Number(u.global_rating || 0).toFixed(1)) + '</div></div></div><div class="toolbar">' + resetBtn + blockBtn + unblockBtn + '</div></div>';
+        return '<div class="row clickable" data-open-player="' + u.id + '"><div class="row-top"><div><div class="title">' + esc(u.username) + pill + '</div><div class="meta">' + esc(u.email || '-') + ' · role ' + esc(u.role) + ' · recovery token ' + esc(u.recovery_token || u.recovery_id || '-') + '</div><div class="meta">Leagues ' + esc(u.league_count) + ' · Owns ' + esc(u.owned_league_count) + ' · Rating ' + esc(Number(u.global_rating || 0).toFixed(1)) + '</div></div></div><div class="toolbar">' + resetBtn + blockBtn + unblockBtn + deleteUserBtn + '</div></div>';
       }).join("") || '<p class="meta">No users found.</p>';
       var pager = document.getElementById("userPager");
       var totalUserPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-      pager.style.display = filtered.length > ITEMS_PER_PAGE ? "flex" : "none";
+      pager.className = filtered.length > ITEMS_PER_PAGE ? "pager show" : "pager";
       document.getElementById("userPageInfo").textContent = "Page " + userPage + " / " + totalUserPages;
       document.getElementById("userPrevBtn").disabled = userPage <= 1;
       document.getElementById("userNextBtn").disabled = userPage >= totalUserPages;
@@ -317,13 +386,16 @@
         var results = await Promise.all([
           apiFetch('/admin/overview'),
           apiFetch('/admin/users'),
-          apiFetch('/admin/leagues')
+          apiFetch('/admin/leagues'),
+          apiFetch('/admin/matches')
         ]);
-        renderStats(results[0]);
-        users = Array.isArray(results[1]) ? results[1] : [];
+        users   = Array.isArray(results[1]) ? results[1] : [];
         leagues = Array.isArray(results[2]) ? results[2] : [];
-        renderUsers();
+        matches = Array.isArray(results[3]) ? results[3] : [];
+        renderStats(results[0]);
         renderLeagues();
+        renderMatches();
+        renderUsers();
         show('');
       } catch (err) {
         show(err.message || 'Failed to load admin console.', 'error');
@@ -332,9 +404,12 @@
 
     document.getElementById('refreshBtn').addEventListener('click', load);
     document.getElementById('leagueSearch').addEventListener('input', function(){ leaguePage = 1; renderLeagues(); });
+    document.getElementById('matchSearch').addEventListener('input', function(){ matchPage = 1; renderMatches(); });
     document.getElementById('userSearch').addEventListener('input', function(){ userPage = 1; renderUsers(); });
     document.getElementById('leaguePrevBtn').addEventListener('click', function(){ if(leaguePage > 1){ leaguePage--; renderLeagues(); } });
     document.getElementById('leagueNextBtn').addEventListener('click', function(){ leaguePage++; renderLeagues(); });
+    document.getElementById('matchPrevBtn').addEventListener('click', function(){ if(matchPage > 1){ matchPage--; renderMatches(); } });
+    document.getElementById('matchNextBtn').addEventListener('click', function(){ matchPage++; renderMatches(); });
     document.getElementById('userPrevBtn').addEventListener('click', function(){ if(userPage > 1){ userPage--; renderUsers(); } });
     document.getElementById('userNextBtn').addEventListener('click', function(){ userPage++; renderUsers(); });
     document.getElementById('leagueList').addEventListener('click', async function(e){
@@ -398,9 +473,8 @@
 
       var deleteLeagueBtn = e.target.closest('[data-league-delete]');
       if (deleteLeagueBtn) {
-        var delLeague = leagues.find(function(l){ return String(l.id) === deleteLeagueBtn.dataset.leagueDelete; });
-        var delLeagueName = delLeague ? delLeague.name : '';
-        var delResult = await _openModal({ title: 'Permanently Terminate League', message: 'This deletes the league and all related data and cannot be undone. Type the league name exactly to confirm.', fields: [{ name: 'confirm', label: 'League name', placeholder: delLeagueName }], confirmText: 'Delete permanently', cancelText: 'Cancel', confirmClass: 'danger' });
+        var delLeagueName = deleteLeagueBtn.dataset.leagueName || '';
+        var delResult = await _openModal({ title: 'Permanently Delete League', message: 'This deletes the league and all related data and cannot be undone. Type the league name exactly to confirm.', fields: [{ name: 'confirm', label: 'League name', placeholder: delLeagueName }], confirmText: 'Delete permanently', cancelText: 'Cancel', confirmClass: 'danger' });
         if (delResult === null) return;
         if (delResult.confirm !== delLeagueName) { show('League name did not match — operation cancelled.', 'error'); return; }
         try {
@@ -413,6 +487,18 @@
           show('League permanently terminated.');
         } catch (err) { show(err.message || 'Failed.', 'error'); }
       }
+    });
+    document.getElementById('matchList').addEventListener('click', async function(e){
+      var delBtn = e.target.closest('[data-match-delete]');
+      if (!delBtn) return;
+      var title = delBtn.dataset.matchTitle || 'this match';
+      var confirmed = await _openModal({ title: 'Delete Match', message: 'Delete "' + title + '"? Removes all events and registrations. Cannot be undone.', fields: [], confirmText: 'Delete match', cancelText: 'Cancel', confirmClass: 'danger' });
+      if (!confirmed) return;
+      try {
+        var resp = await apiFetch('/admin/matches/' + delBtn.dataset.matchDelete, { method: 'DELETE' });
+        await load();
+        show(resp && resp.detail ? resp.detail : 'Match deleted.', 'ok');
+      } catch (err) { show(err.message || 'Failed.', 'error'); }
     });
     document.getElementById('userList').addEventListener('click', async function(e){
       var openPlayer = e.target.closest('[data-open-player]');
@@ -453,6 +539,19 @@
           var response3 = await apiFetch('/admin/users/' + unblockBtn.dataset.userUnblock + '/unblock', { method: 'POST' });
           await load();
           show(response3.detail || 'Account unblocked.');
+        } catch (err) { show(err.message || 'Failed.', 'error'); }
+        return;
+      }
+      var deleteUserBtn = e.target.closest('[data-user-delete]');
+      if (deleteUserBtn) {
+        var uname = deleteUserBtn.dataset.userName || '';
+        var delUserResult = await _openModal({ title: 'Delete User', message: 'Permanently delete "' + uname + '"? All leagues they own will also be deleted. Cannot be undone. Type the username to confirm.', fields: [{ name: 'confirm', label: 'Username', placeholder: uname }], confirmText: 'Delete user', cancelText: 'Cancel', confirmClass: 'danger' });
+        if (delUserResult === null) return;
+        if (delUserResult.confirm !== uname) { show('Username did not match.', 'error'); return; }
+        try {
+          var response4 = await apiFetch('/admin/users/' + deleteUserBtn.dataset.userDelete, { method: 'DELETE' });
+          await load();
+          show(response4 && response4.detail ? response4.detail : 'User deleted.', 'ok');
         } catch (err) { show(err.message || 'Failed.', 'error'); }
       }
     });

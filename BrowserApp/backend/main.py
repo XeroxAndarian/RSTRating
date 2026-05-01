@@ -4680,6 +4680,92 @@ def admin_hard_reset(current_admin: sqlite3.Row = Depends(resolve_current_admin)
     return MessageOut(detail="Hard reset complete. All match data, stats, notifications, and social connections have been cleared.")
 
 
+class AdminMatchOut(BaseModel):
+    id: int
+    league_id: int
+    league_name: str
+    title: str
+    status: str
+    scheduled_at: str
+    score_a: int
+    score_b: int
+    created_by_username: str
+    participant_count: int
+
+
+@app.get("/admin/matches", response_model=list[AdminMatchOut])
+def admin_list_matches(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> list[AdminMatchOut]:
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT m.id, m.league_id, l.name AS league_name, m.title, m.status,
+                   m.scheduled_at, COALESCE(m.score_a, 0) AS score_a, COALESCE(m.score_b, 0) AS score_b,
+                   u.username AS created_by_username,
+                   (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id AND mr.status = 'registered') AS participant_count
+            FROM matches m
+            JOIN leagues l ON l.id = m.league_id
+            JOIN users u ON u.id = m.created_by
+            ORDER BY m.scheduled_at DESC
+            LIMIT 500
+        """).fetchall()
+    return [AdminMatchOut(
+        id=int(r["id"]), league_id=int(r["league_id"]), league_name=str(r["league_name"]),
+        title=str(r["title"]), status=str(r["status"]), scheduled_at=str(r["scheduled_at"]),
+        score_a=int(r["score_a"]), score_b=int(r["score_b"]),
+        created_by_username=str(r["created_by_username"]),
+        participant_count=int(r["participant_count"]),
+    ) for r in rows]
+
+
+@app.delete("/admin/matches/{match_id}", response_model=MessageOut)
+def admin_delete_match(match_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    with get_conn() as conn:
+        if not conn.execute("SELECT id FROM matches WHERE id = ?", (match_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Match not found.")
+        conn.execute("DELETE FROM match_events WHERE match_id = ?", (match_id,))
+        conn.execute("DELETE FROM match_registrations WHERE match_id = ?", (match_id,))
+        conn.execute("DELETE FROM matches WHERE id = ?", (match_id,))
+        conn.commit()
+    return MessageOut(detail="Match deleted.")
+
+
+@app.delete("/admin/users/{user_id}", response_model=MessageOut)
+def admin_delete_user(user_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    admin_id = int(current_admin["id"])
+    if user_id == admin_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own admin account.")
+    with get_conn() as conn:
+        row = conn.execute("SELECT id, role FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found.")
+        if str(row["role"]) == "admin":
+            raise HTTPException(status_code=400, detail="Cannot delete admin accounts.")
+        conn.execute("DELETE FROM notifications WHERE user_id = ? OR actor_id = ?", (user_id, user_id))
+        conn.execute("DELETE FROM friendships WHERE user_id = ? OR friend_id = ?", (user_id, user_id))
+        conn.execute("DELETE FROM player_follows WHERE follower_id = ? OR followed_id = ?", (user_id, user_id))
+        conn.execute("DELETE FROM match_registrations WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM league_player_stats WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM league_season_player_stats WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM league_memberships WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM league_join_requests WHERE user_id = ?", (user_id,))
+        # Cascade-delete leagues owned by this user
+        owned = conn.execute("SELECT id FROM leagues WHERE owner_id = ?", (user_id,)).fetchall()
+        for lg in owned:
+            lid = int(lg["id"])
+            conn.execute("DELETE FROM match_events WHERE match_id IN (SELECT id FROM matches WHERE league_id = ?)", (lid,))
+            conn.execute("DELETE FROM match_registrations WHERE match_id IN (SELECT id FROM matches WHERE league_id = ?)", (lid,))
+            conn.execute("DELETE FROM matches WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_player_stats WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_season_player_stats WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_memberships WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_join_requests WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_seasons WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM league_penalties WHERE league_id = ?", (lid,))
+            conn.execute("DELETE FROM leagues WHERE id = ?", (lid,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+    return MessageOut(detail="User and all associated data deleted.")
+
+
 def _serialize_join_request(row: sqlite3.Row) -> LeagueJoinRequestOut:
     return LeagueJoinRequestOut(
         id=int(row["id"]),
