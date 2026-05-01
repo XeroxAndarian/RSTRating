@@ -217,7 +217,12 @@
       if (token) headers.Authorization = "Bearer " + token;
       var res = await fetch(base + path, Object.assign({}, options || {}, { headers: headers }));
       var body = null; try { body = await res.json(); } catch(e) {}
-      if (!res.ok) throw new Error((body && body.detail) || "Request failed");
+      if (!res.ok) {
+        var detail = body && body.detail;
+        if (Array.isArray(detail)) detail = detail.map(function(e){ return e.msg || JSON.stringify(e); }).join("; ");
+        else if (detail && typeof detail === "object") detail = detail.msg || detail.message || JSON.stringify(detail);
+        throw new Error(typeof detail === "string" && detail ? detail : "Request failed");
+      }
       return body;
     }
 
@@ -231,11 +236,10 @@
         if (networkFailure) {
           var fallbackBase = (base !== HOSTED_API_BASE) ? HOSTED_API_BASE : null;
           if (fallbackBase) {
-            try {
-              localStorage.removeItem(API_BASE_KEY);
-              show("Local backend unreachable, retrying with hosted backend...", "");
-              return await _doFetch(fallbackBase, path, options);
-            } catch (_) {}
+            localStorage.removeItem(API_BASE_KEY);
+            show("Local backend unreachable, retrying with hosted backend...", "");
+            // Let the fallback error propagate — if hosted returns 401/403 that's a real error
+            return await _doFetch(fallbackBase, path, options);
           }
         }
         throw err;
@@ -463,11 +467,7 @@
         await load();
         show(result.detail || 'Hard reset complete.', 'ok');
       } catch (err) {
-        var message = err && err.message ? err.message : 'Hard reset failed.';
-        if (/failed to fetch|networkerror|load failed/i.test(message)) {
-          message = 'Hard reset failed to reach backend. Check API base override and backend availability, then try again.';
-        }
-        show(message, 'error');
+        show((err && err.message) || 'Hard reset failed.', 'error');
       }
     });
 
