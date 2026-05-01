@@ -30,6 +30,7 @@
   };
 
   var PALETTES = {};
+  var customConfigCache = null;
 
 
   function clamp(v, min, max) {
@@ -84,17 +85,19 @@
   }
 
   function getCustomPaletteConfig() {
+    if (customConfigCache) return customConfigCache;
     try {
       var raw = localStorage.getItem(CUSTOM_STORAGE_KEY);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== "object") return null;
-      return {
+      customConfigCache = {
         name: sanitizeCustomName(parsed.name),
         accent: normalizeHexColor(parsed.accent, "#4a84d9"),
         bgA: normalizeHexColor(parsed.bgA, "#f2f8ff"),
         bgB: normalizeHexColor(parsed.bgB, "#d7e7fa")
       };
+      return customConfigCache;
     } catch (_) {
       return null;
     }
@@ -107,7 +110,12 @@
       bgA: normalizeHexColor(config && config.bgA, "#f2f8ff"),
       bgB: normalizeHexColor(config && config.bgB, "#d7e7fa")
     };
-    localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(next));
+    customConfigCache = next;
+    try {
+      localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(next));
+    } catch (_) {
+      // Keep the custom palette usable in-memory even if storage is unavailable.
+    }
     return next;
   }
 
