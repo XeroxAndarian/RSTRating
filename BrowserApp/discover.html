@@ -161,9 +161,18 @@
       if (!res.ok) {
         let detail = body?.detail;
         if (Array.isArray(detail)) detail = detail.map(e => e.msg || JSON.stringify(e)).join("; ");
-        throw new Error(typeof detail === "string" ? detail : "Request failed");
+        else if (detail && typeof detail === "object") detail = detail.msg || detail.message || JSON.stringify(detail);
+        throw new Error(typeof detail === "string" && detail ? detail : "Request failed");
       }
       return body;
+    }
+
+    function normalizeDiscoverRows(payload){
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.items)) return payload.items;
+      if (payload && Array.isArray(payload.leagues)) return payload.leagues;
+      if (payload && Array.isArray(payload.results)) return payload.results;
+      return [];
     }
 
     function renderRows(rows){
@@ -200,8 +209,9 @@
         if (currentLongitude !== null && Number.isFinite(Number(currentLongitude))) params.set("longitude", String(Number(currentLongitude)));
         const maxKmNum = Number(maxKmEl.value);
         if (maxKmEl.value !== "" && Number.isFinite(maxKmNum)) params.set("max_km", String(maxKmNum));
-        const rows = await apiFetch(`/leagues/discover?${params.toString()}`, { method: "GET" });
-        renderRows(rows || []);
+        const payload = await apiFetch(`/leagues/discover?${params.toString()}`, { method: "GET" });
+        const rows = normalizeDiscoverRows(payload);
+        renderRows(rows);
         show(`Found ${rows.length} leagues.`);
       } catch (err) {
         show(err.message || "Search failed.", "error");
