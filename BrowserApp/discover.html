@@ -158,7 +158,11 @@
       if (token) headers.Authorization = "Bearer " + token;
       const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
       let body = null; try { body = await res.json(); } catch {}
-      if (!res.ok) throw new Error(body?.detail || "Request failed");
+      if (!res.ok) {
+        let detail = body?.detail;
+        if (Array.isArray(detail)) detail = detail.map(e => e.msg || JSON.stringify(e)).join("; ");
+        throw new Error(typeof detail === "string" ? detail : "Request failed");
+      }
       return body;
     }
 
@@ -192,9 +196,10 @@
         const params = new URLSearchParams();
         if (regionEl.value.trim()) params.set("region", regionEl.value.trim());
         if (qEl.value.trim()) params.set("q", qEl.value.trim());
-        if (currentLatitude !== null) params.set("latitude", String(Number(currentLatitude)));
-        if (currentLongitude !== null) params.set("longitude", String(Number(currentLongitude)));
-        if (maxKmEl.value !== "") params.set("max_km", String(Number(maxKmEl.value)));
+        if (currentLatitude !== null && Number.isFinite(Number(currentLatitude))) params.set("latitude", String(Number(currentLatitude)));
+        if (currentLongitude !== null && Number.isFinite(Number(currentLongitude))) params.set("longitude", String(Number(currentLongitude)));
+        const maxKmNum = Number(maxKmEl.value);
+        if (maxKmEl.value !== "" && Number.isFinite(maxKmNum)) params.set("max_km", String(maxKmNum));
         const rows = await apiFetch(`/leagues/discover?${params.toString()}`, { method: "GET" });
         renderRows(rows || []);
         show(`Found ${rows.length} leagues.`);

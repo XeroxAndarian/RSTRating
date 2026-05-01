@@ -196,6 +196,7 @@
 
     var TOKEN_KEY = "rs_access_token", API_BASE_KEY = "rs_api_base_override";
     var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    var HOSTED_API_BASE = "https://rstrating-accounts-api.onrender.com";
     var users = [], leagues = [];
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"', '&quot;'); }
@@ -225,15 +226,17 @@
       try {
         return await _doFetch(base, path, options);
       } catch (err) {
-        // Auto-recover from stale/broken API override by retrying against default backend.
+        // Auto-recover from stale/broken API override or unreachable local server by retrying against hosted backend.
         var networkFailure = /failed to fetch|networkerror|load failed/i.test(String(err && err.message || ""));
-        var fallbackBase = (DEFAULT_API_BASE || "").trim();
-        if (networkFailure && fallbackBase && fallbackBase !== base) {
-          try {
-            localStorage.removeItem(API_BASE_KEY);
-            show("API override unreachable, retrying with default backend...", "");
-            return await _doFetch(fallbackBase, path, options);
-          } catch (_) {}
+        if (networkFailure) {
+          var fallbackBase = (base !== HOSTED_API_BASE) ? HOSTED_API_BASE : null;
+          if (fallbackBase) {
+            try {
+              localStorage.removeItem(API_BASE_KEY);
+              show("Local backend unreachable, retrying with hosted backend...", "");
+              return await _doFetch(fallbackBase, path, options);
+            } catch (_) {}
+          }
         }
         throw err;
       }
