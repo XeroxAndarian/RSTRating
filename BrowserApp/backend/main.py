@@ -354,6 +354,13 @@ class FollowStateOut(BaseModel):
     following: bool
 
 
+class FanclubMemberOut(BaseModel):
+    id: int
+    username: str
+    display_name: str | None
+    global_rating: float
+
+
 class LeagueCreatePayload(BaseModel):
     name: str = Field(min_length=3, max_length=80)
     football_type: str = Field(pattern=r"^(outdoor|indoor)$")
@@ -664,6 +671,7 @@ class LeagueSeasonOut(BaseModel):
     id: int
     league_id: int
     name: str
+    description: str | None = None
     is_active: bool
     start_at: str | None = None
     end_at: str | None = None
@@ -672,6 +680,7 @@ class LeagueSeasonOut(BaseModel):
 
 class LeagueSeasonCreatePayload(BaseModel):
     name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=300)
     activate: bool = Field(default=False)
     start_at: str | None = Field(default=None, max_length=40)
     end_at: str | None = Field(default=None, max_length=40)
@@ -1078,6 +1087,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 league_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
+                description TEXT,
                 is_active INTEGER NOT NULL DEFAULT 0,
                 start_at TEXT,
                 end_at TEXT,
@@ -1088,6 +1098,7 @@ def init_db() -> None:
         )
         ensure_column(conn, "league_seasons", "start_at", "TEXT")
         ensure_column(conn, "league_seasons", "end_at", "TEXT")
+        ensure_column(conn, "league_seasons", "description", "TEXT")
 
         conn.execute(
             """
@@ -3033,6 +3044,7 @@ def send_friend_request(
     current_user: sqlite3.Row = Depends(resolve_current_user),
 ) -> MessageOut:
     from_user_id = int(current_user["id"])
+    sender_name = str(current_user["display_name"] or current_user["username"])
     with get_conn() as conn:
         target = conn.execute(
             "SELECT id, username, friend_request_policy FROM users WHERE id = ?",
@@ -3090,7 +3102,7 @@ def send_friend_request(
             target_user_id,
             "friend_request",
             "New friend request",
-            f"{current_user['username']} sent you a friend request.",
+            f"{sender_name} sent you a friend request.",
             {"from_user_id": from_user_id},
         )
         conn.commit()
@@ -3136,6 +3148,7 @@ def list_my_friend_requests(current_user: sqlite3.Row = Depends(resolve_current_
 @app.post("/friend-requests/{request_id}/accept", response_model=MessageOut)
 def accept_friend_request(request_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
     user_id = int(current_user["id"])
+    accepter_name = str(current_user["display_name"] or current_user["username"])
     with get_conn() as conn:
         req = conn.execute(
             "SELECT id, from_user_id, to_user_id, status FROM friend_requests WHERE id = ?",
@@ -3164,7 +3177,7 @@ def accept_friend_request(request_id: int, current_user: sqlite3.Row = Depends(r
             from_user_id,
             "friend_request_accepted",
             "Friend request accepted",
-            f"{current_user['username']} accepted your friend request.",
+            f"{accepter_name} accepted your friend request.",
             {"user_id": user_id},
         )
         conn.commit()
@@ -3264,6 +3277,35 @@ def unfollow_player(target_user_id: int, current_user: sqlite3.Row = Depends(res
         )
         conn.commit()
     return FollowStateOut(following=False)
+
+
+@app.get("/players/{target_user_id}/fanclub", response_model=list[FanclubMemberOut])
+def get_player_fanclub(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[FanclubMemberOut]:
+    with get_conn() as conn:
+        target = conn.execute("SELECT id FROM users WHERE id = ?", (target_user_id,)).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.display_name, COALESCE(u.global_rating, ?) AS global_rating
+            FROM player_follows pf
+            JOIN users u ON u.id = pf.follower_user_id
+            WHERE pf.target_user_id = ?
+            ORDER BY COALESCE(u.global_rating, ?) DESC, u.username ASC
+            """,
+            (DEFAULT_GLOBAL_RATING, target_user_id, DEFAULT_GLOBAL_RATING),
+        ).fetchall()
+
+    return [
+        FanclubMemberOut(
+            id=int(r["id"]),
+            username=str(r["username"]),
+            display_name=r["display_name"],
+            global_rating=float(r["global_rating"] or DEFAULT_GLOBAL_RATING),
+        )
+        for r in rows
+    ]
 
 
 @app.post("/leagues/{league_id}/leave", response_model=MessageOut)
@@ -3488,8 +3530,8 @@ def create_league_season(
 
         created_at = utc_now_iso()
         cursor = conn.execute(
-            "INSERT INTO league_seasons (league_id, name, is_active, start_at, end_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (league_id, payload.name.strip(), 1 if should_activate else 0, start_at_iso, end_at_iso, created_at),
+            "INSERT INTO league_seasons (league_id, name, description, is_active, start_at, end_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (league_id, payload.name.strip(), payload.description.strip() if payload.description else None, 1 if should_activate else 0, start_at_iso, end_at_iso, created_at),
         )
         season_id = cursor.lastrowid
         if season_id is None:
@@ -3500,6 +3542,7 @@ def create_league_season(
         id=int(season_id),
         league_id=league_id,
         name=payload.name.strip(),
+        description=payload.description.strip() if payload.description else None,
         is_active=bool(should_activate),
         start_at=start_at_iso,
         end_at=end_at_iso,
@@ -3513,7 +3556,7 @@ def list_league_seasons(league_id: int, current_user: sqlite3.Row = Depends(reso
         require_membership(conn, league_id, int(current_user["id"]))
         _sync_league_season_activation(conn, league_id)
         rows = conn.execute(
-            "SELECT id, league_id, name, is_active, start_at, end_at, created_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
+            "SELECT id, league_id, name, description, is_active, start_at, end_at, created_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
             (league_id,),
         ).fetchall()
         conn.commit()
@@ -3522,6 +3565,7 @@ def list_league_seasons(league_id: int, current_user: sqlite3.Row = Depends(reso
             id=int(r["id"]),
             league_id=int(r["league_id"]),
             name=str(r["name"]),
+            description=str(r["description"]) if r["description"] else None,
             is_active=bool(int(r["is_active"] or 0)),
             start_at=str(r["start_at"]) if r["start_at"] else None,
             end_at=str(r["end_at"]) if r["end_at"] else None,
@@ -5257,6 +5301,15 @@ def _auto_sync_registration_state(conn: sqlite3.Connection, match_id: int) -> No
 
     current = conn.execute("SELECT status FROM matches WHERE id = ?", (match_id,)).fetchone()
     current_status = str(current["status"]) if current is not None else status_now
+
+    # Auto-cancel stale matches that were never started within 6 hours after kickoff.
+    if current_status in {"upcoming", "registration_open", "registration_closed"} and now >= (scheduled + timedelta(hours=6)):
+        conn.execute(
+            "UPDATE matches SET status = 'cancelled', updated_at = ? WHERE id = ?",
+            (utc_now_iso(), match_id),
+        )
+        return
+
     # Close registration 15 min before kickoff
     if current_status == "registration_open" and now >= close_at:
         conn.execute(
@@ -5641,7 +5694,7 @@ def register_for_match(match_id: int, current_user: sqlite3.Row = Depends(resolv
                 league_id=int(row["league_id"]),
                 notif_type="fan_player_registered",
                 title="Followed player registered",
-                message=f"{current_user['username']} registered for '{row['title']}'.",
+                message=f"{str(current_user['display_name'] or current_user['username'])} registered for '{row['title']}'.",
                 data={"match_id": match_id, "league_id": int(row["league_id"]), "player_user_id": user_id},
                 exclude_user_ids={user_id},
             )
@@ -5844,8 +5897,8 @@ def start_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curre
 
         participant_ids = {int(uid) for uid in team_a + team_b}
         for pid in participant_ids:
-            player_row = conn.execute("SELECT username FROM users WHERE id = ?", (pid,)).fetchone()
-            player_name = str(player_row["username"]) if player_row is not None else f"Player {pid}"
+            player_row = conn.execute("SELECT username, display_name FROM users WHERE id = ?", (pid,)).fetchone()
+            player_name = str(player_row["display_name"] or player_row["username"]) if player_row is not None else f"Player {pid}"
             _notify_player_fans(
                 conn,
                 player_user_id=pid,
@@ -5982,8 +6035,8 @@ def add_match_goal(match_id: int, payload: MatchLiveEventPayload, current_user: 
                 )
 
         if actor_user_id is not None and event_type not in {"pause", "resume"}:
-            actor_row = conn.execute("SELECT username FROM users WHERE id = ?", (actor_user_id,)).fetchone()
-            actor_name = str(actor_row["username"]) if actor_row is not None else f"Player {actor_user_id}"
+            actor_row = conn.execute("SELECT username, display_name FROM users WHERE id = ?", (actor_user_id,)).fetchone()
+            actor_name = str(actor_row["display_name"] or actor_row["username"]) if actor_row is not None else f"Player {actor_user_id}"
             _notify_player_fans(
                 conn,
                 player_user_id=actor_user_id,

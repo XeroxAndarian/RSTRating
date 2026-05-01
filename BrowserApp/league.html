@@ -113,32 +113,27 @@
         <div class="card">
           <div class="row" style="justify-content:space-between;margin-bottom:10px;">
             <h2 style="margin:0;">Player stats</h2>
-            <span class="muted" style="font-size:.82rem;">All time + seasons</span>
-          </div>
-          <div id="seasonManager" style="display:none;margin-bottom:10px;">
-            <div class="row" style="justify-content:flex-start;gap:8px;">
-              <select id="seasonSelect" style="max-width:280px;"></select>
-              <button type="button" class="btn ghost sm" id="activateSeasonBtn">Activate season</button>
-              <a class="btn ghost sm" id="createSeasonPageBtn" href="#">+ Create season page</a>
-            </div>
+            <a class="btn primary sm" id="createSeasonPageBtn" href="#" style="display:none;">+ Season</a>
           </div>
           <div class="row" style="justify-content:flex-start;gap:8px;margin-bottom:8px;">
             <label for="statsScopeSelect" class="mini">Scope</label>
             <select id="statsScopeSelect" style="max-width:340px;"></select>
           </div>
           <div class="stats-grid" style="margin-bottom:10px;">
-            <div class="stats-box">
-              <h3 style="margin:0 0 6px;font-size:.95rem;">Your performance</h3>
-              <div id="currentUserStats" class="mini">Sign in to view your data.</div>
-            </div>
-            <div class="stats-box">
-              <h3 style="margin:0 0 6px;font-size:.95rem;">History graph</h3>
-              <div class="chart-wrap" id="historyChartWrap"></div>
-            </div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Attendance</h3><div id="statAttendance" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">W-L-D</h3><div id="statWld" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Winrate</h3><div id="statWinrate" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Goals</h3><div id="statGoals" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Assists</h3><div id="statAssists" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">LMMR / SR</h3><div id="statRating" class="mini">-</div></div>
+          </div>
+          <div class="stats-box" style="margin-bottom:10px;">
+            <h3 style="margin:0 0 6px;font-size:.95rem;">History graph</h3>
+            <div class="chart-wrap" id="historyChartWrap"></div>
           </div>
 
           <h3 style="margin:0 0 8px;font-size:.95rem;">Scoreboard</h3>
-          <div style="overflow-x:auto; margin-bottom:10px;">
+          <div style="overflow-x:auto;">
             <table class="member-table">
               <thead>
                 <tr>
@@ -155,23 +150,6 @@
             </table>
           </div>
 
-          <h3 style="margin:0 0 8px;font-size:.95rem;">Detailed table</h3>
-          <div style="overflow-x:auto;">
-            <table class="member-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Att</th>
-                  <th>W</th>
-                  <th>G</th>
-                  <th>A</th>
-                  <th>LMMR</th>
-                  <th>SR</th>
-                </tr>
-              </thead>
-              <tbody id="statsTbody"></tbody>
-            </table>
-          </div>
         </div>
 
         <div class="card">
@@ -474,16 +452,28 @@
         '</svg>';
     }
 
+    function setUserStatBoxes(values){
+      var v=values||{ attendance:"-", wld:"-", winrate:"-", goals:"-", assists:"-", rating:"-" };
+      var attendanceEl=document.getElementById("statAttendance");
+      var wldEl=document.getElementById("statWld");
+      var winrateEl=document.getElementById("statWinrate");
+      var goalsEl=document.getElementById("statGoals");
+      var assistsEl=document.getElementById("statAssists");
+      var ratingEl=document.getElementById("statRating");
+      if(attendanceEl) attendanceEl.textContent=v.attendance;
+      if(wldEl) wldEl.textContent=v.wld;
+      if(winrateEl) winrateEl.textContent=v.winrate;
+      if(goalsEl) goalsEl.textContent=v.goals;
+      if(assistsEl) assistsEl.textContent=v.assists;
+      if(ratingEl) ratingEl.textContent=v.rating;
+    }
+
     function renderStatsTabs(){
-      var bodyEl=document.getElementById("statsTbody");
-      if(!bodyEl) return;
       if(!Array.isArray(statsTabs)||!statsTabs.length){
         if(statsScopeSelect) statsScopeSelect.innerHTML='';
-        var currentUserStats=document.getElementById("currentUserStats");
-        if(currentUserStats) currentUserStats.textContent='No stats available yet.';
+        setUserStatBoxes();
         renderScoreboard([]);
         renderHistoryGraph();
-        bodyEl.innerHTML='<tr><td colspan="7" class="muted">No stats available yet.</td></tr>';
         return;
       }
       if(!statsTabs.find(function(t){return t.key===activeStatsTabKey;})) activeStatsTabKey=statsTabs[0].key;
@@ -496,48 +486,31 @@
 
       var active=getActiveStatsTab();
       var rows=Array.isArray(active.rows)?active.rows:[];
-      bodyEl.innerHTML=rows.map(function(r){
-        var wr=(Number(r.attendance||0)>0)?Math.round(100*Number(r.wins||0)/Number(r.attendance||0)):0;
-        return "<tr><td class=\"mt-name\"><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+esc(r.attendance||0)+"</td><td>"+esc(r.wins||0)+" ("+wr+"%)</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
-      }).join("") || '<tr><td colspan="7" class="muted">No players.</td></tr>';
-
-      var currentUserStats=document.getElementById("currentUserStats");
-      if(currentUserStats){
-        var meRow=me?rows.find(function(r){ return Number(r.user_id)===Number(me.id); }):null;
-        if(meRow){
-          var meWld=computeWldForUser(me.id);
-          var played=meWld.wins+meWld.losses+meWld.draws;
-          var meWr=played?Math.round((meWld.wins/played)*100):0;
-          currentUserStats.innerHTML='Att '+esc(meRow.attendance||0)+' | W-L-D '+meWld.wins+'-'+meWld.losses+'-'+meWld.draws+' | Winrate '+meWr+'% | G '+esc(meRow.goals||0)+' | A '+esc(meRow.assists||0)+' | LMMR '+Math.round(Number(meRow.lmmr||0))+' | SR '+Math.round(Number(meRow.sr_points||0));
-        } else {
-          currentUserStats.textContent='You have no entries for this scope yet.';
-        }
+      var meRow=me?rows.find(function(r){ return Number(r.user_id)===Number(me.id); }):null;
+      if(meRow){
+        var meWld=computeWldForUser(me.id);
+        var played=meWld.wins+meWld.losses+meWld.draws;
+        var meWr=played?Math.round((meWld.wins/played)*100):0;
+        setUserStatBoxes({
+          attendance:String(meRow.attendance||0),
+          wld:meWld.wins+"-"+meWld.losses+"-"+meWld.draws,
+          winrate:meWr+"%",
+          goals:String(meRow.goals||0),
+          assists:String(meRow.assists||0),
+          rating:Math.round(Number(meRow.lmmr||0))+" / "+Math.round(Number(meRow.sr_points||0))
+        });
+      } else {
+        setUserStatBoxes();
       }
       renderScoreboard(rows);
       renderHistoryGraph();
     }
 
     function renderSeasonManager(){
-      var wrap=document.getElementById("seasonManager");
-      var select=document.getElementById("seasonSelect");
-      if(!wrap||!select) return;
-      if(!canManage()){ wrap.style.display="none"; return; }
-      wrap.style.display="block";
-      var items=Array.isArray(seasons)?seasons:[];
-      if(!items.length){
-        select.innerHTML='<option value="">No seasons</option>';
-        return;
-      }
-      select.innerHTML=items.map(function(s){
-        var startLbl=s.start_at?new Date(s.start_at).toLocaleDateString():"?";
-        var endLbl=s.end_at?new Date(s.end_at).toLocaleDateString():"...";
-        var lbl=(s.name||("Season "+s.id))+" ["+startLbl+" - "+endLbl+"]"+(s.is_active?" (Current)":"");
-        return '<option value="'+Number(s.id)+'">'+esc(lbl)+'</option>';
-      }).join("");
-      var active=items.find(function(s){return !!s.is_active;});
-      if(active) select.value=String(active.id);
       var createBtn=document.getElementById("createSeasonPageBtn");
-      if(createBtn) createBtn.href="./create_season.html?league_id="+leagueId;
+      if(!createBtn) return;
+      createBtn.style.display=canManage()?"inline-flex":"none";
+      createBtn.href="./create_season.html?league_id="+leagueId;
     }
 
     function renderMembers(){
@@ -615,13 +588,6 @@
       if(reqBtn){try{await apiFetch("/leagues/"+leagueId+"/join-requests/"+Number(reqBtn.dataset.id),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision:reqBtn.dataset.decision})});await load();show("Request "+reqBtn.dataset.decision+"ed.");}catch(err){show(err.message||"Failed.","error");}return;}
       var tabBtn=e.target.closest("[data-stat-tab]");
       if(tabBtn){activeStatsTabKey=tabBtn.dataset.statTab||"general";renderStatsTabs();return;}
-      var activateBtn=e.target.closest("#activateSeasonBtn");
-      if(activateBtn){
-        var sid=Number((document.getElementById("seasonSelect")||{}).value||0);
-        if(!sid){show("Select a season first.","error");return;}
-        try{await apiFetch("/leagues/"+leagueId+"/seasons/"+sid+"/activate",{method:"POST"});await load();show("Season activated.");}catch(err){show(err.message||"Failed.","error");}
-        return;
-      }
       var createSeasonLink=e.target.closest("#createSeasonPageBtn");
       if(createSeasonLink){
         createSeasonLink.href="./create_season.html?league_id="+leagueId;

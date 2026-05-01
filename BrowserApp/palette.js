@@ -2,11 +2,18 @@
   "use strict";
 
   var STORAGE_KEY = "rs_palette";
-  var DEFAULT_PALETTE = "forest";
+  var DEFAULT_PALETTE = "woodland";
+
+  var LEGACY_KEYS = {
+    forest: "woodland",
+    ocean: "reef",
+    sunset: "canyon",
+    graphite: "tundra"
+  };
 
   var PALETTES = {
-    forest: {
-      name: "Forest",
+    woodland: {
+      name: "Woodland",
       light: {
         "--bg": "#d6ece0",
         "--panel": "#ffffff",
@@ -34,8 +41,8 @@
         "--bg-b": "#0b1411"
       }
     },
-    ocean: {
-      name: "Ocean",
+    reef: {
+      name: "Reef",
       light: {
         "--bg": "#e6f4f8",
         "--panel": "#ffffff",
@@ -63,8 +70,8 @@
         "--bg-b": "#0a141b"
       }
     },
-    sunset: {
-      name: "Sunset",
+    canyon: {
+      name: "Canyon",
       light: {
         "--bg": "#fff1e8",
         "--panel": "#ffffff",
@@ -92,8 +99,8 @@
         "--bg-b": "#1d120d"
       }
     },
-    graphite: {
-      name: "Graphite",
+    tundra: {
+      name: "Tundra",
       light: {
         "--bg": "#eceef2",
         "--panel": "#ffffff",
@@ -120,6 +127,182 @@
         "--bg-a": "#1b212d",
         "--bg-b": "#12161f"
       }
+    },
+    desert: {
+      name: "Desert",
+      light: {
+        "--bg": "#f8efe0",
+        "--panel": "#fffdf8",
+        "--panel-soft": "#fdf6ea",
+        "--card": "rgba(255,250,242,.92)",
+        "--text": "#3f2d1c",
+        "--muted": "#7e6650",
+        "--accent": "#c8873f",
+        "--accent-dark": "#a86f30",
+        "--line": "rgba(63,45,28,.16)",
+        "--bg-a": "#fff8ed",
+        "--bg-b": "#f1dfc6"
+      },
+      dark: {
+        "--bg": "#231911",
+        "--panel": "#332519",
+        "--panel-soft": "#3e2c1e",
+        "--card": "rgba(62,44,30,.9)",
+        "--text": "#f7eadc",
+        "--muted": "#d2b596",
+        "--accent": "#e2a55f",
+        "--accent-dark": "#c88e4f",
+        "--line": "rgba(247,227,205,.2)",
+        "--bg-a": "#2a1d13",
+        "--bg-b": "#1a120c"
+      }
+    },
+    glacier: {
+      name: "Glacier",
+      light: {
+        "--bg": "#e8f6fb",
+        "--panel": "#ffffff",
+        "--panel-soft": "#f2fbff",
+        "--card": "rgba(247,253,255,.92)",
+        "--text": "#173241",
+        "--muted": "#587a8d",
+        "--accent": "#2d9cc7",
+        "--accent-dark": "#217ba0",
+        "--line": "rgba(23,50,65,.16)",
+        "--bg-a": "#f4fcff",
+        "--bg-b": "#d7ecf6"
+      },
+      dark: {
+        "--bg": "#0f1b23",
+        "--panel": "#172a35",
+        "--panel-soft": "#1c3341",
+        "--card": "rgba(28,51,65,.9)",
+        "--text": "#d9edf7",
+        "--muted": "#8eb3c7",
+        "--accent": "#4db9e2",
+        "--accent-dark": "#359bc1",
+        "--line": "rgba(181,216,232,.2)",
+        "--bg-a": "#122230",
+        "--bg-b": "#0a141a"
+      }
+    },
+    savanna: {
+      name: "Savanna",
+      light: {
+        "--bg": "#eef4db",
+        "--panel": "#ffffff",
+        "--panel-soft": "#f7faec",
+        "--card": "rgba(251,254,243,.92)",
+        "--text": "#2d3517",
+        "--muted": "#687449",
+        "--accent": "#889f31",
+        "--accent-dark": "#6c8126",
+        "--line": "rgba(45,53,23,.16)",
+        "--bg-a": "#f9fcef",
+        "--bg-b": "#e0eabf"
+      },
+      dark: {
+        "--bg": "#171d0e",
+        "--panel": "#242e16",
+        "--panel-soft": "#2b361a",
+        "--card": "rgba(43,54,26,.9)",
+        "--text": "#e8efd5",
+        "--muted": "#a9bb7b",
+        "--accent": "#b8cf58",
+        "--accent-dark": "#9bb344",
+        "--line": "rgba(217,232,171,.2)",
+        "--bg-a": "#202813",
+        "--bg-b": "#111608"
+      }
+    },
+    lagoon: {
+      name: "Lagoon",
+      light: {
+        "--bg": "#dff6f1",
+        "--panel": "#ffffff",
+        "--panel-soft": "#effcf8",
+        "--card": "rgba(246,255,253,.92)",
+        "--text": "#124237",
+        "--muted": "#4d7d72",
+        "--accent": "#159b85",
+        "--accent-dark": "#0f7c6a",
+        "--line": "rgba(18,66,55,.16)",
+        "--bg-a": "#f1fffb",
+        "--bg-b": "#cdeee6"
+      },
+      dark: {
+        "--bg": "#0d201c",
+        "--panel": "#14322c",
+        "--panel-soft": "#194038",
+        "--card": "rgba(25,64,56,.9)",
+        "--text": "#d5f1ea",
+        "--muted": "#90c1b5",
+        "--accent": "#31c3a8",
+        "--accent-dark": "#22a38b",
+        "--line": "rgba(173,223,212,.2)",
+        "--bg-a": "#123029",
+        "--bg-b": "#081511"
+      }
+    },
+    volcanic: {
+      name: "Volcanic",
+      light: {
+        "--bg": "#f4e8e5",
+        "--panel": "#ffffff",
+        "--panel-soft": "#fbf2f0",
+        "--card": "rgba(255,248,247,.92)",
+        "--text": "#3d201c",
+        "--muted": "#805651",
+        "--accent": "#ba4d3d",
+        "--accent-dark": "#97392c",
+        "--line": "rgba(61,32,28,.16)",
+        "--bg-a": "#fdf5f3",
+        "--bg-b": "#ebd5d1"
+      },
+      dark: {
+        "--bg": "#201311",
+        "--panel": "#321d1a",
+        "--panel-soft": "#3d2420",
+        "--card": "rgba(61,36,32,.9)",
+        "--text": "#f3dfdc",
+        "--muted": "#c59a93",
+        "--accent": "#e16d5a",
+        "--accent-dark": "#c55544",
+        "--line": "rgba(233,197,190,.2)",
+        "--bg-a": "#2a1916",
+        "--bg-b": "#120a09"
+      }
+    },
+    meadow: {
+      name: "Meadow",
+      light: {
+        "--bg": "#e6f7df",
+        "--panel": "#ffffff",
+        "--panel-soft": "#f2fceb",
+        "--card": "rgba(248,255,244,.92)",
+        "--text": "#1e3817",
+        "--muted": "#5a814f",
+        "--accent": "#4baf3d",
+        "--accent-dark": "#398b2f",
+        "--line": "rgba(30,56,23,.16)",
+        "--bg-a": "#f6fff1",
+        "--bg-b": "#d5efc9"
+      },
+      dark: {
+        "--bg": "#12200f",
+        "--panel": "#1d3218",
+        "--panel-soft": "#24401d",
+        "--card": "rgba(36,64,29,.9)",
+        "--text": "#dcedd3",
+        "--muted": "#9fc392",
+        "--accent": "#6fd35e",
+        "--accent-dark": "#56b148",
+        "--line": "rgba(192,224,180,.2)",
+        "--bg-a": "#183016",
+        "--bg-b": "#0b1408"
+      }
+    }
+  };
     }
   };
 
@@ -129,6 +312,7 @@
 
   function getPaletteKey() {
     var key = localStorage.getItem(STORAGE_KEY) || DEFAULT_PALETTE;
+    if (LEGACY_KEYS[key]) key = LEGACY_KEYS[key];
     if (!PALETTES[key]) return DEFAULT_PALETTE;
     return key;
   }
