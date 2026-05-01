@@ -31,27 +31,7 @@
     .status.ok { color:var(--accent); }
     .hint { font-size:.8rem; color:var(--muted); margin-top:4px; }
     .avatar { width:64px; height:64px; border-radius:50%; background:var(--accent); color:#fff; font-size:1.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
-    .palette-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
-    @media (max-width:560px){ .palette-grid { grid-template-columns:1fr; } }
-    .palette-preview { border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--panel-soft); cursor:pointer; }
-    .palette-preview.active { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset; }
-    .palette-preview .name { font-size:.82rem; font-weight:700; margin-bottom:6px; }
-    .palette-traffic { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .pt-node { display:flex; align-items:center; gap:6px; min-width:90px; }
-    .pt-node i { width:16px; height:16px; border-radius:999px; border:1px solid rgba(0,0,0,.25); display:inline-block; }
-    .pt-node span { font-size:.74rem; color:var(--muted); font-weight:700; }
-    .custom-palette-slot { margin-top:10px; }
-    .custom-palette-slot .label { font-size:.76rem; color:var(--muted); margin-bottom:6px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
-    .traffic-light-wrap { display:flex; align-items:center; gap:16px; margin-top:12px; }
-    .traffic-light-housing { display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--panel-soft); border:1px solid var(--line); border-radius:999px; padding:14px 10px; width:56px; flex-shrink:0; }
-    .tl-swatch { position:relative; width:32px; height:32px; flex-shrink:0; }
-    .tl-swatch input[type="color"] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; padding:0; }
-    .tl-swatch-dot { width:32px; height:32px; border-radius:999px; border:2px solid rgba(0,0,0,.18); pointer-events:none; transition:box-shadow .15s; }
-    .tl-swatch:hover .tl-swatch-dot, .tl-swatch:focus-within .tl-swatch-dot { box-shadow:0 0 0 3px var(--accent); }
-    .traffic-light-labels { display:flex; flex-direction:column; gap:10px; }
-    .tl-row { display:flex; align-items:center; gap:8px; min-height:32px; }
-    .tl-label { font-size:.82rem; font-weight:700; color:var(--muted); line-height:1; }
-    .tl-hex { font-size:.78rem; color:var(--muted); opacity:.7; font-family:monospace; }
+
   </style>
 </head>
 <body>
@@ -113,45 +93,6 @@
       <div id="accountInfo" class="muted" style="font-size:.88rem;line-height:1.6;">Loading...</div>
     </div>
 
-    <div class="card">
-      <h2>Color palette</h2>
-      <div class="hint" style="margin-bottom:8px;">Pick a biome palette below. Changes apply instantly.</div>
-      <div id="palettePreviewGrid" class="palette-grid"></div>
-      <div id="customPaletteSlot" class="custom-palette-slot"></div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
-        <div style="font-size:.88rem;font-weight:700;">Custom palette</div>
-        <div class="hint">Set 3 base colors and save as your own palette.</div>
-        <div class="field" style="margin-top:8px; margin-bottom:0;">
-          <label for="customPaletteName" style="font-size:.82rem;color:var(--muted);">Custom name</label>
-          <input id="customPaletteName" type="text" maxlength="24" placeholder="My Club Colors">
-        </div>
-        <div class="traffic-light-wrap">
-          <div class="traffic-light-housing">
-            <div class="tl-swatch">
-              <div class="tl-swatch-dot" id="dotAccent" style="background:#4a84d9;"></div>
-              <input id="customAccent" type="color" value="#4a84d9">
-            </div>
-            <div class="tl-swatch">
-              <div class="tl-swatch-dot" id="dotBgA" style="background:#f2f8ff;"></div>
-              <input id="customBgA" type="color" value="#f2f8ff">
-            </div>
-            <div class="tl-swatch">
-              <div class="tl-swatch-dot" id="dotBgB" style="background:#d7e7fa;"></div>
-              <input id="customBgB" type="color" value="#d7e7fa">
-            </div>
-          </div>
-          <div class="traffic-light-labels">
-            <div class="tl-row"><span class="tl-label">Accent</span><span class="tl-hex" id="hexAccent">#4a84d9</span></div>
-            <div class="tl-row"><span class="tl-label">Background A</span><span class="tl-hex" id="hexBgA">#f2f8ff</span></div>
-            <div class="tl-row"><span class="tl-label">Background B</span><span class="tl-hex" id="hexBgB">#d7e7fa</span></div>
-          </div>
-        </div>
-        <div class="row" style="margin-top:10px;">
-          <button class="btn primary" id="saveCustomPaletteBtn" type="button">Save custom palette</button>
-        </div>
-      </div>
-      <div class="status" id="paletteStatus"></div>
-    </div>
   </div>
 
   <script>
@@ -235,146 +176,6 @@
       } catch(e){ setStatus("emailStatus", e.message || "Failed.", "error"); }
     });
 
-    function renderPalettePreviews(activeKey){
-      const host = document.getElementById("palettePreviewGrid");
-      const customSlot = document.getElementById("customPaletteSlot");
-      if(!host) return;
-      const list = (window.RSPalette && window.RSPalette.list) ? window.RSPalette.list : null;
-      if(!list){
-        host.innerHTML = "";
-        if(customSlot) customSlot.innerHTML = "";
-        return;
-      }
-      const renderTraffic = (light) => {
-        const accent = esc(light["--accent"] || "#4a84d9");
-        const bgA = esc(light["--bg-a"] || "#f2f8ff");
-        const bgB = esc(light["--bg-b"] || "#d7e7fa");
-        return `<div class="palette-traffic">
-          <div class="pt-node"><i style="background:${accent}"></i><span>Accent</span></div>
-          <div class="pt-node"><i style="background:${bgA}"></i><span>Background A</span></div>
-          <div class="pt-node"><i style="background:${bgB}"></i><span>Background B</span></div>
-        </div>`;
-      };
-      const keys = Object.keys(list).filter((key) => key !== "custom");
-      host.innerHTML = keys.map((key) => {
-        const p = list[key];
-        const light = p.light || {};
-        return `<button type="button" class="palette-preview${key===activeKey?" active":""}" data-key="${key}">
-          <div class="name">${esc(p.name || key)}</div>
-          ${renderTraffic(light)}
-        </button>`;
-      }).join("");
-
-      let hasCustom = false;
-      try {
-        hasCustom = !!(window.RSPalette && typeof window.RSPalette.getCustom === "function" && window.RSPalette.getCustom());
-      } catch (_) {}
-      if(!hasCustom){
-        try { hasCustom = !!localStorage.getItem("rs_custom_palette_v1"); } catch (_) {}
-      }
-
-      if(customSlot){
-        if(hasCustom && list.custom){
-          const p = list.custom;
-          const light = p.light || {};
-          customSlot.innerHTML = `<div class="label">Your custom palette</div>
-            <button type="button" class="palette-preview${activeKey==="custom"?" active":""}" data-key="custom">
-              <div class="name">${esc(p.name || "Custom")}</div>
-              ${renderTraffic(light)}
-            </button>`;
-        } else {
-          customSlot.innerHTML = "";
-        }
-      }
-
-      host.querySelectorAll(".palette-preview").forEach((el) => {
-        el.addEventListener("click", () => {
-          const key = el.dataset.key;
-          try {
-            if(window.RSPalette) window.RSPalette.apply(key);
-            else localStorage.setItem("rs_palette", key);
-            renderPalettePreviews(key);
-            setStatus("paletteStatus", "Palette updated.", "ok");
-          } catch (e) {
-            setStatus("paletteStatus", "Failed to update palette.", "error");
-          }
-        });
-      });
-      if(customSlot){
-        customSlot.querySelectorAll(".palette-preview").forEach((el) => {
-          el.addEventListener("click", () => {
-            const key = el.dataset.key;
-            try {
-              if(window.RSPalette) window.RSPalette.apply(key);
-              else localStorage.setItem("rs_palette", key);
-              renderPalettePreviews(key);
-              setStatus("paletteStatus", "Palette updated.", "ok");
-            } catch (e) {
-              setStatus("paletteStatus", "Failed to update palette.", "error");
-            }
-          });
-        });
-      }
-    }
-
-    function syncTlSwatch(inputId, dotId, hexId){
-      const input = document.getElementById(inputId);
-      const dot = document.getElementById(dotId);
-      const hex = document.getElementById(hexId);
-      if(!input) return;
-      function update(){ if(dot) dot.style.background = input.value; if(hex) hex.textContent = input.value; }
-      input.addEventListener("input", update);
-      input.addEventListener("change", update);
-    }
-
-    function initCustomPaletteInputs(){
-      const nameEl = document.getElementById("customPaletteName");
-      const accentEl = document.getElementById("customAccent");
-      const bgAEl = document.getElementById("customBgA");
-      const bgBEl = document.getElementById("customBgB");
-      const existing = (window.RSPalette && window.RSPalette.getCustom) ? window.RSPalette.getCustom() : null;
-      if(existing){
-        if(nameEl && existing.name) nameEl.value = existing.name;
-        if(accentEl && existing.accent){ accentEl.value = existing.accent; const d = document.getElementById("dotAccent"); const h = document.getElementById("hexAccent"); if(d) d.style.background = existing.accent; if(h) h.textContent = existing.accent; }
-        if(bgAEl && existing.bgA){ bgAEl.value = existing.bgA; const d = document.getElementById("dotBgA"); const h = document.getElementById("hexBgA"); if(d) d.style.background = existing.bgA; if(h) h.textContent = existing.bgA; }
-        if(bgBEl && existing.bgB){ bgBEl.value = existing.bgB; const d = document.getElementById("dotBgB"); const h = document.getElementById("hexBgB"); if(d) d.style.background = existing.bgB; if(h) h.textContent = existing.bgB; }
-      }
-      syncTlSwatch("customAccent", "dotAccent", "hexAccent");
-      syncTlSwatch("customBgA", "dotBgA", "hexBgA");
-      syncTlSwatch("customBgB", "dotBgB", "hexBgB");
-      const saveBtn = document.getElementById("saveCustomPaletteBtn");
-      if(saveBtn){
-        saveBtn.addEventListener("click", () => {
-          try {
-            const customConfig = {
-              name: nameEl ? nameEl.value.trim() : "",
-              accent: accentEl ? accentEl.value : "#4a84d9",
-              bgA: bgAEl ? bgAEl.value : "#f2f8ff",
-              bgB: bgBEl ? bgBEl.value : "#d7e7fa"
-            };
-
-            if(window.RSPalette && typeof window.RSPalette.setCustom === "function"){
-              window.RSPalette.setCustom(customConfig);
-              if(typeof window.RSPalette.apply === "function") window.RSPalette.apply("custom");
-              renderPalettePreviews("custom");
-              setStatus("paletteStatus", "Custom palette saved.", "ok");
-              return;
-            }
-
-            // Fallback path if palette runtime script failed to load.
-            localStorage.setItem("rs_custom_palette_v1", JSON.stringify(customConfig));
-            localStorage.setItem("rs_palette", "custom");
-            document.documentElement.style.setProperty("--accent", customConfig.accent);
-            document.documentElement.style.setProperty("--bg-a", customConfig.bgA);
-            document.documentElement.style.setProperty("--bg-b", customConfig.bgB);
-            setStatus("paletteStatus", "Custom palette saved. Reload if it does not apply everywhere.", "ok");
-          } catch (_) {
-            setStatus("paletteStatus", "Failed to save custom palette.", "error");
-          }
-        });
-      }
-    }
-
     async function load(){
       try {
         const user = await apiFetch("/auth/me");
@@ -383,9 +184,6 @@
         document.getElementById("profileSummary").textContent = "Not signed in.";
         document.getElementById("accountInfo").textContent = "Please sign in to manage your account.";
       }
-      const currentPalette = (window.RSPalette && window.RSPalette.get()) || localStorage.getItem("rs_palette") || "woodland";
-      renderPalettePreviews(currentPalette);
-      initCustomPaletteInputs();
     }
 
     load();

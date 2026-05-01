@@ -1484,7 +1484,13 @@
                 leagueStatsList.innerHTML = '<div class="empty-card">No league-specific player stats yet.</div>';
                 return;
             }
-            leagueStatsList.innerHTML = stats.map((item) => `
+            leagueStatsList.innerHTML = stats.map((item, idx) => {
+                const att = Math.max(1, Number(item.attendance) || 1);
+                const gls = Number(item.goals) || 0;
+                const ass = Number(item.assists) || 0;
+                const wins = Number(item.wins) || 0;
+                const wr = att > 0 ? Math.round((wins / att) * 100) : 0;
+                return `
                 <article class="league-card">
                     <div class="league-head">
                         <h3 class="league-name">${escapeHtml(item.league_name)}</h3>
@@ -1508,8 +1514,17 @@
                             <span class="meta-value">${escapeHtml(item.assists)}</span>
                         </div>
                     </div>
+                    <button type="button" class="btn ghost sm" style="font-size:.73rem;margin-top:6px;" onclick="(function(btn){var p=btn.nextElementSibling;var open=p.style.display!=='none';p.style.display=open?'none':'grid';btn.textContent=open?'More stats\u25be':'Less stats\u25b4';})(this)">More stats&#9662;</button>
+                    <div style="display:none;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+                        <div class="meta-block"><span class="meta-label">Win rate</span><span class="meta-value">${wr}%</span></div>
+                        <div class="meta-block"><span class="meta-label">Goals/Game</span><span class="meta-value">${(gls/att).toFixed(2)}</span></div>
+                        <div class="meta-block"><span class="meta-label">Assists/Game</span><span class="meta-value">${(ass/att).toFixed(2)}</span></div>
+                        <div class="meta-block"><span class="meta-label">G+A</span><span class="meta-value">${gls+ass}</span></div>
+                        <div class="meta-block"><span class="meta-label">G+A/Game</span><span class="meta-value">${((gls+ass)/att).toFixed(2)}</span></div>
+                    </div>
                 </article>
-            `).join("");
+                `;
+            }).join("");
         }
 
         function renderMembersHtml(league, detail) {
@@ -1829,6 +1844,9 @@
             const refOrManagerCount = leagues.filter(l => l.member_role === "owner" || l.member_role === "admin").length;
             const attendance = stats.attendance || 0;
             const wins = stats.wins || 0;
+            const gls = stats.goals || 0;
+            const ass = stats.assists || 0;
+            const att = Math.max(1, attendance);
             const winRate = attendance > 0 ? Math.round((wins / attendance) * 100) : 0;
             grid.innerHTML = `
                 <div class="welcome-stat-card">
@@ -1849,13 +1867,50 @@
                 </div>
                 <div class="welcome-stat-card">
                     <span class="welcome-stat-label">Goals / Assists</span>
-                    <span class="welcome-stat-value">${stats.goals || 0} / ${stats.assists || 0}</span>
+                    <span class="welcome-stat-value">${gls} / ${ass}</span>
                 </div>
                 <div class="welcome-stat-card">
                     <span class="welcome-stat-label">Matches Played</span>
                     <span class="welcome-stat-value">${attendance}</span>
                 </div>
             `;
+            // Expanded stats toggle
+            const existingToggle = document.getElementById("welcomeMoreStatsBtn");
+            if (!existingToggle) {
+                const toggleBtn = document.createElement("button");
+                toggleBtn.type = "button";
+                toggleBtn.id = "welcomeMoreStatsBtn";
+                toggleBtn.className = "btn ghost sm";
+                toggleBtn.style.cssText = "font-size:.73rem;margin-top:8px;";
+                toggleBtn.textContent = "More stats\u25be";
+                const expandPanel = document.createElement("div");
+                expandPanel.id = "welcomeExpandedStats";
+                expandPanel.style.cssText = "display:none;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);";
+                expandPanel.innerHTML = `
+                    <div class="welcome-stat-card"><span class="welcome-stat-label">Goals/Game</span><span class="welcome-stat-value">${(gls/att).toFixed(2)}</span></div>
+                    <div class="welcome-stat-card"><span class="welcome-stat-label">Assists/Game</span><span class="welcome-stat-value">${(ass/att).toFixed(2)}</span></div>
+                    <div class="welcome-stat-card"><span class="welcome-stat-label">G+A</span><span class="welcome-stat-value">${gls+ass}</span></div>
+                    <div class="welcome-stat-card"><span class="welcome-stat-label">G+A/Game</span><span class="welcome-stat-value">${((gls+ass)/att).toFixed(2)}</span></div>
+                    <div class="welcome-stat-card"><span class="welcome-stat-label">Wins</span><span class="welcome-stat-value">${wins}</span></div>
+                `;
+                toggleBtn.addEventListener("click", function() {
+                    const open = expandPanel.style.display !== "none";
+                    expandPanel.style.display = open ? "none" : "grid";
+                    toggleBtn.textContent = open ? "More stats\u25be" : "Less stats\u25b4";
+                });
+                grid.after(toggleBtn);
+                toggleBtn.after(expandPanel);
+            } else {
+                // Refresh values in existing expanded panel
+                const expandPanel = document.getElementById("welcomeExpandedStats");
+                if (expandPanel) {
+                    expandPanel.querySelectorAll(".welcome-stat-value")[0].textContent = (gls/att).toFixed(2);
+                    expandPanel.querySelectorAll(".welcome-stat-value")[1].textContent = (ass/att).toFixed(2);
+                    expandPanel.querySelectorAll(".welcome-stat-value")[2].textContent = String(gls+ass);
+                    expandPanel.querySelectorAll(".welcome-stat-value")[3].textContent = ((gls+ass)/att).toFixed(2);
+                    expandPanel.querySelectorAll(".welcome-stat-value")[4].textContent = String(wins);
+                }
+            }
         }
 
         async function refreshAndRender() {

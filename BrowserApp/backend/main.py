@@ -4660,6 +4660,26 @@ def admin_terminate_user(user_id: int, current_admin: sqlite3.Row = Depends(reso
     return admin_block_user(user_id, current_admin)
 
 
+@app.post("/admin/hard-reset", response_model=MessageOut)
+def admin_hard_reset(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    """Delete all match / event / season data, clear all stats back to defaults, and wipe notifications and social connections."""
+    admin_id = int(current_admin["id"])
+    with get_conn() as conn:
+        conn.execute("DELETE FROM match_events")
+        conn.execute("DELETE FROM match_registrations")
+        conn.execute("DELETE FROM matches")
+        conn.execute("DELETE FROM league_season_player_stats")
+        conn.execute("DELETE FROM league_seasons")
+        conn.execute("DELETE FROM league_penalties")
+        conn.execute("DELETE FROM notifications")
+        conn.execute("DELETE FROM friendships")
+        conn.execute("DELETE FROM player_follows")
+        conn.execute("UPDATE league_player_stats SET attendance=0, wins=0, goals=0, own_goals=0, assists=0, rating=1000")
+        conn.execute("UPDATE users SET global_rating=1000, attendance=0, wins=0, goals=0, assists=0 WHERE role != 'admin'")
+        conn.commit()
+    return MessageOut(detail="Hard reset complete. All match data, stats, notifications, and social connections have been cleared.")
+
+
 def _serialize_join_request(row: sqlite3.Row) -> LeagueJoinRequestOut:
     return LeagueJoinRequestOut(
         id=int(row["id"]),

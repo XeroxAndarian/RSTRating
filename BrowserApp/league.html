@@ -132,7 +132,20 @@
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Assists</h3><div id="statAssists" class="mini">-</div></div>
             <div class="stats-box"><h3 id="statRatingLabel" style="margin:0 0 6px;font-size:.95rem;">League MMR</h3><div id="statRating" class="mini">-</div></div>
           </div>
-          <h3 style="margin:0 0 8px;font-size:.95rem;">Scoreboard</h3>
+          <div id="expandedStatsPanel" style="display:none;margin-bottom:10px;border-top:1px solid var(--line);padding-top:10px;">
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Goals/Game</h3><div id="statGoalsPerGame" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Assists/Game</h3><div id="statAssistsPerGame" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">OG/Game</h3><div id="statOgPerGame" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">G+A</h3><div id="statGa" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Losses</h3><div id="statLosses" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Draws</h3><div id="statDraws" class="mini">-</div></div>
+            </div>
+          </div>
+          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h3 style="margin:0;font-size:.95rem;">Scoreboard</h3>
+            <button type="button" class="btn ghost sm" id="expandStatsBtn" style="font-size:.76rem;">More stats</button>
+          </div>
           <div style="overflow-x:auto;">
             <table class="member-table">
               <thead>
@@ -166,7 +179,6 @@
                   <th data-col="goals">G</th>
                   <th data-col="assists">A</th>
                   <th data-col="winrate">Win%</th>
-                  <th data-col="mmr">MMR</th>
                   <th data-col="rating" class="sorted">Rating &#x25BC;</th>
                 </tr>
               </thead>
@@ -521,6 +533,14 @@
     }
 
     function renderScoreboard(rows){
+      // Fallback: if statsTabs returned no rows, derive from detail.members
+      if(!rows.length && detail && Array.isArray(detail.members) && detail.members.length){
+        rows=detail.members.map(function(m){
+          return { user_id:m.user_id, username:m.username, display_name:m.display_name,
+            attendance:m.attendance||0, wins:m.wins||0, goals:m.goals||0,
+            own_goals:0, assists:m.assists||0, lmmr:m.rating||1000, sr_points:0 };
+        });
+      }
       var tbody=document.getElementById("scoreboardTbody");
       var head=document.getElementById("scoreboardHeadRow");
       var showSr=String(activeStatsTabKey||"general").startsWith("season-");
@@ -559,7 +579,8 @@
     }
 
     function setUserStatBoxes(values){
-      var v=values||{ attendance:"-", wld:"-", winrate:"-", goals:"-", assists:"-", rating:"-" };
+      var v=values||{ attendance:"0", wld:"0-0-0", winrate:"0%", goals:"0", assists:"0", rating:"1000",
+        goalsPerGame:"0.00", assistsPerGame:"0.00", ogPerGame:"0.00", ga:"0", losses:"0", draws:"0" };
       var attendanceEl=document.getElementById("statAttendance");
       var wldEl=document.getElementById("statWld");
       var winrateEl=document.getElementById("statWinrate");
@@ -572,6 +593,12 @@
       if(goalsEl) goalsEl.textContent=v.goals;
       if(assistsEl) assistsEl.textContent=v.assists;
       if(ratingEl) ratingEl.textContent=v.rating;
+      var gpg=document.getElementById("statGoalsPerGame"); if(gpg) gpg.textContent=v.goalsPerGame||"0.00";
+      var apg=document.getElementById("statAssistsPerGame"); if(apg) apg.textContent=v.assistsPerGame||"0.00";
+      var ogpg=document.getElementById("statOgPerGame"); if(ogpg) ogpg.textContent=v.ogPerGame||"0.00";
+      var gaEl=document.getElementById("statGa"); if(gaEl) gaEl.textContent=v.ga||"0";
+      var lEl=document.getElementById("statLosses"); if(lEl) lEl.textContent=v.losses||"0";
+      var dEl=document.getElementById("statDraws"); if(dEl) dEl.textContent=v.draws||"0";
     }
 
     function renderStatsTabs(){
@@ -594,19 +621,33 @@
       var active=getActiveStatsTab();
       var rows=Array.isArray(active.rows)?active.rows:[];
       var meRow=me?rows.find(function(r){ return Number(r.user_id)===Number(me.id); }):null;
+      // Fallback: if not in statsTabs rows, try detail.members
+      if(!meRow && me && detail && Array.isArray(detail.members)){
+        var meMember=detail.members.find(function(m){ return Number(m.user_id)===Number(me.id); });
+        if(meMember) meRow={ user_id:me.id, attendance:meMember.attendance||0, wins:meMember.wins||0,
+          goals:meMember.goals||0, own_goals:0, assists:meMember.assists||0, lmmr:meMember.rating||1000, sr_points:0 };
+      }
       if(meRow){
         var meWld=computeWldForUser(me.id);
         var played=meWld.wins+meWld.losses+meWld.draws;
         var meWr=played?Math.round((meWld.wins/played)*100):0;
+        var att=Math.max(1,Number(meRow.attendance||0)||1);
+        var gls=Number(meRow.goals||0); var ass=Number(meRow.assists||0); var og=Number(meRow.own_goals||0);
         setUserStatBoxes({
           attendance:String(meRow.attendance||0),
           wld:meWld.wins+"-"+meWld.losses+"-"+meWld.draws,
           winrate:meWr+"%",
-          goals:String(meRow.goals||0),
-          assists:String(meRow.assists||0),
+          goals:String(gls),
+          assists:String(ass),
           rating:String(activeStatsTabKey==="general"
             ? Math.round(Number(meRow.lmmr||0))
-            : Math.round(Number(meRow.sr_points||0)))
+            : Math.round(Number(meRow.sr_points||0))),
+          goalsPerGame:(gls/att).toFixed(2),
+          assistsPerGame:(ass/att).toFixed(2),
+          ogPerGame:(og/att).toFixed(2),
+          ga:String(gls+ass),
+          losses:String(meWld.losses),
+          draws:String(meWld.draws)
         });
       } else {
         setUserStatBoxes();
@@ -635,7 +676,7 @@
       });
       document.getElementById("memberTbody").innerHTML=members.map(function(m){
         var wr=m.attendance>0?Math.round(100*m.wins/m.attendance):0;
-        return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td>"+esc(m.mmr?Math.round(m.mmr):"-")+"</td><td>"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
+        return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td>"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
       }).join("");
       document.getElementById("memberCount").textContent=members.length+" member"+(members.length!==1?"s":"");
       var labels={name:"Name",goals:"G",assists:"A",winrate:"Win%",mmr:"MMR",rating:"Rating"};
@@ -758,6 +799,18 @@
       });
     }
 
+    (function(){
+      var btn=document.getElementById("expandStatsBtn");
+      var panel=document.getElementById("expandedStatsPanel");
+      if(btn && panel){
+        btn.addEventListener("click", function(){
+          var open=panel.style.display!=="none";
+          panel.style.display=open?"none":"block";
+          btn.textContent=open?"More stats":"Less stats";
+        });
+      }
+    })();
+
     async function load(){
       if(!leagueId){show("Missing league id.","error");return;}
       if(!getToken()){show("Please log in from lobby first.","error");return;}
@@ -776,6 +829,9 @@
         me=results[1]||null;
         matches=Array.isArray(results[2])?results[2]:[];
         statsTabs=Array.isArray(results[3])?results[3]:[];
+        if(!statsTabs.length||!statsTabs.find(function(t){return t.key==="general";})){
+          statsTabs=[{key:"general",label:"General",rows:[]}].concat(statsTabs.filter(function(t){return t.key!=="general";}));
+        }
         seasons=Array.isArray(results[4])?results[4]:[];
         joinRequests=Array.isArray(results[5])?results[5]:[];
         pendingPlacements=Array.isArray(results[7])?results[7]:[];

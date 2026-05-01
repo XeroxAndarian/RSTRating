@@ -81,6 +81,7 @@
       <div class="actions">
         <button class="btn" id="darkModeToggle" type="button">🌙</button>
         <a class="btn" href="./lobby.html">← Lobby</a>
+        <button class="btn danger" id="hardResetBtn" type="button">Hard Reset</button>
         <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
       </div>
     </div>
@@ -428,6 +429,18 @@
           show(response3.detail || 'Account unblocked.');
         } catch (err) { show(err.message || 'Failed.', 'error'); }
       }
+    });
+
+    document.getElementById('hardResetBtn').addEventListener('click', async function() {
+      var confirm1 = await _openModal({ title: 'Hard Reset — are you sure?', message: 'This will delete ALL match data, clear all player stats to defaults (rating 1000), and wipe all notifications and social connections. This cannot be undone.', fields: [], confirmText: 'Yes, reset everything', cancelText: 'Cancel', confirmClass: 'danger' });
+      if (!confirm1) return;
+      var confirm2 = await _openModal({ title: 'Final confirmation', message: 'Type RESET to confirm the hard reset.', fields: [{ name: 'confirm', label: 'Confirmation', placeholder: 'RESET' }], confirmText: 'Reset now', cancelText: 'Cancel', confirmClass: 'danger' });
+      if (!confirm2 || confirm2.confirm !== 'RESET') { show('Cancelled — type RESET exactly to confirm.', 'error'); return; }
+      try {
+        var result = await apiFetch('/admin/hard-reset', { method: 'POST' });
+        await load();
+        show(result.detail || 'Hard reset complete.', 'ok');
+      } catch (err) { show(err.message || 'Hard reset failed.', 'error'); }
     });
 
     load();
