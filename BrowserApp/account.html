@@ -38,10 +38,16 @@
     .palette-preview .name { font-size:.82rem; font-weight:700; margin-bottom:6px; }
     .swatches { display:flex; gap:6px; }
     .swatches i { width:18px; height:18px; border-radius:999px; border:1px solid rgba(0,0,0,.2); display:inline-block; }
-    .custom-palette-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
-    @media (max-width:560px){ .custom-palette-grid { grid-template-columns:1fr; } }
-    .custom-palette-grid label { display:flex; flex-direction:column; gap:5px; font-size:.82rem; font-weight:700; color:var(--muted); }
-    .custom-palette-grid input[type="color"] { width:100%; height:38px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--panel-soft); }
+    .traffic-light-wrap { display:flex; align-items:center; gap:16px; margin-top:12px; }
+    .traffic-light-housing { display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--panel-soft); border:1px solid var(--line); border-radius:999px; padding:14px 10px; width:56px; flex-shrink:0; }
+    .tl-swatch { position:relative; width:32px; height:32px; flex-shrink:0; }
+    .tl-swatch input[type="color"] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; padding:0; }
+    .tl-swatch-dot { width:32px; height:32px; border-radius:999px; border:2px solid rgba(0,0,0,.18); pointer-events:none; transition:box-shadow .15s; }
+    .tl-swatch:hover .tl-swatch-dot, .tl-swatch:focus-within .tl-swatch-dot { box-shadow:0 0 0 3px var(--accent); }
+    .traffic-light-labels { display:flex; flex-direction:column; gap:10px; }
+    .tl-row { display:flex; align-items:center; gap:8px; min-height:32px; }
+    .tl-label { font-size:.82rem; font-weight:700; color:var(--muted); line-height:1; }
+    .tl-hex { font-size:.78rem; color:var(--muted); opacity:.7; font-family:monospace; }
   </style>
 </head>
 <body>
@@ -114,16 +120,26 @@
           <label for="customPaletteName" style="font-size:.82rem;color:var(--muted);">Custom name</label>
           <input id="customPaletteName" type="text" maxlength="24" placeholder="My Club Colors">
         </div>
-        <div class="custom-palette-grid">
-          <label>Accent
-            <input id="customAccent" type="color" value="#4a84d9">
-          </label>
-          <label>Background A
-            <input id="customBgA" type="color" value="#f2f8ff">
-          </label>
-          <label>Background B
-            <input id="customBgB" type="color" value="#d7e7fa">
-          </label>
+        <div class="traffic-light-wrap">
+          <div class="traffic-light-housing">
+            <div class="tl-swatch">
+              <div class="tl-swatch-dot" id="dotAccent" style="background:#4a84d9;"></div>
+              <input id="customAccent" type="color" value="#4a84d9">
+            </div>
+            <div class="tl-swatch">
+              <div class="tl-swatch-dot" id="dotBgA" style="background:#f2f8ff;"></div>
+              <input id="customBgA" type="color" value="#f2f8ff">
+            </div>
+            <div class="tl-swatch">
+              <div class="tl-swatch-dot" id="dotBgB" style="background:#d7e7fa;"></div>
+              <input id="customBgB" type="color" value="#d7e7fa">
+            </div>
+          </div>
+          <div class="traffic-light-labels">
+            <div class="tl-row"><span class="tl-label">Accent</span><span class="tl-hex" id="hexAccent">#4a84d9</span></div>
+            <div class="tl-row"><span class="tl-label">Background A</span><span class="tl-hex" id="hexBgA">#f2f8ff</span></div>
+            <div class="tl-row"><span class="tl-label">Background B</span><span class="tl-hex" id="hexBgB">#d7e7fa</span></div>
+          </div>
         </div>
         <div class="row" style="margin-top:10px;">
           <button class="btn primary" id="saveCustomPaletteBtn" type="button">Save custom palette</button>
@@ -258,6 +274,16 @@
       });
     }
 
+    function syncTlSwatch(inputId, dotId, hexId){
+      const input = document.getElementById(inputId);
+      const dot = document.getElementById(dotId);
+      const hex = document.getElementById(hexId);
+      if(!input) return;
+      function update(){ if(dot) dot.style.background = input.value; if(hex) hex.textContent = input.value; }
+      input.addEventListener("input", update);
+      input.addEventListener("change", update);
+    }
+
     function initCustomPaletteInputs(){
       const nameEl = document.getElementById("customPaletteName");
       const accentEl = document.getElementById("customAccent");
@@ -266,10 +292,13 @@
       const existing = (window.RSPalette && window.RSPalette.getCustom) ? window.RSPalette.getCustom() : null;
       if(existing){
         if(nameEl && existing.name) nameEl.value = existing.name;
-        if(accentEl && existing.accent) accentEl.value = existing.accent;
-        if(bgAEl && existing.bgA) bgAEl.value = existing.bgA;
-        if(bgBEl && existing.bgB) bgBEl.value = existing.bgB;
+        if(accentEl && existing.accent){ accentEl.value = existing.accent; const d = document.getElementById("dotAccent"); const h = document.getElementById("hexAccent"); if(d) d.style.background = existing.accent; if(h) h.textContent = existing.accent; }
+        if(bgAEl && existing.bgA){ bgAEl.value = existing.bgA; const d = document.getElementById("dotBgA"); const h = document.getElementById("hexBgA"); if(d) d.style.background = existing.bgA; if(h) h.textContent = existing.bgA; }
+        if(bgBEl && existing.bgB){ bgBEl.value = existing.bgB; const d = document.getElementById("dotBgB"); const h = document.getElementById("hexBgB"); if(d) d.style.background = existing.bgB; if(h) h.textContent = existing.bgB; }
       }
+      syncTlSwatch("customAccent", "dotAccent", "hexAccent");
+      syncTlSwatch("customBgA", "dotBgA", "hexBgA");
+      syncTlSwatch("customBgB", "dotBgB", "hexBgB");
       const saveBtn = document.getElementById("saveCustomPaletteBtn");
       if(saveBtn){
         saveBtn.addEventListener("click", () => {
