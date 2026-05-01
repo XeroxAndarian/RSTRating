@@ -2,6 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "rs_palette";
+  var CUSTOM_STORAGE_KEY = "rs_custom_palette_v1";
   var DEFAULT_PALETTE = "woodland";
 
   var LEGACY_KEYS = {
@@ -301,14 +302,230 @@
         "--bg-a": "#183016",
         "--bg-b": "#0b1408"
       }
+    },
+    aurora: {
+      name: "Aurora",
+      light: {
+        "--bg": "#e7f3fb",
+        "--panel": "#ffffff",
+        "--panel-soft": "#f2f9ff",
+        "--card": "rgba(247,252,255,.92)",
+        "--text": "#162c45",
+        "--muted": "#58708f",
+        "--accent": "#4a84d9",
+        "--accent-dark": "#3868ad",
+        "--line": "rgba(22,44,69,.16)",
+        "--bg-a": "#f2f8ff",
+        "--bg-b": "#d7e7fa"
+      },
+      dark: {
+        "--bg": "#111a26",
+        "--panel": "#1a2738",
+        "--panel-soft": "#203147",
+        "--card": "rgba(32,49,71,.9)",
+        "--text": "#dbe9fb",
+        "--muted": "#9ab6de",
+        "--accent": "#70a3ef",
+        "--accent-dark": "#5587d0",
+        "--line": "rgba(202,222,252,.2)",
+        "--bg-a": "#182537",
+        "--bg-b": "#0d141f"
+      }
+    },
+    espresso: {
+      name: "Espresso",
+      light: {
+        "--bg": "#f4ece7",
+        "--panel": "#fffdfb",
+        "--panel-soft": "#faf2ec",
+        "--card": "rgba(255,250,246,.92)",
+        "--text": "#3b2b24",
+        "--muted": "#7b655a",
+        "--accent": "#b36a47",
+        "--accent-dark": "#8f5236",
+        "--line": "rgba(59,43,36,.16)",
+        "--bg-a": "#fdf7f2",
+        "--bg-b": "#ead8cc"
+      },
+      dark: {
+        "--bg": "#1d1411",
+        "--panel": "#2b1d18",
+        "--panel-soft": "#36231d",
+        "--card": "rgba(54,35,29,.9)",
+        "--text": "#f1e2d8",
+        "--muted": "#c2a493",
+        "--accent": "#d38b67",
+        "--accent-dark": "#b56f4d",
+        "--line": "rgba(235,210,194,.2)",
+        "--bg-a": "#271a15",
+        "--bg-b": "#120c0a"
+      }
+    },
+    arctic: {
+      name: "Arctic",
+      light: {
+        "--bg": "#edf6f8",
+        "--panel": "#ffffff",
+        "--panel-soft": "#f6fbfd",
+        "--card": "rgba(250,254,255,.92)",
+        "--text": "#1e3440",
+        "--muted": "#5f7c8b",
+        "--accent": "#5f95ad",
+        "--accent-dark": "#4a7588",
+        "--line": "rgba(30,52,64,.15)",
+        "--bg-a": "#f7fcfd",
+        "--bg-b": "#dbeaf0"
+      },
+      dark: {
+        "--bg": "#121d22",
+        "--panel": "#1d2d35",
+        "--panel-soft": "#233741",
+        "--card": "rgba(35,55,65,.9)",
+        "--text": "#d9e9f0",
+        "--muted": "#9eb8c5",
+        "--accent": "#89bfd6",
+        "--accent-dark": "#6ca5bc",
+        "--line": "rgba(195,222,234,.2)",
+        "--bg-a": "#1a2a32",
+        "--bg-b": "#0d1419"
+      }
     }
   };
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function normalizeHexColor(hex, fallback) {
+    var val = String(hex || "").trim().toLowerCase();
+    if (!val) return fallback;
+    if (val[0] !== "#") val = "#" + val;
+    if (/^#[0-9a-f]{3}$/.test(val)) {
+      return "#" + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+    }
+    if (/^#[0-9a-f]{6}$/.test(val)) return val;
+    return fallback;
+  }
+
+  function sanitizeCustomName(name) {
+    var n = String(name || "").trim().replace(/\s+/g, " ");
+    if (!n) return "Custom";
+    return n.slice(0, 24);
+  }
+
+  function hexToRgb(hex) {
+    var normalized = normalizeHexColor(hex, "#000000");
+    return {
+      r: parseInt(normalized.slice(1, 3), 16),
+      g: parseInt(normalized.slice(3, 5), 16),
+      b: parseInt(normalized.slice(5, 7), 16)
+    };
+  }
+
+  function rgbToHex(rgb) {
+    function p(v) { return clamp(Math.round(v), 0, 255).toString(16).padStart(2, "0"); }
+    return "#" + p(rgb.r) + p(rgb.g) + p(rgb.b);
+  }
+
+  function mixHex(a, b, ratio) {
+    var x = clamp(Number(ratio || 0), 0, 1);
+    var ra = hexToRgb(a);
+    var rb = hexToRgb(b);
+    return rgbToHex({
+      r: ra.r * (1 - x) + rb.r * x,
+      g: ra.g * (1 - x) + rb.g * x,
+      b: ra.b * (1 - x) + rb.b * x
+    });
+  }
+
+  function rgbaFromHex(hex, alpha) {
+    var rgb = hexToRgb(hex);
+    return "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + clamp(Number(alpha || 0), 0, 1) + ")";
+  }
+
+  function getCustomPaletteConfig() {
+    try {
+      var raw = localStorage.getItem(CUSTOM_STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      return {
+        name: sanitizeCustomName(parsed.name),
+        accent: normalizeHexColor(parsed.accent, "#4a84d9"),
+        bgA: normalizeHexColor(parsed.bgA, "#f2f8ff"),
+        bgB: normalizeHexColor(parsed.bgB, "#d7e7fa")
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveCustomPaletteConfig(config) {
+    var next = {
+      name: sanitizeCustomName(config && config.name),
+      accent: normalizeHexColor(config && config.accent, "#4a84d9"),
+      bgA: normalizeHexColor(config && config.bgA, "#f2f8ff"),
+      bgB: normalizeHexColor(config && config.bgB, "#d7e7fa")
+    };
+    localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(next));
+    return next;
+  }
+
+  function buildCustomPalette(config) {
+    var c = config || { name: "Custom", accent: "#4a84d9", bgA: "#f2f8ff", bgB: "#d7e7fa" };
+    var name = sanitizeCustomName(c.name);
+    var accent = normalizeHexColor(c.accent, "#4a84d9");
+    var bgA = normalizeHexColor(c.bgA, "#f2f8ff");
+    var bgB = normalizeHexColor(c.bgB, "#d7e7fa");
+    var lightBg = mixHex(bgA, bgB, 0.5);
+    var darkBgA = mixHex(bgA, "#000000", 0.78);
+    var darkBgB = mixHex(bgB, "#000000", 0.86);
+    var darkBg = mixHex(darkBgA, darkBgB, 0.55);
+    var darkPanel = mixHex(darkBg, accent, 0.16);
+    var darkPanelSoft = mixHex(darkPanel, "#000000", 0.12);
+    var darkAccent = mixHex(accent, "#ffffff", 0.2);
+    return {
+      name: name,
+      light: {
+        "--bg": lightBg,
+        "--panel": "#ffffff",
+        "--panel-soft": mixHex("#ffffff", lightBg, 0.25),
+        "--card": rgbaFromHex("#ffffff", 0.92),
+        "--text": "#1a2530",
+        "--muted": mixHex("#1a2530", lightBg, 0.52),
+        "--accent": accent,
+        "--accent-dark": mixHex(accent, "#000000", 0.2),
+        "--line": rgbaFromHex("#1a2530", 0.16),
+        "--bg-a": bgA,
+        "--bg-b": bgB
+      },
+      dark: {
+        "--bg": darkBg,
+        "--panel": darkPanel,
+        "--panel-soft": darkPanelSoft,
+        "--card": rgbaFromHex(darkPanel, 0.9),
+        "--text": "#e8eef5",
+        "--muted": "#9fb1c3",
+        "--accent": darkAccent,
+        "--accent-dark": mixHex(darkAccent, "#000000", 0.2),
+        "--line": rgbaFromHex("#e8eef5", 0.2),
+        "--bg-a": darkBgA,
+        "--bg-b": darkBgB
+      }
+    };
+  }
+
+  function includeCustomPalette() {
+    var cfg = getCustomPaletteConfig();
+    PALETTES.custom = buildCustomPalette(cfg || undefined);
+  }
 
   function getThemeMode() {
     return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
   }
 
   function getPaletteKey() {
+    includeCustomPalette();
     var key = localStorage.getItem(STORAGE_KEY) || DEFAULT_PALETTE;
     if (LEGACY_KEYS[key]) key = LEGACY_KEYS[key];
     if (!PALETTES[key]) return DEFAULT_PALETTE;
@@ -316,10 +533,15 @@
   }
 
   function applyPalette(key) {
+    includeCustomPalette();
     var selected = PALETTES[key] ? key : DEFAULT_PALETTE;
     var palette = PALETTES[selected];
     var mode = getThemeMode();
-    var vars = palette[mode];
+    var vars = Object.assign({}, palette[mode]);
+    if (!vars["--surface"]) vars["--surface"] = vars["--panel"];
+    if (!vars["--border"]) vars["--border"] = vars["--line"];
+    if (!vars["--success"]) vars["--success"] = vars["--accent"];
+    if (!vars["--success-dark"]) vars["--success-dark"] = vars["--accent-dark"];
     var root = document.documentElement;
     Object.keys(vars).forEach(function (name) {
       root.style.setProperty(name, vars[name]);
@@ -340,8 +562,15 @@
   window.RSPalette = {
     list: PALETTES,
     storageKey: STORAGE_KEY,
+    customStorageKey: CUSTOM_STORAGE_KEY,
     get: getPaletteKey,
     apply: applyPalette,
+    getCustom: getCustomPaletteConfig,
+    setCustom: function (config) {
+      var saved = saveCustomPaletteConfig(config || {});
+      includeCustomPalette();
+      return saved;
+    },
     reapply: function () { return applyPalette(getPaletteKey()); }
   };
 })();

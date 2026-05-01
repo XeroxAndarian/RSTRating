@@ -431,7 +431,7 @@
         var mtScoreB = (mt.score_b===null||mt.score_b===undefined)?"?":mt.score_b;
         var mtMeta = esc(fmtDate(mt.scheduled_at)) + (mt.location ? " | " + esc(mt.location) : "");
         lastSec.style.display="block";
-        lastEl.innerHTML="<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mtScoreA)+" - "+esc(mtScoreB)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+mtMeta+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a></div></div>";
+        lastEl.innerHTML="<div class=\"match-item\" style=\"cursor:pointer;\" onclick=\"window.location.href='./match.html?id="+mt.id+"'\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"pill\">"+esc(mtScoreA)+" - "+esc(mtScoreB)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+mtMeta+"</div></div>";
       } else {
         lastSec.style.display="none";
       }
@@ -445,7 +445,7 @@
           var mScoreA = (m.score_a===null||m.score_a===undefined)?"?":m.score_a;
           var mScoreB = (m.score_b===null||m.score_b===undefined)?"?":m.score_b;
           var mMeta = esc(fmtDate(m.scheduled_at)) + (m.location ? " | " + esc(m.location) : "");
-          return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(m.title)+"</strong><span class=\"pill\">"+esc(mScoreA)+" - "+esc(mScoreB)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+mMeta+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+m.id+"\">Details</a></div></div>";
+          return "<div class=\"match-item\" style=\"cursor:pointer;\" onclick=\"window.location.href='./match.html?id="+m.id+"'\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(m.title)+"</strong><span class=\"pill\">"+esc(mScoreA)+" - "+esc(mScoreB)+"</span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+mMeta+"</div></div>";
         }).join("");
         var btn=document.getElementById("historyToggleBtn");
         if(btn){

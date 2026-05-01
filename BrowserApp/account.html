@@ -38,6 +38,10 @@
     .palette-preview .name { font-size:.82rem; font-weight:700; margin-bottom:6px; }
     .swatches { display:flex; gap:6px; }
     .swatches i { width:18px; height:18px; border-radius:999px; border:1px solid rgba(0,0,0,.2); display:inline-block; }
+    .custom-palette-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    @media (max-width:560px){ .custom-palette-grid { grid-template-columns:1fr; } }
+    .custom-palette-grid label { display:flex; flex-direction:column; gap:5px; font-size:.82rem; font-weight:700; color:var(--muted); }
+    .custom-palette-grid input[type="color"] { width:100%; height:38px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--panel-soft); }
   </style>
 </head>
 <body>
@@ -103,6 +107,28 @@
       <h2>Color palette</h2>
       <div class="hint" style="margin-bottom:8px;">Pick a biome palette below. Changes apply instantly.</div>
       <div id="palettePreviewGrid" class="palette-grid"></div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);">
+        <div style="font-size:.88rem;font-weight:700;">Custom palette</div>
+        <div class="hint">Set 3 base colors and save as your own palette.</div>
+        <div class="field" style="margin-top:8px; margin-bottom:0;">
+          <label for="customPaletteName" style="font-size:.82rem;color:var(--muted);">Custom name</label>
+          <input id="customPaletteName" type="text" maxlength="24" placeholder="My Club Colors">
+        </div>
+        <div class="custom-palette-grid">
+          <label>Accent
+            <input id="customAccent" type="color" value="#4a84d9">
+          </label>
+          <label>Background A
+            <input id="customBgA" type="color" value="#f2f8ff">
+          </label>
+          <label>Background B
+            <input id="customBgB" type="color" value="#d7e7fa">
+          </label>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn primary" id="saveCustomPaletteBtn" type="button">Save custom palette</button>
+        </div>
+      </div>
       <div class="status" id="paletteStatus"></div>
     </div>
   </div>
@@ -193,6 +219,14 @@
       if(!host) return;
       const list = (window.RSPalette && window.RSPalette.list) ? window.RSPalette.list : null;
       if(!list){ host.innerHTML = ""; return; }
+      const normalizeColorKey = (color) => {
+        const c = String(color || "").trim().toLowerCase();
+        if(!c) return "";
+        if(c[0] === "#" && c.length === 4){
+          return `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}`;
+        }
+        return c;
+      };
       host.innerHTML = Object.keys(list).map((key) => {
         const p = list[key];
         const light = p.light || {};
@@ -200,7 +234,8 @@
         [light["--accent"], light["--bg-a"], light["--bg-b"], light["--text"], light["--muted"], light["--panel"]]
           .forEach((color) => {
             if(!color) return;
-            if(!swatches.includes(color)) swatches.push(color);
+            const normalized = normalizeColorKey(color);
+            if(!swatches.some((x) => normalizeColorKey(x) === normalized)) swatches.push(color);
           });
         const circles = swatches.slice(0, 4).map((color) => `<i style="background:${esc(color)}"></i>`).join("");
         return `<button type="button" class="palette-preview${key===activeKey?" active":""}" data-key="${key}">
@@ -223,6 +258,42 @@
       });
     }
 
+    function initCustomPaletteInputs(){
+      const nameEl = document.getElementById("customPaletteName");
+      const accentEl = document.getElementById("customAccent");
+      const bgAEl = document.getElementById("customBgA");
+      const bgBEl = document.getElementById("customBgB");
+      const existing = (window.RSPalette && window.RSPalette.getCustom) ? window.RSPalette.getCustom() : null;
+      if(existing){
+        if(nameEl && existing.name) nameEl.value = existing.name;
+        if(accentEl && existing.accent) accentEl.value = existing.accent;
+        if(bgAEl && existing.bgA) bgAEl.value = existing.bgA;
+        if(bgBEl && existing.bgB) bgBEl.value = existing.bgB;
+      }
+      const saveBtn = document.getElementById("saveCustomPaletteBtn");
+      if(saveBtn){
+        saveBtn.addEventListener("click", () => {
+          try {
+            if(!window.RSPalette || !window.RSPalette.setCustom){
+              setStatus("paletteStatus", "Custom palette is not available.", "error");
+              return;
+            }
+            window.RSPalette.setCustom({
+              name: nameEl ? nameEl.value.trim() : "",
+              accent: accentEl ? accentEl.value : "#4a84d9",
+              bgA: bgAEl ? bgAEl.value : "#f2f8ff",
+              bgB: bgBEl ? bgBEl.value : "#d7e7fa"
+            });
+            window.RSPalette.apply("custom");
+            renderPalettePreviews("custom");
+            setStatus("paletteStatus", "Custom palette saved.", "ok");
+          } catch (_) {
+            setStatus("paletteStatus", "Failed to save custom palette.", "error");
+          }
+        });
+      }
+    }
+
     async function load(){
       try {
         const user = await apiFetch("/auth/me");
@@ -233,6 +304,7 @@
       }
       const currentPalette = (window.RSPalette && window.RSPalette.get()) || localStorage.getItem("rs_palette") || "woodland";
       renderPalettePreviews(currentPalette);
+      initCustomPaletteInputs();
     }
 
     load();

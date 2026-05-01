@@ -15,6 +15,11 @@
     .wrap { max-width:980px; margin:24px auto; padding:0 16px; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .search-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+    .search-line { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+    .field-col { display:flex; flex-direction:column; gap:5px; min-width:160px; }
+    .field-col.grow { flex:1; min-width:220px; }
+    .location-pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--pill); font-size:.8rem; color:var(--muted); }
     .btn { border:none; border-radius:9px; padding:9px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; }
     .btn.primary { background:var(--accent); color:#fff; }
     .btn.confirm { background:var(--success); color:#fff; }
@@ -43,19 +48,27 @@
     </div>
 
     <div class="card">
-      <div class="row" style="align-items:end;">
-        <label for="region" class="muted">Region</label>
-        <input id="region" placeholder="e.g. Ljubljana">
-        <label for="q" class="muted">Name</label>
-        <input id="q" placeholder="search text">
-        <label for="latitude" class="muted">Latitude</label>
-        <input id="latitude" type="number" step="0.000001" min="-90" max="90" placeholder="46.0569">
-        <label for="longitude" class="muted">Longitude</label>
-        <input id="longitude" type="number" step="0.000001" min="-180" max="180" placeholder="14.5058">
-        <label for="maxKm" class="muted">Max km</label>
-        <input id="maxKm" type="number" step="1" min="1" placeholder="25">
-        <button class="btn ghost" id="useLocationBtn" type="button">Use my location</button>
-        <button class="btn primary" id="searchBtn" type="button">Search</button>
+      <div class="search-grid">
+        <div class="search-line">
+          <div class="field-col grow">
+            <label for="q" class="muted">Search by name</label>
+            <input id="q" placeholder="League name">
+          </div>
+          <button class="btn primary" id="searchBtn" type="button">Search</button>
+        </div>
+        <div class="search-line">
+          <div class="field-col grow">
+            <label for="region" class="muted">Search by region</label>
+            <input id="region" placeholder="e.g. Ljubljana">
+          </div>
+          <div class="field-col">
+            <label for="maxKm" class="muted">Max km</label>
+            <input id="maxKm" type="number" step="1" min="1" placeholder="25">
+          </div>
+          <button class="btn ghost" id="useLocationBtn" type="button">Use my location</button>
+          <button class="btn ghost" id="clearLocationBtn" type="button">Clear location</button>
+          <span class="location-pill" id="locationState">Location not set</span>
+        </div>
       </div>
     </div>
 
@@ -99,11 +112,12 @@
 
     const regionEl = document.getElementById("region");
     const qEl = document.getElementById("q");
-    const latitudeEl = document.getElementById("latitude");
-    const longitudeEl = document.getElementById("longitude");
     const maxKmEl = document.getElementById("maxKm");
+    const locationStateEl = document.getElementById("locationState");
     const resultsEl = document.getElementById("results");
     const statusEl = document.getElementById("status");
+    let currentLatitude = null;
+    let currentLongitude = null;
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -150,8 +164,8 @@
         const params = new URLSearchParams();
         if (regionEl.value.trim()) params.set("region", regionEl.value.trim());
         if (qEl.value.trim()) params.set("q", qEl.value.trim());
-        if (latitudeEl.value !== "") params.set("latitude", String(Number(latitudeEl.value)));
-        if (longitudeEl.value !== "") params.set("longitude", String(Number(longitudeEl.value)));
+        if (currentLatitude !== null) params.set("latitude", String(Number(currentLatitude)));
+        if (currentLongitude !== null) params.set("longitude", String(Number(currentLongitude)));
         if (maxKmEl.value !== "") params.set("max_km", String(Number(maxKmEl.value)));
         const rows = await apiFetch(`/leagues/discover?${params.toString()}`, { method: "GET" });
         renderRows(rows || []);
@@ -168,13 +182,25 @@
         return;
       }
       navigator.geolocation.getCurrentPosition((pos) => {
-        latitudeEl.value = String(pos.coords.latitude.toFixed(6));
-        longitudeEl.value = String(pos.coords.longitude.toFixed(6));
+        currentLatitude = Number(pos.coords.latitude.toFixed(6));
+        currentLongitude = Number(pos.coords.longitude.toFixed(6));
         if (!maxKmEl.value) maxKmEl.value = "25";
+        if (locationStateEl) locationStateEl.textContent = "Location loaded";
         show("Location loaded. You can now search by distance.");
       }, () => {
+        currentLatitude = null;
+        currentLongitude = null;
+        if (locationStateEl) locationStateEl.textContent = "Location not set";
         show("Could not read your location.", "error");
       }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+
+    document.getElementById("clearLocationBtn").addEventListener("click", () => {
+      currentLatitude = null;
+      currentLongitude = null;
+      maxKmEl.value = "";
+      if (locationStateEl) locationStateEl.textContent = "Location not set";
+      show("Location filter cleared.");
     });
 
     document.body.addEventListener("click", async (e) => {
