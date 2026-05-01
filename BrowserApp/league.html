@@ -64,10 +64,14 @@
     .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:860px){ .stats-grid { grid-template-columns:1fr; } }
     .stats-box { border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--card); }
+    .scope-box { display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--card); margin-bottom:10px; }
+    .scope-box label { margin:0; min-width:42px; color:var(--muted); font-size:.8rem; font-weight:700; }
+    .scope-box select { flex:1; max-width:340px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text); padding:7px 10px; }
     .mini { font-size:.8rem; color:var(--muted); }
-    .chart-wrap { width:100%; overflow-x:auto; }
-    .chart { width:100%; height:160px; display:block; }
     .build-stamp { font-size:.74rem; color:var(--muted); text-align:right; margin-top:4px; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { background:var(--surface); border-radius:14px; padding:20px; width:100%; max-width:540px; box-shadow:0 18px 44px rgba(0,0,0,.28); color:var(--text); }
+    .modal-card h3 { margin:0 0 8px; }
   </style>
 </head>
 <body>
@@ -115,35 +119,29 @@
             <h2 style="margin:0;">Player stats</h2>
             <a class="btn primary sm" id="createSeasonPageBtn" href="#" style="display:none;">+ Season</a>
           </div>
-          <div class="row" style="justify-content:flex-start;gap:8px;margin-bottom:8px;">
-            <label for="statsScopeSelect" class="mini">Scope</label>
-            <select id="statsScopeSelect" style="max-width:340px;"></select>
+          <div class="scope-box">
+            <label for="statsScopeSelect">Scope</label>
+            <select id="statsScopeSelect"></select>
           </div>
           <div class="stats-grid" style="margin-bottom:10px;">
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Attendance</h3><div id="statAttendance" class="mini">-</div></div>
-            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">W-L-D</h3><div id="statWld" class="mini">-</div></div>
+            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Win-Lose-Draw</h3><div id="statWld" class="mini">-</div></div>
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Winrate</h3><div id="statWinrate" class="mini">-</div></div>
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Goals</h3><div id="statGoals" class="mini">-</div></div>
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Assists</h3><div id="statAssists" class="mini">-</div></div>
-            <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">LMMR / SR</h3><div id="statRating" class="mini">-</div></div>
+            <div class="stats-box"><h3 id="statRatingLabel" style="margin:0 0 6px;font-size:.95rem;">LMMR / SR</h3><div id="statRating" class="mini">-</div></div>
           </div>
-          <div class="stats-box" style="margin-bottom:10px;">
-            <h3 style="margin:0 0 6px;font-size:.95rem;">History graph</h3>
-            <div class="chart-wrap" id="historyChartWrap"></div>
-          </div>
-
           <h3 style="margin:0 0 8px;font-size:.95rem;">Scoreboard</h3>
           <div style="overflow-x:auto;">
             <table class="member-table">
               <thead>
-                <tr>
+                <tr id="scoreboardHeadRow">
                   <th>Name</th>
                   <th>W-L-D</th>
                   <th>Winrate</th>
                   <th>G</th>
                   <th>A</th>
                   <th>LMMR</th>
-                  <th>SR</th>
                 </tr>
               </thead>
               <tbody id="scoreboardTbody"></tbody>
@@ -198,6 +196,26 @@
     <div class="build-stamp">Build: league-v2026-04-30-1</div>
   </div>
 
+  <div class="modal-backdrop" id="lmmrPlacementModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Place New Player on LMMR Scale</h3>
+      <p class="muted" id="lmmrPlacementSubtitle" style="margin:4px 0 10px;font-size:.9rem;"></p>
+      <div id="lmmrPlacementQuestion" class="item" style="margin-bottom:10px;"></div>
+      <div class="row" style="margin-top:0;gap:6px;">
+        <button class="btn ghost" id="lmmrWorseBtn" type="button">Worse</button>
+        <button class="btn ghost" id="lmmrSameBtn" type="button">About the same</button>
+        <button class="btn primary" id="lmmrBetterBtn" type="button">Better</button>
+      </div>
+      <div class="row" style="margin-top:12px;justify-content:space-between;">
+        <div class="muted" id="lmmrPlacementHint" style="font-size:.82rem;"></div>
+        <div class="row" style="margin-top:0;">
+          <button class="btn ghost sm" id="lmmrSkipBtn" type="button">Later</button>
+          <button class="btn confirm sm" id="lmmrSubmitBtn" type="button" style="display:none;">Save placement</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function(){
       if(localStorage.getItem("rs_theme") !== "light") document.documentElement.setAttribute("data-theme","dark");
@@ -226,6 +244,8 @@
     var statsScopeSelect=document.getElementById("statsScopeSelect");
 
     var detail=null, matches=[], joinRequests=[], statsTabs=[], seasons=[], me=null;
+    var pendingPlacements=[];
+    var placementState=null;
     var activeStatsTabKey="general";
     var sortCol="rating", sortDir=-1;
 
@@ -242,6 +262,38 @@
     }
     function roleIcon(r){return r==="owner"?"\uD83E\uDD35":r==="admin"?"\uD83D\uDC6E":"\uD83D\uDC55";}
     function roleLabel(r){return r==="owner"?"Manager":r==="admin"?"Referee":"Member";}
+    function classIcon(cls){
+      return cls==="anchor"?"\uD83D\uDEE1\uFE0F"
+        :cls==="playmaker"?"\uD83D\uDC41\uFE0F"
+        :cls==="finisher"?"\uD83C\uDFAF"
+        :cls==="tempo"?"\u26A1"
+        :cls==="rookie"?"\uD83C\uDF31"
+        :"\u2728";
+    }
+    function classLabel(cls){
+      return cls==="anchor"?"Anchor"
+        :cls==="playmaker"?"Playmaker"
+        :cls==="finisher"?"Striker"
+        :cls==="tempo"?"Engine"
+        :cls==="rookie"?"Rookie"
+        :"Wildcard";
+    }
+    function classifyScoreboardPlayer(row, wld){
+      var att=Math.max(0, Number(row.attendance||0));
+      var goals=Math.max(0, Number(row.goals||0));
+      var assists=Math.max(0, Number(row.assists||0));
+      var played=Math.max(1, Number((wld&&wld.wins||0)+(wld&&wld.losses||0)+(wld&&wld.draws||0)));
+      var goalsPer=goals/played;
+      var assistsPer=assists/played;
+      var wr=(wld&&played)?Number(wld.wins||0)/played:0;
+
+      if(att < 5) return "rookie";
+      if(goalsPer >= 0.95 && goals >= assists * 1.25) return "finisher";
+      if(assistsPer >= 0.75 && assists >= goals * 1.15) return "playmaker";
+      if((goalsPer + assistsPer) >= 1.7) return "tempo";
+      if(wr >= 0.62) return "anchor";
+      return "wildcard";
+    }
     function fmtDate(iso){if(!iso)return"-";return new Date(iso).toLocaleString();}
     function fmtShort(iso){if(!iso)return"-";var d=new Date(iso);return d.toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});}
     function relTime(iso){if(!iso)return"";var diff=Date.now()-new Date(iso).getTime();if(diff<60000)return"just now";if(diff<3600000)return Math.floor(diff/60000)+"m ago";if(diff<86400000)return Math.floor(diff/3600000)+"h ago";return Math.floor(diff/86400000)+"d ago";}
@@ -257,6 +309,69 @@
     }
 
     function canManage(){var r=detail&&detail.league&&detail.league.member_role;return r==="owner"||r==="admin";}
+
+    function computePlacementFromBounds(candidates, low, high){
+      if(!candidates.length) return 1000;
+      if(low===high){ return Number(candidates[low].rating||1000); }
+      if(low<0){ return Number(candidates[0].rating||1000) - 10; }
+      if(high>=candidates.length){ return Number(candidates[candidates.length-1].rating||1000) + 10; }
+      return (Number(candidates[low].rating||1000)+Number(candidates[high].rating||1000))/2;
+    }
+
+    function updatePlacementQuestion(){
+      if(!placementState) return;
+      var q=document.getElementById("lmmrPlacementQuestion");
+      var hint=document.getElementById("lmmrPlacementHint");
+      var submit=document.getElementById("lmmrSubmitBtn");
+      var candidates=placementState.candidates;
+      if(!candidates.length){
+        placementState.finalRating=Number(placementState.suggested_rating||1000);
+        q.innerHTML="<strong>No reference players yet.</strong><div class='muted' style='font-size:.82rem;'>Suggested temporary LMMR: "+Math.round(placementState.finalRating)+"</div>";
+        hint.textContent="Save this as initial placement.";
+        submit.style.display="inline-flex";
+        return;
+      }
+      if(placementState.done){
+        var finalVal=Math.round(Number(placementState.finalRating||1000));
+        q.innerHTML="<strong>Proposed placement ready.</strong><div class='muted' style='font-size:.82rem;'>Temporary LMMR: "+finalVal+"</div>";
+        hint.textContent="You can save now or continue later.";
+        submit.style.display="inline-flex";
+        return;
+      }
+      var mid=Math.floor((placementState.low+placementState.high)/2);
+      placementState.mid=mid;
+      var ref=candidates[mid];
+      q.innerHTML="<div><strong>Is "+esc(placementState.target.display_name||placementState.target.username)+" better or worse than "+esc(ref.display_name||ref.username)+"?</strong></div><div class='muted' style='font-size:.82rem;margin-top:4px;'>Reference LMMR: "+Math.round(Number(ref.rating||1000))+"</div>";
+      hint.textContent="Step "+(placementState.steps+1)+" - compare and narrow placement.";
+      submit.style.display="none";
+    }
+
+    async function openPlacementModalFor(item){
+      try{
+        var data=await apiFetch("/leagues/"+leagueId+"/lmmr-placements/"+item.user_id+"/candidates");
+        placementState={
+          user_id:item.user_id,
+          target:data.target,
+          candidates:Array.isArray(data.candidates)?data.candidates:[],
+          suggested_rating:Number(data.suggested_rating||1000),
+          low:0,
+          high:Math.max(0,(Array.isArray(data.candidates)?data.candidates.length:0)-1),
+          mid:0,
+          steps:0,
+          done:false,
+          finalRating:Number(data.suggested_rating||1000)
+        };
+        document.getElementById("lmmrPlacementSubtitle").textContent="Place @"+ (placementState.target.username||"") +" using comparisons with current league players.";
+        document.getElementById("lmmrPlacementModal").style.display="flex";
+        updatePlacementQuestion();
+      }catch(err){ show(err.message||"Could not load placement data.","error"); }
+    }
+
+    function maybeOpenPlacementModal(){
+      if(!canManage()||!Array.isArray(pendingPlacements)||!pendingPlacements.length) return;
+      if(document.getElementById("lmmrPlacementModal").style.display==="flex") return;
+      openPlacementModalFor(pendingPlacements[0]);
+    }
 
     function renderMeta(){
       var lg=detail.league;
@@ -322,11 +437,10 @@
       }
       // Match history list
       var HISTORY_PREVIEW=3;
-      var historyExpanded=false;
       function renderHistoryItems(){
         if(!completed.length){histSec.style.display="none";return;}
         histSec.style.display="block";
-        var items=historyExpanded?completed:completed.slice(0,HISTORY_PREVIEW);
+        var items=completed.slice(0,HISTORY_PREVIEW);
         histList.innerHTML=items.map(function(m){
           var mScoreA = (m.score_a===null||m.score_a===undefined)?"?":m.score_a;
           var mScoreB = (m.score_b===null||m.score_b===undefined)?"?":m.score_b;
@@ -336,13 +450,13 @@
         var btn=document.getElementById("historyToggleBtn");
         if(btn){
           btn.style.display=completed.length>HISTORY_PREVIEW?"":"none";
-          btn.textContent=historyExpanded?"Show less":"Show all ("+completed.length+")";
+          btn.textContent="Show all ("+completed.length+")";
         }
       }
       renderHistoryItems();
       var toggleBtn=document.getElementById("historyToggleBtn");
       if(toggleBtn){
-        toggleBtn.onclick=function(){historyExpanded=!historyExpanded;renderHistoryItems();};
+        toggleBtn.onclick=function(){window.location.href="./match_history_league.html?id="+leagueId;};
       }
 
       var upEl=document.getElementById("upcomingMatches");
@@ -398,9 +512,21 @@
 
     function renderScoreboard(rows){
       var tbody=document.getElementById("scoreboardTbody");
+      var head=document.getElementById("scoreboardHeadRow");
+      var showSr=String(activeStatsTabKey||"general").startsWith("season-");
+      if(head){
+        head.innerHTML =
+          "<th>Name</th>"+
+          "<th>W-L-D</th>"+
+          "<th>Winrate</th>"+
+          "<th>G</th>"+
+          "<th>A</th>"+
+          "<th>LMMR</th>"+
+          (showSr?"<th>SR</th>":"");
+      }
       if(!tbody) return;
       if(!rows.length){
-        tbody.innerHTML='<tr><td colspan="7" class="muted">No players.</td></tr>';
+        tbody.innerHTML='<tr><td colspan="'+(showSr?7:6)+'" class="muted">No players.</td></tr>';
         return;
       }
       var items=rows.map(function(r){
@@ -409,47 +535,16 @@
         var wr=played?Math.round((wld.wins/played)*100):0;
         return { row:r, wld:wld, wr:wr };
       });
-      items.sort(function(a,b){ return Number(b.row.sr_points||0)-Number(a.row.sr_points||0); });
+      if(showSr){
+        items.sort(function(a,b){ return Number(b.row.sr_points||0)-Number(a.row.sr_points||0); });
+      } else {
+        items.sort(function(a,b){ return Number(b.row.lmmr||0)-Number(a.row.lmmr||0); });
+      }
       tbody.innerHTML=items.map(function(it){
         var r=it.row;
-        return "<tr><td class=\"mt-name\"><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td><td>"+Math.round(Number(r.sr_points||0))+"</td></tr>";
+        var cls=classifyScoreboardPlayer(r, it.wld);
+        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
       }).join("");
-    }
-
-    function renderHistoryGraph(){
-      var wrap=document.getElementById("historyChartWrap");
-      if(!wrap) return;
-      if(!me){ wrap.innerHTML='<div class="mini">Sign in to view your season trend.</div>'; return; }
-
-      var seasonTabs=statsTabs.filter(function(t){ return String(t.key||"").startsWith("season-"); });
-      if(!seasonTabs.length){ wrap.innerHTML='<div class="mini">No season history yet.</div>'; return; }
-
-      var points=[];
-      seasonTabs.forEach(function(tab){
-        var r=(Array.isArray(tab.rows)?tab.rows:[]).find(function(x){ return Number(x.user_id)===Number(me.id); });
-        if(!r) return;
-        points.push({ label: tab.label, value: Number(r.sr_points||0) });
-      });
-      if(!points.length){ wrap.innerHTML='<div class="mini">No personal season data yet.</div>'; return; }
-
-      var min=Math.min.apply(null, points.map(function(p){return p.value;}));
-      var max=Math.max.apply(null, points.map(function(p){return p.value;}));
-      var span=Math.max(1, max-min);
-      var width=560, height=150, pad=18;
-      var coords=points.map(function(p, i){
-        var x=pad + (points.length===1?0:(i*(width-2*pad)/(points.length-1)));
-        var y=height-pad - ((p.value-min)/span)*(height-2*pad);
-        return {x:x,y:y,label:p.label,value:p.value};
-      });
-      var poly=coords.map(function(c){return c.x+","+c.y;}).join(" ");
-      var marks=coords.map(function(c){ return '<circle cx="'+c.x+'" cy="'+c.y+'" r="3" fill="currentColor"></circle>'; }).join("");
-      var labels=coords.map(function(c){ return '<text x="'+c.x+'" y="'+(height-2)+'" text-anchor="middle" font-size="10" fill="currentColor">'+esc(c.label)+'</text>'; }).join("");
-      wrap.innerHTML =
-        '<svg viewBox="0 0 '+width+' '+height+'" class="chart" aria-label="SR history">'+
-          '<line x1="'+pad+'" y1="'+(height-pad)+'" x2="'+(width-pad)+'" y2="'+(height-pad)+'" stroke="currentColor" opacity=".3"></line>'+
-          '<polyline points="'+poly+'" fill="none" stroke="currentColor" stroke-width="2"></polyline>'+
-          marks + labels +
-        '</svg>';
     }
 
     function setUserStatBoxes(values){
@@ -469,11 +564,12 @@
     }
 
     function renderStatsTabs(){
+      var ratingLabelEl=document.getElementById("statRatingLabel");
+      if(ratingLabelEl) ratingLabelEl.textContent=(activeStatsTabKey==="general"?"LMMR":"LMMR / SR");
       if(!Array.isArray(statsTabs)||!statsTabs.length){
         if(statsScopeSelect) statsScopeSelect.innerHTML='';
         setUserStatBoxes();
         renderScoreboard([]);
-        renderHistoryGraph();
         return;
       }
       if(!statsTabs.find(function(t){return t.key===activeStatsTabKey;})) activeStatsTabKey=statsTabs[0].key;
@@ -497,13 +593,14 @@
           winrate:meWr+"%",
           goals:String(meRow.goals||0),
           assists:String(meRow.assists||0),
-          rating:Math.round(Number(meRow.lmmr||0))+" / "+Math.round(Number(meRow.sr_points||0))
+          rating:String(activeStatsTabKey==="general"
+            ? Math.round(Number(meRow.lmmr||0))
+            : (Math.round(Number(meRow.lmmr||0))+" / "+Math.round(Number(meRow.sr_points||0))))
         });
       } else {
         setUserStatBoxes();
       }
       renderScoreboard(rows);
-      renderHistoryGraph();
     }
 
     function renderSeasonManager(){
@@ -550,8 +647,10 @@
 
     function renderAnnouncements(notifs){
       var el=document.getElementById("announcements");
-      if(!notifs||!notifs.length){el.innerHTML="<p class=\"muted\" style=\"font-size:.85rem;\">No announcements.</p>";return;}
-      el.innerHTML=notifs.slice(0,10).map(function(n){
+      var allowedTypes=["registration_open","registration_opened","new_match","match_result"];
+      var filtered=(Array.isArray(notifs)?notifs:[]).filter(function(n){return allowedTypes.includes(String(n.notif_type||""));});
+      if(!filtered.length){el.innerHTML="<p class=\"muted\" style=\"font-size:.85rem;\">No announcements.</p>";return;}
+      el.innerHTML=filtered.slice(0,10).map(function(n){
         var matchId=(n && n.data && n.data.match_id)?Number(n.data.match_id):0;
         var open=matchId?"onclick=\"window.location.href='./match.html?id="+matchId+"'\" style=\"cursor:pointer;\"":"";
         return "<div class=\"announce-item "+(n.read?"":"unread")+"\" "+open+"><div class=\"announce-title\">"+esc(n.title)+"</div><div class=\"announce-msg\">"+esc(n.message)+"</div><div class=\"announce-time\">"+relTime(n.created_at)+"</div></div>";
@@ -592,6 +691,53 @@
       if(createSeasonLink){
         createSeasonLink.href="./create_season.html?league_id="+leagueId;
       }
+
+      if(e.target.closest("#lmmrBetterBtn") && placementState && !placementState.done){
+        placementState.low=placementState.mid+1;
+        placementState.steps++;
+        if(placementState.low>placementState.high){
+          placementState.finalRating=computePlacementFromBounds(placementState.candidates, placementState.high, placementState.low);
+          placementState.done=true;
+        }
+        updatePlacementQuestion();
+        return;
+      }
+      if(e.target.closest("#lmmrWorseBtn") && placementState && !placementState.done){
+        placementState.high=placementState.mid-1;
+        placementState.steps++;
+        if(placementState.low>placementState.high){
+          placementState.finalRating=computePlacementFromBounds(placementState.candidates, placementState.high, placementState.low);
+          placementState.done=true;
+        }
+        updatePlacementQuestion();
+        return;
+      }
+      if(e.target.closest("#lmmrSameBtn") && placementState && !placementState.done){
+        var ref=placementState.candidates[placementState.mid];
+        placementState.finalRating=Number(ref && ref.rating || placementState.suggested_rating || 1000);
+        placementState.done=true;
+        updatePlacementQuestion();
+        return;
+      }
+      if(e.target.closest("#lmmrSkipBtn")){
+        document.getElementById("lmmrPlacementModal").style.display="none";
+        placementState=null;
+        return;
+      }
+      if(e.target.closest("#lmmrSubmitBtn") && placementState){
+        try{
+          await apiFetch("/leagues/"+leagueId+"/lmmr-placements/"+placementState.user_id+"/resolve",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({ final_rating:Number(placementState.finalRating||placementState.suggested_rating||1000) })
+          });
+          document.getElementById("lmmrPlacementModal").style.display="none";
+          show("Initial LMMR placement saved.","ok");
+          placementState=null;
+          await load();
+        }catch(err){ show(err.message||"Could not save placement.","error"); }
+        return;
+      }
     });
 
     if(statsScopeSelect){
@@ -613,6 +759,7 @@
           apiFetch("/leagues/"+leagueId+"/seasons").catch(function(){return[];}),
           apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
+          apiFetch("/leagues/"+leagueId+"/lmmr-placements/pending").catch(function(){return[];}),
         ]);
         detail=results[0];
         me=results[1]||null;
@@ -620,9 +767,11 @@
         statsTabs=Array.isArray(results[3])?results[3]:[];
         seasons=Array.isArray(results[4])?results[4]:[];
         joinRequests=Array.isArray(results[5])?results[5]:[];
+        pendingPlacements=Array.isArray(results[7])?results[7]:[];
         render();
         var notifs=Array.isArray(results[6])?results[6]:(results[6]&&results[6].items||[]);
         renderAnnouncements(notifs);
+        maybeOpenPlacementModal();
       }catch(err){
         show(err.message||"Failed loading league.","error");
       }

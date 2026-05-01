@@ -985,7 +985,7 @@
                                 <div class="actions" style="gap:6px;">
                                     <a class="ghost" href="./create_league.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">+ New</a>
                                     <button class="ghost" id="joinLeagueBtn" type="button" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Join</button>
-                                    <a class="ghost" href="./discover.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Find</a>
+                                    <a class="ghost" href="./discover.html" style="font-size:0.82rem;padding:6px 12px;font-weight:600;">Looking for League</a>
                                 </div>
                             </div>
                             <div id="leagueTable" class="league-table">
@@ -1011,7 +1011,13 @@
                         </section>
 
                         <section class="panel-card">
-                            <h2 class="section-title">Recent Matches</h2>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                                <h2 class="section-title">Recent Matches</h2>
+                                <div class="actions" style="gap:6px;">
+                                    <button class="ghost" id="recentShowMoreBtn" type="button" style="font-size:0.78rem;padding:4px 10px;">Show more</button>
+                                    <a class="ghost" id="recentShowAllBtn" href="./match_history_user.html" style="font-size:0.78rem;padding:4px 10px;text-decoration:none;">Show all</a>
+                                </div>
+                            </div>
                             <div id="recentMatchesPanel" style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
                                 <p class="hint">Loading…</p>
                             </div>
@@ -1220,6 +1226,7 @@
         let backdoorClickTimer = null;
         let previewMode = false;
         let previewPollInterval = null;
+        let recentMatchesVisibleCount = 3;
 
         const TOKEN_KEY = "rs_access_token";
         const NOTIF_PREFS_KEY = "rs_notif_badge_filters";
@@ -1246,9 +1253,9 @@
         }
 
         function notifCategory(type) {
-            if (["new_match", "match_started", "registration_open", "registration_opened"].includes(type)) return "announcement";
+            if (["new_match", "registration_open", "registration_opened", "match_result"].includes(type)) return "announcement";
             if (["new_match", "match_started", "match_result", "match_cancelled", "waitlist_offer"].includes(type)) return "matches";
-            if (["league_approved", "league_rejected", "league_announcement"].includes(type)) return "leagues";
+            if (["league_approved", "league_rejected", "league_announcement", "lmmr_placement_needed", "lmmr_placement_resolved"].includes(type)) return "leagues";
             if (["friend_request", "friend_request_accepted", "fan_event", "fan_player_registered", "fan_player_started_match", "fan_player_match_event"].includes(type)) return "social";
             return "other";
         }
@@ -1704,7 +1711,7 @@
             const recent = allFetchedMatches
                 .filter(m => m.status === "completed" || m.status === "finished")
                 .sort((a, b) => new Date(b.scheduled_at || b.created_at) - new Date(a.scheduled_at || a.created_at))
-                .slice(0, 8);
+                .slice(0, recentMatchesVisibleCount);
             if (!recent.length) {
                 panel.innerHTML = '<p class="hint">No completed matches yet.</p>';
                 return;
@@ -1729,6 +1736,12 @@
                     window.location.href = `./match.html?id=${Number(row.dataset.matchId)}`;
                 });
             });
+
+            const showMoreBtn = document.getElementById("recentShowMoreBtn");
+            if (showMoreBtn) {
+                const total = allFetchedMatches.filter(m => m.status === "completed" || m.status === "finished").length;
+                showMoreBtn.style.display = recentMatchesVisibleCount < total ? "inline-flex" : "none";
+            }
         }
 
         function attachMatchFormListeners(leagueId, league) {
@@ -2335,7 +2348,7 @@
                 return;
             }
             notifList.innerHTML = filtered.map(n => `
-                <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${n.id}" data-match-id="${n.data && n.data.match_id ? n.data.match_id : ""}">
+                <div class="notif-item ${n.read ? "" : "unread"}" data-notif-id="${n.id}" data-match-id="${n.data && n.data.match_id ? n.data.match_id : ""}" data-link="${n.data && n.data.league_id ? ('./league.html?id=' + n.data.league_id) : (n.data && n.data.from_user_id ? ('./player.html?id=' + n.data.from_user_id) : '')}">
                     <div class="notif-item-title">${notifEmoji(n.notif_type, n.data || {})} ${escapeHtml(n.title)}</div>
                     <div class="notif-item-msg">${escapeHtml(n.message)}</div>
                     <div class="notif-item-time">${formatRelativeTime(n.created_at)}</div>
@@ -2360,6 +2373,13 @@
         document.getElementById("notifTabUnread").addEventListener("click", () => setNotifTab("unread"));
         document.getElementById("notifTabRead").addEventListener("click", () => setNotifTab("read"));
         document.getElementById("notifTabHistory").addEventListener("click", () => setNotifTab("history"));
+        const recentMoreBtn = document.getElementById("recentShowMoreBtn");
+        if (recentMoreBtn) {
+            recentMoreBtn.addEventListener("click", () => {
+                recentMatchesVisibleCount += 3;
+                renderRecentMatches();
+            });
+        }
         document.getElementById("markAllReadButton").addEventListener("click", async () => {
             if (!currentUser) return;
             try {
@@ -2386,7 +2406,10 @@
                 } catch (e) { /* ignore */ }
             }
             const matchId = item.dataset.matchId;
-            if (matchId) {
+            const link = item.dataset.link;
+            if (link) {
+                window.location.href = link;
+            } else if (matchId) {
                 window.location.href = `./match.html?id=${Number(matchId)}`;
             }
         });

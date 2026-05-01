@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import math
 import os
 import secrets
 import sqlite3
@@ -366,6 +367,10 @@ class LeagueCreatePayload(BaseModel):
     football_type: str = Field(pattern=r"^(outdoor|indoor)$")
     goal_size: str = Field(pattern=r"^(small|medium|large)$")
     region: str = Field(min_length=2, max_length=64)
+    league_visibility: str = Field(default="public", pattern=r"^(public|private)$")
+    discover_visible: bool = Field(default=True)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     description: str | None = Field(default=None, max_length=300)
     fee_type: str = Field(default="none", pattern=r"^(none|yearly|monthly|per_attendance)$")
     fee_value: float | None = Field(default=None, ge=0)
@@ -377,6 +382,10 @@ class LeagueSettingsPayload(BaseModel):
     name: str | None = Field(default=None, min_length=3, max_length=80)
     description: str | None = Field(default=None, max_length=300)
     region: str | None = Field(default=None, min_length=2, max_length=64)
+    league_visibility: str | None = Field(default=None, pattern=r"^(public|private)$")
+    discover_visible: bool | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     football_type: str | None = Field(default=None, pattern=r"^(outdoor|indoor)$")
     goal_size: str | None = Field(default=None, pattern=r"^(small|medium|large)$")
     auto_accept_members: bool | None = None
@@ -460,6 +469,10 @@ class LeagueOut(BaseModel):
     football_type: str
     goal_size: str
     region: str
+    league_visibility: str
+    discover_visible: bool
+    latitude: float | None
+    longitude: float | None
     invite_code: str
     description: str | None
     owner_id: int
@@ -550,6 +563,7 @@ class PasswordResetRequestOut(BaseModel):
 MATCH_STATUS = frozenset({"upcoming", "registration_open", "registration_closed", "live", "finished", "completed", "cancelled"})
 ELO_K = 32.0
 WAITLIST_OFFER_MINUTES = 15
+TEMP_LMMR_MATCH_LIMIT = 10
 UNDO_WINDOW_SECONDS = 30
 DEFAULT_RATING_CONFIG = {
     "sr_start_points": 1000.0,
@@ -702,6 +716,11 @@ class LeaguePlayerStatsTabOut(BaseModel):
     key: str
     label: str
     rows: list[LeaguePlayerStatsTabRow]
+
+
+class LeagueLmmrPlacementResolvePayload(BaseModel):
+    final_rating: float = Field(ge=0, le=5000)
+    note: str | None = Field(default=None, max_length=300)
 
 
 def utc_now() -> datetime:
@@ -911,8 +930,14 @@ def init_db() -> None:
         ensure_column(conn, "leagues", "terminated_until", "TEXT")
         ensure_column(conn, "leagues", "termination_note", "TEXT")
         ensure_column(conn, "leagues", "terminated_by_user_id", "INTEGER")
+        ensure_column(conn, "leagues", "league_visibility", "TEXT NOT NULL DEFAULT 'public'")
+        ensure_column(conn, "leagues", "discover_visible", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(conn, "leagues", "latitude", "REAL")
+        ensure_column(conn, "leagues", "longitude", "REAL")
 
         conn.execute("UPDATE leagues SET approval_status = 'approved' WHERE approval_status IS NULL OR approval_status = ''")
+        conn.execute("UPDATE leagues SET league_visibility = 'public' WHERE league_visibility IS NULL OR league_visibility = ''")
+        conn.execute("UPDATE leagues SET discover_visible = 1 WHERE discover_visible IS NULL")
 
         rows = conn.execute("SELECT id, sport, football_type FROM leagues").fetchall()
         for row in rows:
@@ -1030,9 +1055,35 @@ def init_db() -> None:
                 goals INTEGER NOT NULL DEFAULT 0,
                 assists INTEGER NOT NULL DEFAULT 0,
                 rating REAL NOT NULL DEFAULT 1000,
+                is_temporary_lmmr INTEGER NOT NULL DEFAULT 0,
+                temporary_lmmr_match_limit INTEGER NOT NULL DEFAULT 10,
                 UNIQUE(league_id, user_id),
                 FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        ensure_column(conn, "league_player_stats", "is_temporary_lmmr", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "league_player_stats", "temporary_lmmr_match_limit", "INTEGER NOT NULL DEFAULT 10")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_lmmr_placements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                reason TEXT,
+                suggested_rating REAL,
+                final_rating REAL,
+                note TEXT,
+                created_at TEXT NOT NULL,
+                resolved_at TEXT,
+                resolved_by_user_id INTEGER,
+                UNIQUE(league_id, user_id),
+                FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(resolved_by_user_id) REFERENCES users(id) ON DELETE SET NULL
             )
             """
         )
@@ -1795,6 +1846,10 @@ def serialize_league(row: sqlite3.Row) -> LeagueOut:
         football_type=str(row["football_type"]),
         goal_size=str(row["goal_size"]),
         region=str(row["region"] or "Unknown"),
+        league_visibility=str(row["league_visibility"] or "public") if "league_visibility" in row.keys() else "public",
+        discover_visible=bool(int(row["discover_visible"])) if "discover_visible" in row.keys() and row["discover_visible"] is not None else True,
+        latitude=(float(row["latitude"]) if "latitude" in row.keys() and row["latitude"] is not None else None),
+        longitude=(float(row["longitude"]) if "longitude" in row.keys() and row["longitude"] is not None else None),
         invite_code=str(row["invite_code"] or ""),
         description=row["description"],
         owner_id=int(row["owner_id"]),
@@ -1896,6 +1951,10 @@ def fetch_league_for_user(conn: sqlite3.Connection, league_id: int, user_id: int
             l.football_type,
             l.goal_size,
             l.region,
+            l.league_visibility,
+            l.discover_visible,
+            l.latitude,
+            l.longitude,
             l.invite_code,
             l.description,
             l.fee_type,
@@ -1933,6 +1992,10 @@ def fetch_user_leagues(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.R
             l.football_type,
             l.goal_size,
             l.region,
+            l.league_visibility,
+            l.discover_visible,
+            l.latitude,
+            l.longitude,
             l.invite_code,
             l.description,
             l.fee_type,
@@ -2075,6 +2138,158 @@ def fetch_league_invites(conn: sqlite3.Connection, league_id: int) -> list[sqlit
         """,
         (league_id,),
     ).fetchall()
+
+
+def _has_league_membership(conn: sqlite3.Connection, league_id: int, user_id: int) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM league_memberships WHERE league_id = ? AND user_id = ?",
+        (league_id, user_id),
+    ).fetchone() is not None
+
+
+def _is_league_public(conn: sqlite3.Connection, league_id: int) -> bool:
+    row = conn.execute(
+        "SELECT league_visibility FROM leagues WHERE id = ?",
+        (league_id,),
+    ).fetchone()
+    if row is None:
+        return False
+    return str(row["league_visibility"] or "public") == "public"
+
+
+def _can_view_league_stats(conn: sqlite3.Connection, league_id: int, user_id: int) -> bool:
+    return _has_league_membership(conn, league_id, user_id) or _is_league_public(conn, league_id)
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * (math.sin(dlambda / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+
+
+def _estimate_temporary_lmmr_from_global(conn: sqlite3.Connection, league_id: int, user_id: int) -> float:
+    user_row = conn.execute("SELECT global_rating FROM users WHERE id = ?", (user_id,)).fetchone()
+    user_global = float(user_row["global_rating"] if user_row is not None and user_row["global_rating"] is not None else DEFAULT_GLOBAL_RATING)
+
+    peer_rows = conn.execute(
+        """
+        SELECT COALESCE(u.global_rating, ?) AS global_rating, COALESCE(lps.rating, ?) AS lmmr
+        FROM league_memberships lm
+        JOIN users u ON u.id = lm.user_id
+        LEFT JOIN league_player_stats lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+        WHERE lm.league_id = ? AND lm.user_id != ?
+        """,
+        (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, league_id, user_id),
+    ).fetchall()
+
+    if not peer_rows:
+        return round(user_global, 2)
+
+    peer_globals = sorted(float(r["global_rating"] or DEFAULT_GLOBAL_RATING) for r in peer_rows)
+    peer_lmmr = sorted(float(r["lmmr"] or DEFAULT_GLOBAL_RATING) for r in peer_rows)
+    if not peer_lmmr:
+        return round(user_global, 2)
+
+    count = len(peer_globals)
+    less_or_equal = sum(1 for g in peer_globals if g <= user_global)
+    p = (less_or_equal - 1) / max(1, count - 1) if count > 1 else 0.5
+    p = max(0.0, min(1.0, p))
+
+    idx = p * (len(peer_lmmr) - 1)
+    lo = int(math.floor(idx))
+    hi = int(math.ceil(idx))
+    if lo == hi:
+        return round(peer_lmmr[lo], 2)
+    frac = idx - lo
+    return round(peer_lmmr[lo] * (1.0 - frac) + peer_lmmr[hi] * frac, 2)
+
+
+def _is_completely_new_player(conn: sqlite3.Connection, user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT attendance, wins, goals, assists, global_rating FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        return False
+    return (
+        int(row["attendance"] or 0) == 0
+        and int(row["wins"] or 0) == 0
+        and int(row["goals"] or 0) == 0
+        and int(row["assists"] or 0) == 0
+        and abs(float(row["global_rating"] or DEFAULT_GLOBAL_RATING) - DEFAULT_GLOBAL_RATING) <= 0.01
+    )
+
+
+def _enqueue_lmmr_placement_if_needed(conn: sqlite3.Connection, league_id: int, user_id: int, suggested_rating: float) -> None:
+    if not _is_completely_new_player(conn, user_id):
+        return
+
+    now_iso = utc_now_iso()
+    conn.execute(
+        """
+        INSERT INTO league_lmmr_placements (league_id, user_id, status, reason, suggested_rating, created_at)
+        VALUES (?, ?, 'pending', ?, ?, ?)
+        ON CONFLICT(league_id, user_id) DO UPDATE SET
+            status = 'pending',
+            reason = excluded.reason,
+            suggested_rating = excluded.suggested_rating,
+            created_at = excluded.created_at,
+            resolved_at = NULL,
+            resolved_by_user_id = NULL,
+            final_rating = NULL,
+            note = NULL
+        """,
+        (league_id, user_id, "new_player_needs_manual_seed", float(suggested_rating), now_iso),
+    )
+
+    target = conn.execute("SELECT username, display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    label = str(target["display_name"] or target["username"] or f"User {user_id}") if target is not None else f"User {user_id}"
+    managers = conn.execute(
+        "SELECT user_id FROM league_memberships WHERE league_id = ? AND role IN ('owner', 'admin')",
+        (league_id,),
+    ).fetchall()
+    for m in managers:
+        _create_notification(
+            conn,
+            int(m["user_id"]),
+            "lmmr_placement_needed",
+            "LMMR placement needed",
+            f"Please place {label} on your league rating scale.",
+            {"league_id": league_id, "user_id": user_id},
+        )
+
+
+def _ensure_member_lps_with_temp_rating(conn: sqlite3.Connection, league_id: int, user_id: int) -> None:
+    existing_stats = conn.execute(
+        "SELECT id FROM league_player_stats WHERE league_id = ? AND user_id = ?",
+        (league_id, user_id),
+    ).fetchone()
+    if existing_stats is not None:
+        return
+
+    suggested = _estimate_temporary_lmmr_from_global(conn, league_id, user_id)
+    conn.execute(
+        """
+        INSERT INTO league_player_stats (
+            league_id,
+            user_id,
+            attendance,
+            wins,
+            goals,
+            assists,
+            rating,
+            is_temporary_lmmr,
+            temporary_lmmr_match_limit
+        ) VALUES (?, ?, 0, 0, 0, 0, ?, 1, ?)
+        """,
+        (league_id, user_id, float(suggested), TEMP_LMMR_MATCH_LIMIT),
+    )
+    _enqueue_lmmr_placement_if_needed(conn, league_id, user_id, suggested)
 
 
 def add_discipline_history(
@@ -3344,14 +3559,18 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
     with get_conn() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO leagues (name, sport, football_type, goal_size, region, invite_code, description, fee_type, fee_value, match_presets_json, rating_config_json, approval_status, approved_at, approved_by_user_id, approval_note, owner_id, created_at, updated_at)
-            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO leagues (name, sport, football_type, goal_size, region, league_visibility, discover_visible, latitude, longitude, invite_code, description, fee_type, fee_value, match_presets_json, rating_config_json, approval_status, approved_at, approved_by_user_id, approval_note, owner_id, created_at, updated_at)
+            VALUES (?, 'football', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.name.strip(),
                 payload.football_type,
                 payload.goal_size,
                 payload.region.strip(),
+                payload.league_visibility,
+                1 if payload.discover_visible else 0,
+                payload.latitude,
+                payload.longitude,
                 secrets.token_hex(3).upper(),
                 payload.description.strip() if payload.description else None,
                 payload.fee_type,
@@ -3395,7 +3614,10 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
 def get_league_detail(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> LeagueDetailOut:
     user_id = int(current_user["id"])
     with get_conn() as conn:
-        league_row = fetch_league_for_user(conn, league_id, user_id)
+        is_member = _has_league_membership(conn, league_id, user_id)
+        can_view_public = _is_league_public(conn, league_id)
+        league_row = fetch_league_for_user(conn, league_id, user_id) if is_member else None
+
         if league_row is None and str(current_user["role"] or "") == "admin":
             league_row = conn.execute(
                 """
@@ -3405,6 +3627,10 @@ def get_league_detail(league_id: int, current_user: sqlite3.Row = Depends(resolv
                     l.football_type,
                     l.goal_size,
                     l.region,
+                    l.league_visibility,
+                    l.discover_visible,
+                    l.latitude,
+                    l.longitude,
                     l.invite_code,
                     l.description,
                     l.fee_type,
@@ -3426,13 +3652,49 @@ def get_league_detail(league_id: int, current_user: sqlite3.Row = Depends(resolv
                 """,
                 (league_id,),
             ).fetchone()
+
+        if league_row is None and can_view_public:
+            league_row = conn.execute(
+                """
+                SELECT
+                    l.id,
+                    l.name,
+                    l.football_type,
+                    l.goal_size,
+                    l.region,
+                    l.league_visibility,
+                    l.discover_visible,
+                    l.latitude,
+                    l.longitude,
+                    l.invite_code,
+                    l.description,
+                    l.fee_type,
+                    l.fee_value,
+                    l.match_presets_json,
+                    l.rating_config_json,
+                    l.approval_status,
+                    l.approved_at,
+                    l.approval_note,
+                    l.owner_id,
+                    l.created_at,
+                    l.auto_accept_members,
+                    'viewer' AS member_role,
+                    owner.username AS owner_username,
+                    (SELECT COUNT(*) FROM league_memberships AS member_count_source WHERE member_count_source.league_id = l.id) AS member_count
+                FROM leagues AS l
+                JOIN users AS owner ON owner.id = l.owner_id
+                WHERE l.id = ?
+                  AND COALESCE(l.approval_status, 'approved') = 'approved'
+                  AND (l.terminated_until IS NULL OR datetime(l.terminated_until) <= datetime('now'))
+                  AND COALESCE(l.league_visibility, 'public') = 'public'
+                """,
+                (league_id,),
+            ).fetchone()
+
         if league_row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="League not found")
         members = [serialize_member(row) for row in fetch_league_members(conn, league_id)]
-        membership = conn.execute(
-            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
-            (league_id, user_id),
-        ).fetchone()
+        membership = conn.execute("SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?", (league_id, user_id)).fetchone()
         invites: list[LeagueInviteOut] = []
         if (membership is not None and membership["role"] in {"owner", "admin"}) or str(current_user["role"] or "") == "admin":
             invites = [serialize_invite(row) for row in fetch_league_invites(conn, league_id)]
@@ -3458,6 +3720,18 @@ def update_league_settings(
         if payload.region is not None:
             updates.append("region = ?")
             params.append(payload.region)
+        if payload.league_visibility is not None:
+            updates.append("league_visibility = ?")
+            params.append(payload.league_visibility)
+        if payload.discover_visible is not None:
+            updates.append("discover_visible = ?")
+            params.append(1 if payload.discover_visible else 0)
+        if payload.latitude is not None:
+            updates.append("latitude = ?")
+            params.append(float(payload.latitude))
+        if payload.longitude is not None:
+            updates.append("longitude = ?")
+            params.append(float(payload.longitude))
         if payload.football_type is not None:
             updates.append("football_type = ?")
             params.append(payload.football_type)
@@ -3553,7 +3827,8 @@ def create_league_season(
 @app.get("/leagues/{league_id}/seasons", response_model=list[LeagueSeasonOut])
 def list_league_seasons(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeagueSeasonOut]:
     with get_conn() as conn:
-        require_membership(conn, league_id, int(current_user["id"]))
+        if not _can_view_league_stats(conn, league_id, int(current_user["id"])):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
         _sync_league_season_activation(conn, league_id)
         rows = conn.execute(
             "SELECT id, league_id, name, description, is_active, start_at, end_at, created_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
@@ -3608,7 +3883,8 @@ def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_adm
 @app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
 def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeaguePlayerStatsTabOut]:
     with get_conn() as conn:
-        require_membership(conn, league_id, int(current_user["id"]))
+        if not _can_view_league_stats(conn, league_id, int(current_user["id"])):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
         _sync_league_season_activation(conn, league_id)
 
         general_rows = conn.execute(
@@ -4082,10 +4358,7 @@ def accept_league_invite(payload: InviteAcceptPayload, current_user: sqlite3.Row
                 "INSERT INTO league_memberships (league_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)",
                 (league_id, user_id, utc_now_iso()),
             )
-            conn.execute(
-                "INSERT OR IGNORE INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
-                (league_id, user_id, float(current_user["global_rating"] or DEFAULT_GLOBAL_RATING)),
-            )
+            _ensure_member_lps_with_temp_rating(conn, league_id, user_id)
             conn.execute(
                 "UPDATE league_invites SET use_count = use_count + 1, accepted_by_user_id = ? WHERE id = ?",
                 (user_id, int(invite["id"])),
@@ -4427,15 +4700,7 @@ def join_league_by_code(payload: JoinLeagueByCodePayload, current_user: sqlite3.
                 "INSERT INTO league_memberships (league_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)",
                 (league_id, user_id, utc_now_iso()),
             )
-            existing_stats = conn.execute(
-                "SELECT id FROM league_player_stats WHERE league_id = ? AND user_id = ?",
-                (league_id, user_id),
-            ).fetchone()
-            if existing_stats is None:
-                conn.execute(
-                    "INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
-                    (league_id, user_id, float(current_user["global_rating"] or DEFAULT_GLOBAL_RATING)),
-                )
+            _ensure_member_lps_with_temp_rating(conn, league_id, user_id)
         conn.execute(
             "DELETE FROM league_join_requests WHERE league_id = ? AND user_id = ?",
             (league_id, user_id),
@@ -4451,6 +4716,9 @@ def join_league_by_code(payload: JoinLeagueByCodePayload, current_user: sqlite3.
 def discover_leagues(
     region: str | None = None,
     q: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    max_km: float | None = None,
     current_user: sqlite3.Row = Depends(resolve_current_user),
 ) -> list[dict]:
     user_id = int(current_user["id"])
@@ -4459,6 +4727,7 @@ def discover_leagues(
         where_clauses = [
             "l.id NOT IN (SELECT league_id FROM league_memberships WHERE user_id = ?)",
             "COALESCE(l.approval_status, 'approved') = 'approved'",
+            "COALESCE(l.discover_visible, 1) = 1",
             "(l.terminated_until IS NULL OR datetime(l.terminated_until) <= datetime('now'))",
         ]
         if region and region.strip():
@@ -4476,6 +4745,8 @@ def discover_leagues(
                 l.football_type,
                 l.goal_size,
                 l.region,
+                l.latitude,
+                l.longitude,
                 l.description,
                 owner.username AS owner_username,
                 (
@@ -4496,20 +4767,36 @@ def discover_leagues(
         """
         # first placeholder is used in subquery my_request_status
         rows = conn.execute(query, [user_id] + params).fetchall()
-    return [
-        {
-            "id": int(row["id"]),
-            "name": str(row["name"]),
-            "football_type": str(row["football_type"]),
-            "goal_size": str(row["goal_size"]),
-            "region": str(row["region"] or "Unknown"),
-            "description": row["description"],
-            "owner_username": str(row["owner_username"]),
-            "member_count": int(row["member_count"]),
-            "my_request_status": row["my_request_status"],
-        }
-        for row in rows
-    ]
+
+    items: list[dict] = []
+    for row in rows:
+        lat = float(row["latitude"]) if row["latitude"] is not None else None
+        lon = float(row["longitude"]) if row["longitude"] is not None else None
+        distance_km: float | None = None
+        if latitude is not None and longitude is not None and lat is not None and lon is not None:
+            distance_km = _haversine_km(float(latitude), float(longitude), lat, lon)
+        if max_km is not None and distance_km is not None and distance_km > float(max_km):
+            continue
+        items.append(
+            {
+                "id": int(row["id"]),
+                "name": str(row["name"]),
+                "football_type": str(row["football_type"]),
+                "goal_size": str(row["goal_size"]),
+                "region": str(row["region"] or "Unknown"),
+                "latitude": lat,
+                "longitude": lon,
+                "distance_km": round(distance_km, 2) if distance_km is not None else None,
+                "description": row["description"],
+                "owner_username": str(row["owner_username"]),
+                "member_count": int(row["member_count"]),
+                "my_request_status": row["my_request_status"],
+            }
+        )
+
+    if latitude is not None and longitude is not None:
+        items.sort(key=lambda item: (item["distance_km"] is None, item["distance_km"] if item["distance_km"] is not None else 1e12, item["name"].lower()))
+    return items
 
 
 @app.post("/leagues/{league_id}/join-requests", response_model=MessageOut)
@@ -4607,14 +4894,160 @@ def decide_join_request(
                     (league_id, target_user_id),
                 ).fetchone()
                 if lps is None:
-                    user_row = conn.execute("SELECT global_rating FROM users WHERE id = ?", (target_user_id,)).fetchone()
-                    base_rating = float(user_row["global_rating"] if user_row is not None else DEFAULT_GLOBAL_RATING)
-                    conn.execute(
-                        "INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating) VALUES (?, ?, 0, 0, 0, 0, ?)",
-                        (league_id, target_user_id, base_rating),
-                    )
+                    _ensure_member_lps_with_temp_rating(conn, league_id, target_user_id)
         conn.commit()
     return MessageOut(detail=("Join request accepted." if payload.decision == "accept" else "Join request rejected."))
+
+
+@app.get("/leagues/{league_id}/lmmr-placements/pending")
+def list_pending_lmmr_placements(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[dict]:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        rows = conn.execute(
+            """
+            SELECT p.user_id, p.reason, p.suggested_rating, p.created_at, u.username, u.display_name, COALESCE(u.global_rating, ?) AS global_rating
+            FROM league_lmmr_placements p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.league_id = ? AND p.status = 'pending'
+            ORDER BY p.created_at ASC
+            """,
+            (DEFAULT_GLOBAL_RATING, league_id),
+        ).fetchall()
+    return [
+        {
+            "user_id": int(r["user_id"]),
+            "username": str(r["username"]),
+            "display_name": r["display_name"],
+            "global_rating": float(r["global_rating"] or DEFAULT_GLOBAL_RATING),
+            "reason": str(r["reason"] or "new_player_needs_manual_seed"),
+            "suggested_rating": float(r["suggested_rating"] or DEFAULT_GLOBAL_RATING),
+            "created_at": str(r["created_at"]),
+        }
+        for r in rows
+    ]
+
+
+@app.get("/leagues/{league_id}/lmmr-placements/{user_id}/candidates")
+def get_lmmr_placement_candidates(league_id: int, user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> dict:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        pending = conn.execute(
+            "SELECT suggested_rating, reason, created_at FROM league_lmmr_placements WHERE league_id = ? AND user_id = ? AND status = 'pending'",
+            (league_id, user_id),
+        ).fetchone()
+        if pending is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No pending placement for this player")
+
+        target = conn.execute(
+            "SELECT id, username, display_name, COALESCE(global_rating, ?) AS global_rating FROM users WHERE id = ?",
+            (DEFAULT_GLOBAL_RATING, user_id),
+        ).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        rows = conn.execute(
+            """
+            SELECT lm.user_id, u.username, u.display_name, COALESCE(lps.rating, ?) AS rating
+            FROM league_memberships lm
+            JOIN users u ON u.id = lm.user_id
+            LEFT JOIN league_player_stats lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+            WHERE lm.league_id = ? AND lm.user_id != ?
+            ORDER BY rating ASC, u.username ASC
+            """,
+            (DEFAULT_GLOBAL_RATING, league_id, user_id),
+        ).fetchall()
+
+    return {
+        "target": {
+            "user_id": int(target["id"]),
+            "username": str(target["username"]),
+            "display_name": target["display_name"],
+            "global_rating": float(target["global_rating"] or DEFAULT_GLOBAL_RATING),
+        },
+        "reason": str(pending["reason"] or "new_player_needs_manual_seed"),
+        "suggested_rating": float(pending["suggested_rating"] or DEFAULT_GLOBAL_RATING),
+        "created_at": str(pending["created_at"]),
+        "candidates": [
+            {
+                "user_id": int(r["user_id"]),
+                "username": str(r["username"]),
+                "display_name": r["display_name"],
+                "rating": float(r["rating"] or DEFAULT_GLOBAL_RATING),
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.post("/leagues/{league_id}/lmmr-placements/{user_id}/resolve", response_model=MessageOut)
+def resolve_lmmr_placement(
+    league_id: int,
+    user_id: int,
+    payload: LeagueLmmrPlacementResolvePayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    manager_id = int(current_user["id"])
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, manager_id)
+        pending = conn.execute(
+            "SELECT id FROM league_lmmr_placements WHERE league_id = ? AND user_id = ? AND status = 'pending'",
+            (league_id, user_id),
+        ).fetchone()
+        if pending is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No pending placement for this player")
+
+        lps = conn.execute(
+            "SELECT id FROM league_player_stats WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        ).fetchone()
+        if lps is None:
+            conn.execute(
+                """
+                INSERT INTO league_player_stats (
+                    league_id,
+                    user_id,
+                    attendance,
+                    wins,
+                    goals,
+                    assists,
+                    rating,
+                    is_temporary_lmmr,
+                    temporary_lmmr_match_limit
+                ) VALUES (?, ?, 0, 0, 0, 0, ?, 1, ?)
+                """,
+                (league_id, user_id, float(payload.final_rating), TEMP_LMMR_MATCH_LIMIT),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE league_player_stats
+                SET rating = ?,
+                    is_temporary_lmmr = CASE WHEN attendance < ? THEN 1 ELSE 0 END,
+                    temporary_lmmr_match_limit = ?
+                WHERE league_id = ? AND user_id = ?
+                """,
+                (float(payload.final_rating), TEMP_LMMR_MATCH_LIMIT, TEMP_LMMR_MATCH_LIMIT, league_id, user_id),
+            )
+
+        conn.execute(
+            """
+            UPDATE league_lmmr_placements
+            SET status = 'resolved', final_rating = ?, note = ?, resolved_at = ?, resolved_by_user_id = ?
+            WHERE league_id = ? AND user_id = ?
+            """,
+            (float(payload.final_rating), payload.note.strip() if payload.note else None, utc_now_iso(), manager_id, league_id, user_id),
+        )
+
+        _create_notification(
+            conn,
+            user_id,
+            "lmmr_placement_resolved",
+            "Your temporary LMMR was placed",
+            "A league manager placed your initial league rating.",
+            {"league_id": league_id, "final_rating": float(payload.final_rating)},
+        )
+        conn.commit()
+    return MessageOut(detail="Placement saved.")
 
 
 # ============================================================
@@ -4668,6 +5101,10 @@ def _elo_update(rating: float, opp_avg: float, won: bool, drew: bool = False, k:
     expected = 1.0 / (1.0 + 10 ** ((opp_avg - rating) / 400.0))
     actual = 0.5 if drew else (1.0 if won else 0.0)
     return round(rating + k * (actual - expected), 2)
+
+
+def _expected_win_probability(team_avg: float, opp_avg: float) -> float:
+    return 1.0 / (1.0 + 10 ** ((opp_avg - team_avg) / 400.0))
 
 
 def _load_league_rating_config(conn: sqlite3.Connection, league_id: int) -> dict:
@@ -5075,9 +5512,68 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
 
     avg_a = avg_rating(team_a_ids)
     avg_b = avg_rating(team_b_ids)
+    expected_a = _expected_win_probability(avg_a, avg_b)
+    expected_b = 1.0 - expected_a
     a_won = score_a > score_b
     b_won = score_b > score_a
     drew = score_a == score_b
+
+    # Build score progression to detect comebacks (winner was trailing during match).
+    scoring_events = conn.execute(
+        """
+        SELECT team, event_seconds, created_at, id
+        FROM match_events
+        WHERE match_id = ? AND undone = 0 AND event_type IN ('goal', 'own_goal') AND team IN ('a', 'b')
+        ORDER BY event_seconds ASC, created_at ASC, id ASC
+        """,
+        (match_id,),
+    ).fetchall()
+    run_a = 0
+    run_b = 0
+    max_deficit_a = 0
+    max_deficit_b = 0
+    max_deficit_time_a = 0
+    max_deficit_time_b = 0
+    for ev in scoring_events:
+        team_now = str(ev["team"])
+        ev_sec = int(ev["event_seconds"] or 0)
+        if team_now == "a":
+            run_a += 1
+        elif team_now == "b":
+            run_b += 1
+        lead = run_a - run_b
+        if lead < 0:
+            deficit = -lead
+            if deficit > max_deficit_a:
+                max_deficit_a = deficit
+                max_deficit_time_a = ev_sec
+        elif lead > 0:
+            deficit = lead
+            if deficit > max_deficit_b:
+                max_deficit_b = deficit
+                max_deficit_time_b = ev_sec
+
+    max_event_seconds = max((int(ev["event_seconds"] or 0) for ev in scoring_events), default=1)
+
+    def avg_form(ids: list[int]) -> float:
+        if not ids:
+            return 0.5
+        rows = conn.execute(
+            f"SELECT attendance, wins FROM users WHERE id IN ({','.join('?' * len(ids))})",
+            ids,
+        ).fetchall()
+        values: list[float] = []
+        for r in rows:
+            att = int(r["attendance"] or 0)
+            if att <= 0:
+                continue
+            values.append(float(r["wins"] or 0) / att)
+        if not values:
+            return 0.5
+        return max(0.0, min(1.0, sum(values) / len(values)))
+
+    form_a = avg_form(team_a_ids)
+    form_b = avg_form(team_b_ids)
 
     events = conn.execute(
         "SELECT event_type, user_id, team FROM match_events WHERE match_id = ? AND undone = 0",
@@ -5106,7 +5602,7 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
         won = (team == "a" and a_won) or (team == "b" and b_won)
 
         existing = conn.execute(
-            "SELECT id, rating, attendance, wins, goals, assists FROM league_player_stats WHERE league_id = ? AND user_id = ?",
+            "SELECT id, rating, attendance, wins, goals, assists, is_temporary_lmmr, temporary_lmmr_match_limit FROM league_player_stats WHERE league_id = ? AND user_id = ?",
             (league_id, uid),
         ).fetchone()
 
@@ -5122,7 +5618,11 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             )
         else:
             old_rating = float(existing["rating"])
-            new_rating = _elo_update(old_rating, opp_avg, won, drew)
+            prev_attendance = int(existing["attendance"] or 0)
+            temp_limit = int(existing["temporary_lmmr_match_limit"] or TEMP_LMMR_MATCH_LIMIT)
+            temp_active = bool(int(existing["is_temporary_lmmr"] or 0)) and prev_attendance < temp_limit
+            new_rating = old_rating if temp_active else _elo_update(old_rating, opp_avg, won, drew)
+            should_disable_temp = bool(int(existing["is_temporary_lmmr"] or 0)) and (prev_attendance + 1) >= temp_limit
             conn.execute(
                 """
                 UPDATE league_player_stats
@@ -5130,10 +5630,11 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
                     wins = wins + ?,
                     goals = goals + ?,
                     assists = assists + ?,
-                    rating = ?
+                    rating = ?,
+                    is_temporary_lmmr = CASE WHEN ? THEN 0 ELSE is_temporary_lmmr END
                 WHERE id = ?
                 """,
-                (1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), new_rating, int(existing["id"])),
+                (1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), new_rating, 1 if should_disable_temp else 0, int(existing["id"])),
             )
 
         # Update global user stats too
@@ -5156,7 +5657,56 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             "SELECT id, attendance, wins, goals, assists, own_goals, points FROM league_season_player_stats WHERE season_id = ? AND user_id = ?",
             (season_id, uid),
         ).fetchone()
-        won_bonus = float(cfg["sr_win_points"]) if won else (float(cfg["sr_draw_points"]) if drew else float(cfg["sr_loss_points"]))
+        base_result_points = float(cfg["sr_win_points"]) if won else (float(cfg["sr_draw_points"]) if drew else float(cfg["sr_loss_points"]))
+        win_base = abs(float(cfg["sr_win_points"]))
+        loss_base = abs(float(cfg["sr_loss_points"]))
+        draw_cap_basis = max(win_base, loss_base)
+        expected = expected_a if team == "a" else expected_b
+        team_form = form_a if team == "a" else form_b
+        opp_form = form_b if team == "a" else form_a
+        form_component = max(-1.0, min(1.0, (opp_form - team_form) / 0.35))
+        goal_diff = abs(score_a - score_b)
+        close_game_component = max(-1.0, min(1.0, (2.0 - float(goal_diff)) / 2.0))
+        team_deficit = max_deficit_a if team == "a" else max_deficit_b
+        team_deficit_time = max_deficit_time_a if team == "a" else max_deficit_time_b
+        comeback_depth = min(1.0, float(team_deficit) / 3.0)
+        comeback_late_factor = 0.5 + 0.5 * min(1.0, float(team_deficit_time) / max(1.0, float(max_event_seconds)))
+        comeback_component = max(0.0, min(1.0, comeback_depth * comeback_late_factor))
+
+        # Cap dynamic weighting to ±25%.
+        adjustment_cap = 0.25
+
+        if drew:
+            difficulty_component = (0.5 - expected) * 2.0
+            combined_component = max(
+                -1.0,
+                min(1.0, difficulty_component + 0.45 * comeback_component + 0.30 * form_component),
+            )
+            draw_adjustment = draw_cap_basis * adjustment_cap * combined_component
+            won_bonus = float(cfg["sr_draw_points"]) + draw_adjustment
+        elif base_result_points == 0.0:
+            won_bonus = 0.0
+        elif won:
+            # Underdog wins, bigger/later comebacks, and stronger-opponent form increase reward.
+            difficulty_component = (0.5 - expected) * 2.0
+            combined_component = max(
+                -1.0,
+                min(1.0, difficulty_component + 0.45 * comeback_component + 0.25 * close_game_component + 0.30 * form_component),
+            )
+            base_magnitude = abs(base_result_points)
+            adjusted_magnitude = base_magnitude * (1.0 + adjustment_cap * combined_component)
+            won_bonus = adjusted_magnitude
+        else:
+            # Expected losses are softened; upset losses are penalized more.
+            difficulty_component = (expected - 0.5) * 2.0
+            combined_component = max(
+                -1.0,
+                min(1.0, difficulty_component + 0.25 * close_game_component + 0.30 * form_component),
+            )
+            base_magnitude = abs(base_result_points)
+            adjusted_magnitude = base_magnitude * (1.0 + adjustment_cap * combined_component)
+            won_bonus = -adjusted_magnitude
+
         delta_points = (
             goals_by_player.get(uid, 0) * float(cfg["sr_goal_points"])
             + assists_by_player.get(uid, 0) * float(cfg["sr_assist_points"])
@@ -5298,6 +5848,16 @@ def _auto_sync_registration_state(conn: sqlite3.Connection, match_id: int) -> No
                 "UPDATE matches SET status = 'registration_open', updated_at = ? WHERE id = ?",
                 (utc_now_iso(), match_id),
             )
+            match_row = conn.execute("SELECT league_id, title FROM matches WHERE id = ?", (match_id,)).fetchone()
+            if match_row is not None:
+                _notify_league_members(
+                    conn,
+                    int(match_row["league_id"]),
+                    "registration_open",
+                    f"Registration open: {match_row['title']}",
+                    f"Registration is now open for '{match_row['title']}'.",
+                    {"match_id": match_id},
+                )
 
     current = conn.execute("SELECT status FROM matches WHERE id = ?", (match_id,)).fetchone()
     current_status = str(current["status"]) if current is not None else status_now
@@ -5397,18 +5957,73 @@ def create_match(league_id: int, payload: MatchCreatePayload, current_user: sqli
 def list_league_matches(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[MatchOut]:
     user_id = int(current_user["id"])
     with get_conn() as conn:
-        require_membership(conn, league_id, user_id)
+        if not _can_view_league_stats(conn, league_id, user_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
+        is_member = _has_league_membership(conn, league_id, user_id)
         rows = _fetch_league_matches(conn, league_id)
         result = []
         for row in rows:
             _auto_sync_registration_state(conn, int(row["id"]))
             _advance_waitlist(conn, int(row["id"]))
-            my_status = _match_registration_status(conn, int(row["id"]), user_id)
+            my_status = _match_registration_status(conn, int(row["id"]), user_id) if is_member else None
             refreshed = _fetch_match_row(conn, int(row["id"]))
             if refreshed:
                 result.append(_serialize_match(refreshed, my_status))
         conn.commit()
     return result
+
+
+@app.get("/leagues/{league_id}/match-history")
+def list_league_match_history(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[dict]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        if not _can_view_league_stats(conn, league_id, user_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
+        rows = _fetch_league_matches(conn, league_id)
+        out: list[dict] = []
+        for row in rows:
+            _auto_sync_registration_state(conn, int(row["id"]))
+            refreshed = _fetch_match_row(conn, int(row["id"]))
+            if refreshed is None:
+                continue
+            status_now = str(refreshed["status"])
+            if status_now not in {"completed", "finished", "cancelled"}:
+                continue
+            out.append({
+                "match": _serialize_match(refreshed),
+                "league_name": conn.execute("SELECT name FROM leagues WHERE id = ?", (league_id,)).fetchone()["name"],
+            })
+        conn.commit()
+    out.sort(key=lambda x: str(x["match"].scheduled_at), reverse=True)
+    return out
+
+
+@app.get("/matches/history/me")
+def list_my_match_history(current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[dict]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.id
+            FROM matches m
+            JOIN league_memberships lm ON lm.league_id = m.league_id AND lm.user_id = ?
+            WHERE m.status IN ('completed', 'finished', 'cancelled')
+            ORDER BY m.scheduled_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+        out: list[dict] = []
+        for row in rows:
+            match_row = _fetch_match_row(conn, int(row["id"]))
+            if match_row is None:
+                continue
+            out.append(
+                {
+                    "match": _serialize_match(match_row),
+                    "league_name": conn.execute("SELECT name FROM leagues WHERE id = ?", (int(match_row["league_id"]),)).fetchone()["name"],
+                }
+            )
+    return out
 
 
 @app.get("/matches/{match_id}", response_model=MatchDetailOut)
@@ -5592,6 +6207,15 @@ def open_match_registration(match_id: int, current_user: sqlite3.Row = Depends(r
         conn.execute(
             "UPDATE matches SET status = 'registration_open', updated_at = ? WHERE id = ?",
             (utc_now_iso(), match_id),
+        )
+        _notify_league_members(
+            conn,
+            int(row["league_id"]),
+            "registration_open",
+            f"Registration open: {row['title']}",
+            f"Registration is now open for '{row['title']}'.",
+            {"match_id": match_id},
+            exclude_user_id=user_id,
         )
         conn.commit()
     return MessageOut(detail="Registration opened.")

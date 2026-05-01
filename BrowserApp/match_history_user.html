@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f8a4c">
+  <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
+  <script src="./palette.js"></script>
+  <title>My Match History</title>
+  <style>
+    :root{--text:#0e2c1d;--muted:#4d6f60;--accent:#1f8a4c;--line:rgba(14,44,29,.16);--panel:#fff;--soft:#f3faf6;--bg:#dff0e7;--danger:#b42318;}
+    [data-theme="dark"]{--text:#e7f5ee;--muted:#9dc4b2;--accent:#2fa765;--line:rgba(231,245,238,.2);--panel:#16241f;--soft:#1b2d27;--bg:#101b17;--danger:#ef6f66;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",sans-serif;}
+    .wrap{max-width:960px;margin:24px auto;padding:0 16px;}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;}
+    .row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;}
+    .btn{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:9px;padding:7px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer;}
+    .pill{display:inline-flex;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-size:.78rem;}
+    .muted{color:var(--muted);}
+    .list{display:flex;flex-direction:column;gap:8px;}
+    .item{border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;}
+    .status{min-height:20px;color:var(--muted);}
+    .status.error{color:var(--danger);}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row" style="margin-bottom:10px;">
+      <div>
+        <h1 style="margin:0;">My Match History</h1>
+        <div class="muted">All completed, finished and cancelled matches from your leagues.</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="darkModeToggle" type="button">🌙</button>
+        <a class="btn" href="./lobby.html">Back to lobby</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="list" id="list"><div class="muted">Loading…</div></div>
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){ if(localStorage.getItem("rs_theme") !== "light"){ document.documentElement.setAttribute("data-theme","dark"); }})();
+    (function(){
+      const btn = document.getElementById("darkModeToggle");
+      const sync = function(){ btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; };
+      sync();
+      btn.addEventListener("click", function(){
+        const dark = document.documentElement.getAttribute("data-theme") === "dark";
+        if(dark){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }
+        else{ document.documentElement.setAttribute("data-theme","dark"); localStorage.setItem("rs_theme","dark"); }
+        sync();
+      });
+    })();
+
+    const TOKEN_KEY = "rs_access_token";
+    const API_BASE_KEY = "rs_api_base_override";
+    const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
+    const listEl = document.getElementById("list");
+    const statusEl = document.getElementById("status");
+
+    function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function apiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function token(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+    function show(msg, kind){ statusEl.textContent = msg; statusEl.className = kind ? "status " + kind : "status"; }
+
+    async function apiFetch(path){
+      const headers = {};
+      const t = token();
+      if(t) headers.Authorization = "Bearer " + t;
+      const res = await fetch(apiBase() + path, { headers });
+      let body = null; try { body = await res.json(); } catch {}
+      if(!res.ok) throw new Error(body && body.detail ? body.detail : "Request failed");
+      return body;
+    }
+
+    function render(rows){
+      if(!rows.length){ listEl.innerHTML = '<div class="muted">No match history yet.</div>'; return; }
+      listEl.innerHTML = rows.map(function(entry){
+        const m = entry.match || {};
+        const when = m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : "Unknown time";
+        return '<div class="item" data-id="' + Number(m.id || 0) + '">' +
+          '<div class="row"><strong>' + esc(m.title || "Match") + '</strong><span class="pill">' + esc(m.status || "-") + '</span></div>' +
+          '<div class="muted">League: ' + esc(entry.league_name || "-") + '</div>' +
+          '<div class="muted">' + esc(when) + (m.location ? ' · ' + esc(m.location) : '') + '</div>' +
+          '</div>';
+      }).join("");
+      listEl.querySelectorAll(".item").forEach(function(el){
+        el.addEventListener("click", function(){
+          const id = Number(el.dataset.id || 0);
+          if(id) window.location.href = "./match.html?id=" + id;
+        });
+      });
+    }
+
+    async function load(){
+      if(!token()){ show("Please log in from lobby first.", "error"); return; }
+      try{
+        const rows = await apiFetch("/matches/history/me");
+        render(Array.isArray(rows) ? rows : []);
+        show("Loaded " + (Array.isArray(rows) ? rows.length : 0) + " matches.");
+      }catch(err){
+        show(err.message || "Failed to load history.", "error");
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

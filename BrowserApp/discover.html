@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
-  <title>League Manager</title>
+  <title>Looking for League</title>
   <style>
     :root { --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --panel:#fff; --panel-soft:#f3faf6; --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
     [data-theme="dark"] { --text:#e7f5ee; --muted:#9dc4b2; --accent:#2fa765; --success:#26a957; --danger:#ef6f66; --line:rgba(231,245,238,.2); --panel:#16241f; --panel-soft:#1b2d27; --pill:#20362f; --bg-a:#101b17; --bg-b:#0b1411; }
@@ -33,8 +33,8 @@
   <div class="wrap">
     <div class="row" style="justify-content:space-between; margin-bottom:10px;">
       <div>
-        <h1 style="margin:0;">Find Nearby Leagues</h1>
-        <div class="muted">Search by region and request to join.</div>
+        <h1 style="margin:0;">Looking for League</h1>
+        <div class="muted">Search leagues by region or distance and request to join.</div>
       </div>
       <div class="row">
         <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
@@ -43,11 +43,18 @@
     </div>
 
     <div class="card">
-      <div class="row">
+      <div class="row" style="align-items:end;">
         <label for="region" class="muted">Region</label>
         <input id="region" placeholder="e.g. Ljubljana">
         <label for="q" class="muted">Name</label>
         <input id="q" placeholder="search text">
+        <label for="latitude" class="muted">Latitude</label>
+        <input id="latitude" type="number" step="0.000001" min="-90" max="90" placeholder="46.0569">
+        <label for="longitude" class="muted">Longitude</label>
+        <input id="longitude" type="number" step="0.000001" min="-180" max="180" placeholder="14.5058">
+        <label for="maxKm" class="muted">Max km</label>
+        <input id="maxKm" type="number" step="1" min="1" placeholder="25">
+        <button class="btn ghost" id="useLocationBtn" type="button">Use my location</button>
         <button class="btn primary" id="searchBtn" type="button">Search</button>
       </div>
     </div>
@@ -92,6 +99,9 @@
 
     const regionEl = document.getElementById("region");
     const qEl = document.getElementById("q");
+    const latitudeEl = document.getElementById("latitude");
+    const longitudeEl = document.getElementById("longitude");
+    const maxKmEl = document.getElementById("maxKm");
     const resultsEl = document.getElementById("results");
     const statusEl = document.getElementById("status");
 
@@ -119,6 +129,7 @@
         <div class="item">
           <div class="row" style="justify-content:space-between;"><strong>${esc(r.name)}</strong><span class="pill">${esc(r.football_type)} · ${esc(r.goal_size)}</span></div>
           <div class="muted">Region: ${esc(r.region)} · Owner: ${esc(r.owner_username)} · Members: ${esc(r.member_count)}</div>
+          ${(Number.isFinite(Number(r.distance_km))) ? `<div class="muted">Distance: ${Number(r.distance_km).toFixed(1)} km</div>` : ""}
           <div class="muted">${esc(r.description || "")}</div>
           <div style="margin-top:8px;">
             ${r.my_request_status === 'pending'
@@ -139,6 +150,9 @@
         const params = new URLSearchParams();
         if (regionEl.value.trim()) params.set("region", regionEl.value.trim());
         if (qEl.value.trim()) params.set("q", qEl.value.trim());
+        if (latitudeEl.value !== "") params.set("latitude", String(Number(latitudeEl.value)));
+        if (longitudeEl.value !== "") params.set("longitude", String(Number(longitudeEl.value)));
+        if (maxKmEl.value !== "") params.set("max_km", String(Number(maxKmEl.value)));
         const rows = await apiFetch(`/leagues/discover?${params.toString()}`, { method: "GET" });
         renderRows(rows || []);
         show(`Found ${rows.length} leagues.`);
@@ -148,6 +162,20 @@
     }
 
     document.getElementById("searchBtn").addEventListener("click", search);
+    document.getElementById("useLocationBtn").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        show("Geolocation is not supported in this browser.", "error");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition((pos) => {
+        latitudeEl.value = String(pos.coords.latitude.toFixed(6));
+        longitudeEl.value = String(pos.coords.longitude.toFixed(6));
+        if (!maxKmEl.value) maxKmEl.value = "25";
+        show("Location loaded. You can now search by distance.");
+      }, () => {
+        show("Could not read your location.", "error");
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
 
     document.body.addEventListener("click", async (e) => {
       const reqBtn = e.target.closest(".requestBtn");

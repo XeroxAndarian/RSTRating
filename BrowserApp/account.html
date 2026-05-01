@@ -55,15 +55,14 @@
 
     <div class="card">
       <h2>Profile</h2>
+      <div class="avatar" id="avatarEl">?</div>
+      <div id="profileSummary" class="muted" style="font-size:.88rem;margin-bottom:10px;">Loading...</div>
       <div class="field">
-        <label for="displayNameInput">Profile</label>
+        <label for="displayNameInput">Display Name</label>
         <input id="displayNameInput" type="text" maxlength="60" placeholder="Leave blank to use username">
       </div>
       <button class="btn primary" id="saveDisplayNameBtn" type="button">Save profile</button>
       <div class="status" id="displayNameStatus"></div>
-
-      <div class="avatar" id="avatarEl">?</div>
-      <div id="profileSummary" class="muted" style="font-size:.88rem;margin-bottom:8px;">Loading...</div>
     </div>
 
     <div class="card">
@@ -197,14 +196,16 @@
       host.innerHTML = Object.keys(list).map((key) => {
         const p = list[key];
         const light = p.light || {};
+        const swatches = [];
+        [light["--accent"], light["--bg-a"], light["--bg-b"], light["--text"], light["--muted"], light["--panel"]]
+          .forEach((color) => {
+            if(!color) return;
+            if(!swatches.includes(color)) swatches.push(color);
+          });
+        const circles = swatches.slice(0, 4).map((color) => `<i style="background:${esc(color)}"></i>`).join("");
         return `<button type="button" class="palette-preview${key===activeKey?" active":""}" data-key="${key}">
           <div class="name">${esc(p.name || key)}</div>
-          <div class="swatches">
-            <i style="background:${esc(light["--accent"] || "#999")}"></i>
-            <i style="background:${esc(light["--bg"] || "#eee")}"></i>
-            <i style="background:${esc(light["--panel"] || "#fff")}"></i>
-            <i style="background:${esc(light["--text"] || "#333")}"></i>
-          </div>
+          <div class="swatches">${circles}</div>
         </button>`;
       }).join("");
       host.querySelectorAll(".palette-preview").forEach((el) => {

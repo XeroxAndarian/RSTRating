@@ -110,6 +110,33 @@
           <input id="settingAutoAccept" type="checkbox" style="width:auto;">
           <label for="settingAutoAccept" style="margin:0;font-weight:700;">Auto-accept new members</label>
         </div>
+        <div class="row">
+          <div style="flex:1;min-width:180px;">
+            <label for="settingVisibility">League visibility</label>
+            <select id="settingVisibility">
+              <option value="private">Private (members only stats)</option>
+              <option value="public">Public (stats visible to everyone)</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:180px;display:flex;align-items:end;gap:8px;">
+            <input id="settingDiscoverVisible" type="checkbox" style="width:auto;">
+            <label for="settingDiscoverVisible" style="margin:0;font-weight:700;">Visible on League list</label>
+          </div>
+        </div>
+        <div class="row">
+          <div style="flex:1;min-width:180px;">
+            <label for="settingRegion">Region</label>
+            <input id="settingRegion" type="text" maxlength="120" placeholder="e.g. Ljubljana">
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label for="settingLatitude">Latitude</label>
+            <input id="settingLatitude" type="number" step="0.000001" min="-90" max="90" placeholder="46.0569">
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label for="settingLongitude">Longitude</label>
+            <input id="settingLongitude" type="number" step="0.000001" min="-180" max="180" placeholder="14.5058">
+          </div>
+        </div>
         <div>
           <label>Rating parameters</label>
           <div class="row" style="align-items:flex-end;">
@@ -665,6 +692,11 @@
         document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
         document.getElementById("settingFeeType").value = lg.fee_type || "none";
         document.getElementById("settingFeeValue").value = Number(lg.fee_value || 0);
+        document.getElementById("settingVisibility").value = lg.league_visibility || "private";
+        document.getElementById("settingDiscoverVisible").checked = !!lg.discover_visible;
+        document.getElementById("settingRegion").value = lg.region || "";
+        document.getElementById("settingLatitude").value = (lg.latitude ?? "");
+        document.getElementById("settingLongitude").value = (lg.longitude ?? "");
         const cfg = lg.rating_config || {};
         document.getElementById("rcStart").value = Number(cfg.sr_start_points ?? 1000);
         document.getElementById("rcWin").value = Number(cfg.sr_win_points ?? 20);
@@ -733,6 +765,11 @@
         name: document.getElementById("settingName").value.trim() || null,
         description: document.getElementById("settingDesc").value.trim() || null,
         auto_accept_members: document.getElementById("settingAutoAccept").checked,
+        league_visibility: document.getElementById("settingVisibility").value,
+        discover_visible: document.getElementById("settingDiscoverVisible").checked,
+        region: document.getElementById("settingRegion").value.trim() || null,
+        latitude: document.getElementById("settingLatitude").value === "" ? null : Number(document.getElementById("settingLatitude").value),
+        longitude: document.getElementById("settingLongitude").value === "" ? null : Number(document.getElementById("settingLongitude").value),
         fee_type: document.getElementById("settingFeeType").value,
         fee_value: Number(document.getElementById("settingFeeValue").value) || 0,
         rating_config: ratingConfig,

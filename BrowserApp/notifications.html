@@ -154,9 +154,9 @@
       return ICONS[type] || "🔔";
     }
     function notifCategory(type){
-      if(["new_match","match_started","registration_open","registration_opened"].includes(type)) return "announcement";
+      if(["new_match","registration_open","registration_opened","match_result"].includes(type)) return "announcement";
       if(["new_match","match_started","match_result","match_cancelled","waitlist_offer"].includes(type)) return "matches";
-      if(["league_approved","league_rejected","league_announcement"].includes(type)) return "leagues";
+      if(["league_approved","league_rejected","league_announcement","lmmr_placement_needed","lmmr_placement_resolved"].includes(type)) return "leagues";
       if(["friend_request","friend_request_accepted","fan_event","fan_player_registered","fan_player_started_match","fan_player_match_event"].includes(type)) return "social";
       return "other";
     }

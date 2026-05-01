@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="actionsCard">
       <div class="row" id="actionsRow"></div>
       <div class="status" id="status"></div>
     </div>
@@ -107,12 +107,12 @@
         </div>
 
         <div class="card" id="friendsCard" style="display:none;">
-          <h3 style="margin:0 0 8px;">Friends</h3>
+          <h3 style="margin:0 0 8px;" id="friendsTitle">Friends (0)</h3>
           <div id="friendsList"></div>
         </div>
 
         <div class="card" id="fanclubCard" style="display:none;">
-          <h3 style="margin:0 0 8px;">Fanclub</h3>
+          <h3 style="margin:0 0 8px;" id="fanclubTitle">Fanclub (0)</h3>
           <div id="fanclubList"></div>
         </div>
 
@@ -186,7 +186,7 @@
       let html = "";
       if(!isSelf){
         if(profile.is_friend){
-          html += '<span class="btn ghost" style="cursor:default;">Friends</span>';
+          html += '<button class="btn ghost" data-unfriend="'+profile.id+'" type="button">Unfriend</button>';
         } else if(profile.can_send_friend_request){
           html += '<button class="btn primary" id="sendFriendReqBtn" type="button">Add friend</button>';
         } else if(profile.has_pending_outgoing_request){
@@ -202,6 +202,7 @@
 
       renderLeagueStats();
 
+      document.getElementById("actionsCard").style.display = isSelf ? "none" : "block";
       document.getElementById("settingsCard").style.display = isSelf ? "block" : "none";
       document.getElementById("friendReqCard").style.display = isSelf ? "block" : "none";
       document.getElementById("friendsCard").style.display = isSelf ? "block" : "none";
@@ -238,9 +239,11 @@
 
     async function renderFriendsList(){
       const listEl = document.getElementById("friendsList");
+      const titleEl = document.getElementById("friendsTitle");
       if(!(me && profile && Number(me.id) === Number(profile.id))){ listEl.innerHTML = ""; return; }
       try {
         const friends = await apiFetch('/players/me/friends');
+        if(titleEl) titleEl.textContent = 'Friends (' + friends.length + ')';
         if(!friends.length){ listEl.innerHTML = '<div class="muted">No friends yet.</div>'; return; }
         listEl.innerHTML = friends.map(f =>
           '<div class="friend-req" style="display:flex;justify-content:space-between;align-items:center;">'+
@@ -249,15 +252,18 @@
           '<button class="btn ghost" style="font-size:.82rem;" data-unfriend="'+f.id+'" type="button">Unfriend</button></div>'
         ).join('');
       } catch (e) {
+        if(titleEl) titleEl.textContent = 'Friends (0)';
         listEl.innerHTML = '<div class="muted">Could not load friends list.</div>';
       }
     }
 
     async function renderFanclub(){
       const listEl = document.getElementById("fanclubList");
+      const titleEl = document.getElementById("fanclubTitle");
       if(!profile){ listEl.innerHTML = ""; return; }
       try {
         const fans = await apiFetch("/players/" + profile.id + "/fanclub");
+        if(titleEl) titleEl.textContent = 'Fanclub (' + fans.length + ')';
         if(!fans.length){ listEl.innerHTML = '<div class="muted">No fans yet.</div>'; return; }
         listEl.innerHTML = fans.map(f =>
           '<div class="friend-req" style="display:flex;justify-content:space-between;align-items:center;">'+
@@ -265,6 +271,7 @@
           '<div class="muted" style="font-size:.82rem;">@'+esc(f.username)+'</div></div></div>'
         ).join('');
       } catch (e) {
+        if(titleEl) titleEl.textContent = 'Fanclub (0)';
         listEl.innerHTML = '<div class="muted">Could not load fanclub.</div>';
       }
     }

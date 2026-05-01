@@ -303,8 +303,6 @@
       }
     }
   };
-    }
-  };
 
   function getThemeMode() {
     return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
