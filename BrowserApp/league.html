@@ -61,8 +61,9 @@
     .reg-open { background:var(--accent); color:#fff; }
     .reg-opens-label { font-size:.78rem; color:var(--muted); }
     .preset-quick { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
-    .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media (max-width:860px){ .stats-grid { grid-template-columns:1fr; } }
+    .stats-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    @media (max-width:860px){ .stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:560px){ .stats-grid { grid-template-columns:1fr; } }
     .stats-box { border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--card); }
     .scope-box { display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--card); margin-bottom:10px; }
     .scope-box label { margin:0; min-width:42px; color:var(--muted); font-size:.8rem; font-weight:700; }
@@ -129,7 +130,7 @@
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Winrate</h3><div id="statWinrate" class="mini">-</div></div>
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Goals</h3><div id="statGoals" class="mini">-</div></div>
             <div class="stats-box"><h3 style="margin:0 0 6px;font-size:.95rem;">Assists</h3><div id="statAssists" class="mini">-</div></div>
-            <div class="stats-box"><h3 id="statRatingLabel" style="margin:0 0 6px;font-size:.95rem;">LMMR / SR</h3><div id="statRating" class="mini">-</div></div>
+            <div class="stats-box"><h3 id="statRatingLabel" style="margin:0 0 6px;font-size:.95rem;">League MMR</h3><div id="statRating" class="mini">-</div></div>
           </div>
           <h3 style="margin:0 0 8px;font-size:.95rem;">Scoreboard</h3>
           <div style="overflow-x:auto;">
@@ -140,6 +141,7 @@
                   <th>W-L-D</th>
                   <th>Winrate</th>
                   <th>G</th>
+                  <th>OG</th>
                   <th>A</th>
                   <th>LMMR</th>
                 </tr>
@@ -193,7 +195,7 @@
     </div>
 
     <div id="status" class="status"></div>
-    <div class="build-stamp">Build: league-v2026-04-30-1</div>
+    <div class="build-stamp">Build: league-v2026-05-01-2</div>
   </div>
 
   <div class="modal-backdrop" id="lmmrPlacementModal" style="display:none;">
@@ -378,10 +380,16 @@
       var activeSeason=Array.isArray(seasons)?seasons.find(function(s){return !!s.is_active;}):null;
       var seasonLine="";
       var approvalLine="";
+      function fmtDateOnly(iso){
+        if(!iso) return "-";
+        var d=new Date(iso);
+        if(Number.isNaN(d.getTime())) return "-";
+        return d.getDate()+"."+(d.getMonth()+1)+"."+d.getFullYear();
+      }
       if(activeSeason){
-        var sStart=activeSeason.start_at?new Date(activeSeason.start_at).toLocaleString():"-";
-        var sEnd=activeSeason.end_at?new Date(activeSeason.end_at).toLocaleString():"...";
-        seasonLine="<div><strong>Season:</strong> "+esc(activeSeason.name||"Current")+" ("+esc(sStart)+" - "+esc(sEnd)+")</div>";
+        var sStart=fmtDateOnly(activeSeason.start_at);
+        var sEnd=activeSeason.end_at?fmtDateOnly(activeSeason.end_at):"...";
+        seasonLine="<div><strong>Season:</strong> "+esc(activeSeason.name||"Current")+" ["+esc(sStart)+" - "+esc(sEnd)+"]</div>";
       }
       if(lg.approval_status && lg.approval_status !== "approved"){
         approvalLine="<div><strong>Status:</strong> <span class=\"pill\">"+esc(lg.approval_status)+(lg.approval_note?": "+esc(lg.approval_note):"")+"</span></div>";
@@ -473,7 +481,9 @@
           regBtn="<span class=\"reg-opens-label\">Opens "+fmtShort(mt.registration_opens_at)+"</span>";
         }
         var statePill=(mt.status==="live")?"<span class=\"pill state-live\">LIVE</span>":"<span class=\"pill\">"+esc(mt.status.replace("_"," "))+"</span>";
-        return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"row\" style=\"gap:6px;\">"+statePill+"<span class=\"pill\">\uD83D\uDC65 "+regCount+"/"+esc(mt.max_participants)+"</span></span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a>"+regBtn+"</div></div>";
+        var needsConfirm=(canManage() && !["completed","finished","cancelled","canceled"].includes(String(mt.status||"").toLowerCase()));
+        var confirmIcon=needsConfirm?"<span class=\"pill\" title=\"Requires manager/ref confirmation\">\u26A0\uFE0F Confirm</span>":"";
+        return "<div class=\"match-item\"><div class=\"row\" style=\"justify-content:space-between;\"><strong>"+esc(mt.title)+"</strong><span class=\"row\" style=\"gap:6px;\">"+confirmIcon+statePill+"<span class=\"pill\">\uD83D\uDC65 "+regCount+"/"+esc(mt.max_participants)+"</span></span></div><div class=\"muted\" style=\"font-size:.82rem;\">"+esc(fmtDate(mt.scheduled_at))+(mt.location?" \u00B7 "+esc(mt.location):"")+"</div><div class=\"row\" style=\"margin-top:6px;\"><a class=\"btn ghost sm\" href=\"./match.html?id="+mt.id+"\">Details</a>"+regBtn+"</div></div>";
       }).join("");
     }
 
@@ -520,13 +530,14 @@
           "<th>W-L-D</th>"+
           "<th>Winrate</th>"+
           "<th>G</th>"+
+          "<th>OG</th>"+
           "<th>A</th>"+
           "<th>LMMR</th>"+
           (showSr?"<th>SR</th>":"");
       }
       if(!tbody) return;
       if(!rows.length){
-        tbody.innerHTML='<tr><td colspan="'+(showSr?7:6)+'" class="muted">No players.</td></tr>';
+        tbody.innerHTML='<tr><td colspan="'+(showSr?8:7)+'" class="muted">No players.</td></tr>';
         return;
       }
       var items=rows.map(function(r){
@@ -543,7 +554,7 @@
       tbody.innerHTML=items.map(function(it){
         var r=it.row;
         var cls=classifyScoreboardPlayer(r, it.wld);
-        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
+        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
       }).join("");
     }
 
@@ -565,7 +576,7 @@
 
     function renderStatsTabs(){
       var ratingLabelEl=document.getElementById("statRatingLabel");
-      if(ratingLabelEl) ratingLabelEl.textContent=(activeStatsTabKey==="general"?"LMMR":"LMMR / SR");
+      if(ratingLabelEl) ratingLabelEl.textContent=(activeStatsTabKey==="general"?"League MMR":"Seasonal Rating");
       if(!Array.isArray(statsTabs)||!statsTabs.length){
         if(statsScopeSelect) statsScopeSelect.innerHTML='';
         setUserStatBoxes();
@@ -595,7 +606,7 @@
           assists:String(meRow.assists||0),
           rating:String(activeStatsTabKey==="general"
             ? Math.round(Number(meRow.lmmr||0))
-            : (Math.round(Number(meRow.lmmr||0))+" / "+Math.round(Number(meRow.sr_points||0))))
+            : Math.round(Number(meRow.sr_points||0)))
         });
       } else {
         setUserStatBoxes();
@@ -661,7 +672,7 @@
       if(!detail)return;
       var lg=detail.league;
       titleEl.textContent=lg.name;
-      subtitleEl.textContent=lg.football_type+" \u00B7 "+lg.goal_size+" \u00B7 "+roleLabel(lg.member_role)+" "+roleIcon(lg.member_role);
+      subtitleEl.textContent=roleLabel(lg.member_role)+" "+roleIcon(lg.member_role);
       addMatchBtn.style.display=canManage()?"inline-flex":"none";
       addMatchBtn.href="./create_match.html?league_id="+lg.id;
       settingsBtn.style.display=canManage()?"inline-flex":"none";

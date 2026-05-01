@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
-  <title>League Match History</title>
+  <title>Matches Overview</title>
   <style>
     :root{--text:#0e2c1d;--muted:#4d6f60;--accent:#1f8a4c;--line:rgba(14,44,29,.16);--panel:#fff;--soft:#f3faf6;--bg:#dff0e7;--danger:#b42318;}
     [data-theme="dark"]{--text:#e7f5ee;--muted:#9dc4b2;--accent:#2fa765;--line:rgba(231,245,238,.2);--panel:#16241f;--soft:#1b2d27;--bg:#101b17;--danger:#ef6f66;}
@@ -22,14 +22,17 @@
     .item{border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;}
     .status{min-height:20px;color:var(--muted);}
     .status.error{color:var(--danger);}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+    .tab-btn{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:999px;padding:6px 11px;font:inherit;font-weight:700;cursor:pointer;}
+    .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="row" style="margin-bottom:10px;">
       <div>
-        <h1 style="margin:0;" id="pageTitle">League Match History</h1>
-        <div class="muted">Full match history for this league.</div>
+        <h1 style="margin:0;" id="pageTitle">Matches Overview</h1>
+        <div class="muted">All league matches, split by state.</div>
       </div>
       <div class="row">
         <button class="btn" id="darkModeToggle" type="button">🌙</button>
@@ -38,6 +41,11 @@
     </div>
 
     <div class="card">
+      <div class="tabs" id="tabs">
+        <button class="tab-btn active" type="button" data-tab="upcoming">Upcoming</button>
+        <button class="tab-btn" type="button" data-tab="live">Live</button>
+        <button class="tab-btn" type="button" data-tab="history">History</button>
+      </div>
       <div class="list" id="list"><div class="muted">Loading…</div></div>
       <div id="status" class="status"></div>
     </div>
@@ -66,6 +74,9 @@
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
     const listEl = document.getElementById("list");
     const statusEl = document.getElementById("status");
+    const tabsEl = document.getElementById("tabs");
+    let activeTab = "upcoming";
+    let allRows = [];
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function apiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -82,8 +93,23 @@
       return body;
     }
 
+    function tabForStatus(status){
+      const s = String(status || "").toLowerCase();
+      if(["live","in_progress","ongoing"].includes(s)) return "live";
+      if(["upcoming","registration_open","registration_closed","scheduled","pending"].includes(s)) return "upcoming";
+      return "history";
+    }
+
+    function emptyMessage(){
+      return activeTab === "live"
+        ? "No live matches right now."
+        : activeTab === "upcoming"
+          ? "No upcoming matches."
+          : "No match history yet.";
+    }
+
     function render(rows){
-      if(!rows.length){ listEl.innerHTML = '<div class="muted">No match history yet.</div>'; return; }
+      if(!rows.length){ listEl.innerHTML = '<div class="muted">' + esc(emptyMessage()) + '</div>'; return; }
       listEl.innerHTML = rows.map(function(entry){
         const m = entry.match || {};
         const when = m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : "Unknown time";
@@ -100,19 +126,42 @@
       });
     }
 
+    function renderActiveTab(){
+      if(tabsEl){
+        tabsEl.querySelectorAll(".tab-btn").forEach(function(btn){
+          btn.classList.toggle("active", btn.dataset.tab === activeTab);
+        });
+      }
+      const filtered = allRows.filter(function(entry){
+        const m = entry && entry.match ? entry.match : {};
+        return tabForStatus(m.status) === activeTab;
+      });
+      render(filtered);
+      show("Loaded " + allRows.length + " matches · " + filtered.length + " in " + activeTab + ".");
+    }
+
     async function load(){
       if(!leagueId){ show("Missing league id.", "error"); return; }
       if(!token()){ show("Please log in from lobby first.", "error"); return; }
       try{
         const rows = await apiFetch("/leagues/" + leagueId + "/match-history");
         if(Array.isArray(rows) && rows.length && rows[0].league_name){
-          document.getElementById("pageTitle").textContent = rows[0].league_name + " - Match History";
+          document.getElementById("pageTitle").textContent = rows[0].league_name + " - Matches Overview";
         }
-        render(Array.isArray(rows) ? rows : []);
-        show("Loaded " + (Array.isArray(rows) ? rows.length : 0) + " matches.");
+        allRows = Array.isArray(rows) ? rows : [];
+        renderActiveTab();
       }catch(err){
         show(err.message || "Failed to load history.", "error");
       }
+    }
+
+    if(tabsEl){
+      tabsEl.addEventListener("click", function(e){
+        const btn = e.target.closest(".tab-btn");
+        if(!btn) return;
+        activeTab = btn.dataset.tab || "upcoming";
+        renderActiveTab();
+      });
     }
 
     load();

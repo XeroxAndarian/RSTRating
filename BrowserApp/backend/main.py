@@ -707,6 +707,7 @@ class LeaguePlayerStatsTabRow(BaseModel):
     attendance: int
     wins: int
     goals: int
+    own_goals: int
     assists: int
     lmmr: float
     sr_points: float
@@ -3893,6 +3894,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                    COALESCE(lps.attendance, 0) AS attendance,
                    COALESCE(lps.wins, 0) AS wins,
                    COALESCE(lps.goals, 0) AS goals,
+                 COALESCE(lps.own_goals, 0) AS own_goals,
                    COALESCE(lps.assists, 0) AS assists,
                    COALESCE(lps.rating, ?) AS lmmr
             FROM league_memberships AS lm
@@ -3916,6 +3918,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                         attendance=int(r["attendance"]),
                         wins=int(r["wins"]),
                         goals=int(r["goals"]),
+                        own_goals=int(r["own_goals"]),
                         assists=int(r["assists"]),
                         lmmr=float(r["lmmr"]),
                         sr_points=0.0,
@@ -3937,6 +3940,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                        COALESCE(ss.attendance, 0) AS attendance,
                        COALESCE(ss.wins, 0) AS wins,
                        COALESCE(ss.goals, 0) AS goals,
+                      COALESCE(ss.own_goals, 0) AS own_goals,
                        COALESCE(ss.assists, 0) AS assists,
                        COALESCE(lps.rating, ?) AS lmmr,
                        COALESCE(ss.points, ?) AS sr_points
@@ -3968,6 +3972,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                             attendance=int(r["attendance"]),
                             wins=int(r["wins"]),
                             goals=int(r["goals"]),
+                            own_goals=int(r["own_goals"]),
                             assists=int(r["assists"]),
                             lmmr=float(r["lmmr"]),
                             sr_points=float(r["sr_points"]),

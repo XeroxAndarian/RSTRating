@@ -7,6 +7,8 @@
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <title>Looking for League</title>
   <style>
     :root { --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16); --panel:#fff; --panel-soft:#f3faf6; --pill:#ebf7ef; --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -32,6 +34,11 @@
     .muted { color:var(--muted); }
     .status { min-height:20px; color:var(--muted); margin-top:6px; }
     .status.error { color:var(--danger); }
+    .build-stamp { font-size:.74rem; color:var(--muted); text-align:right; margin-top:4px; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { width:min(760px,100%); background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 18px 40px rgba(0,0,0,.28); }
+    .map-wrap { width:100%; height:360px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    #pickMap { width:100%; height:100%; }
   </style>
 </head>
 <body>
@@ -65,6 +72,7 @@
             <label for="maxKm" class="muted">Max km</label>
             <input id="maxKm" type="number" step="1" min="1" placeholder="25">
           </div>
+          <button class="btn ghost" id="pickOnMapBtn" type="button">Pick on map</button>
           <button class="btn ghost" id="useLocationBtn" type="button">Use my location</button>
           <button class="btn ghost" id="clearLocationBtn" type="button">Clear location</button>
           <span class="location-pill" id="locationState">Location not set</span>
@@ -76,6 +84,21 @@
       <h3 style="margin:0 0 10px;">Results</h3>
       <div id="results" class="list"></div>
       <div id="status" class="status"></div>
+    </div>
+    <div class="build-stamp">Build: discover-v2026-05-01-1</div>
+  </div>
+
+  <div class="modal-backdrop" id="mapPickerModal">
+    <div class="modal-card">
+      <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+        <strong>Pick location on map</strong>
+        <button class="btn ghost" id="closeMapPickerBtn" type="button">Close</button>
+      </div>
+      <div class="muted" style="font-size:.85rem; margin-bottom:8px;">Click anywhere on the map to set your search location.</div>
+      <div class="map-wrap"><div id="pickMap"></div></div>
+      <div class="row" style="margin-top:10px; justify-content:flex-end;">
+        <button class="btn primary" id="applyMapLocationBtn" type="button">Use selected point</button>
+      </div>
     </div>
   </div>
 
@@ -116,8 +139,13 @@
     const locationStateEl = document.getElementById("locationState");
     const resultsEl = document.getElementById("results");
     const statusEl = document.getElementById("status");
+    const mapPickerModalEl = document.getElementById("mapPickerModal");
     let currentLatitude = null;
     let currentLongitude = null;
+    let mapPicker = null;
+    let mapMarker = null;
+    let pickedLatitude = null;
+    let pickedLongitude = null;
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -202,6 +230,67 @@
       if (locationStateEl) locationStateEl.textContent = "Location not set";
       show("Location filter cleared.");
     });
+
+    function ensureMapPicker() {
+      if (mapPicker || typeof L === "undefined") return;
+      mapPicker = L.map("pickMap", { zoomControl: true }).setView([46.1512, 14.9955], 8);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(mapPicker);
+      mapPicker.on("click", function(e){
+        pickedLatitude = Number(e.latlng.lat.toFixed(6));
+        pickedLongitude = Number(e.latlng.lng.toFixed(6));
+        if (mapMarker) mapPicker.removeLayer(mapMarker);
+        mapMarker = L.marker([pickedLatitude, pickedLongitude]).addTo(mapPicker);
+      });
+    }
+
+    function openMapPicker(){
+      ensureMapPicker();
+      if (!mapPicker) {
+        show("Map failed to load. Check internet connection.", "error");
+        return;
+      }
+      if (currentLatitude !== null && currentLongitude !== null) {
+        pickedLatitude = Number(currentLatitude);
+        pickedLongitude = Number(currentLongitude);
+        mapPicker.setView([pickedLatitude, pickedLongitude], 12);
+        if (mapMarker) mapPicker.removeLayer(mapMarker);
+        mapMarker = L.marker([pickedLatitude, pickedLongitude]).addTo(mapPicker);
+      } else {
+        pickedLatitude = null;
+        pickedLongitude = null;
+        mapPicker.setView([46.1512, 14.9955], 8);
+        if (mapMarker) { mapPicker.removeLayer(mapMarker); mapMarker = null; }
+      }
+      mapPickerModalEl.style.display = "flex";
+      setTimeout(() => mapPicker.invalidateSize(), 50);
+    }
+
+    function closeMapPicker(){
+      if (mapPickerModalEl) mapPickerModalEl.style.display = "none";
+    }
+
+    document.getElementById("pickOnMapBtn").addEventListener("click", openMapPicker);
+    document.getElementById("closeMapPickerBtn").addEventListener("click", closeMapPicker);
+    document.getElementById("applyMapLocationBtn").addEventListener("click", () => {
+      if (pickedLatitude === null || pickedLongitude === null) {
+        show("Please click a point on the map first.", "error");
+        return;
+      }
+      currentLatitude = Number(pickedLatitude);
+      currentLongitude = Number(pickedLongitude);
+      if (!maxKmEl.value) maxKmEl.value = "25";
+      if (locationStateEl) locationStateEl.textContent = "Location loaded";
+      closeMapPicker();
+      show("Location selected from map.");
+    });
+    if (mapPickerModalEl) {
+      mapPickerModalEl.addEventListener("click", (e) => {
+        if (e.target === mapPickerModalEl) closeMapPicker();
+      });
+    }
 
     document.body.addEventListener("click", async (e) => {
       const reqBtn = e.target.closest(".requestBtn");
