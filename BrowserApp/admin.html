@@ -210,14 +210,33 @@
         window.showToast(msg, toastKind);
       }
     }
-    async function apiFetch(path, options){
+    async function _doFetch(base, path, options) {
       var headers = Object.assign({}, options && options.headers || {});
       var token = getToken();
       if (token) headers.Authorization = "Bearer " + token;
-      var res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers: headers }));
+      var res = await fetch(base + path, Object.assign({}, options || {}, { headers: headers }));
       var body = null; try { body = await res.json(); } catch(e) {}
       if (!res.ok) throw new Error((body && body.detail) || "Request failed");
       return body;
+    }
+
+    async function apiFetch(path, options){
+      var base = getApiBase();
+      try {
+        return await _doFetch(base, path, options);
+      } catch (err) {
+        // Auto-recover from stale/broken API override by retrying against default backend.
+        var networkFailure = /failed to fetch|networkerror|load failed/i.test(String(err && err.message || ""));
+        var fallbackBase = (DEFAULT_API_BASE || "").trim();
+        if (networkFailure && fallbackBase && fallbackBase !== base) {
+          try {
+            localStorage.removeItem(API_BASE_KEY);
+            show("API override unreachable, retrying with default backend...", "");
+            return await _doFetch(fallbackBase, path, options);
+          } catch (_) {}
+        }
+        throw err;
+      }
     }
 
     function renderStats(data){
@@ -440,7 +459,13 @@
         var result = await apiFetch('/admin/hard-reset', { method: 'POST' });
         await load();
         show(result.detail || 'Hard reset complete.', 'ok');
-      } catch (err) { show(err.message || 'Hard reset failed.', 'error'); }
+      } catch (err) {
+        var message = err && err.message ? err.message : 'Hard reset failed.';
+        if (/failed to fetch|networkerror|load failed/i.test(message)) {
+          message = 'Hard reset failed to reach backend. Check API base override and backend availability, then try again.';
+        }
+        show(message, 'error');
+      }
     });
 
     load();

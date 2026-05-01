@@ -7,6 +7,8 @@
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <title>League Manager</title>
   <style>
     :root { --bg:#e9f7ef; --panel:#ffffff; --panel-soft:#f5f9ff; --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --danger:#b42318; --line:rgba(14,44,29,.15); --bg-a:#f3fbf6; --bg-b:#def0e6; }
@@ -31,6 +33,11 @@
     .stack { display:flex; flex-direction:column; }
     .sub-card { margin-top:6px; border:1px solid var(--line); border-radius:12px; padding:14px; background:var(--panel-soft); }
     .subtle { color:var(--muted); }
+    .location-pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--panel-soft); font-size:.8rem; color:var(--muted); }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { width:min(760px,100%); background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 18px 40px rgba(0,0,0,.28); }
+    .map-wrap { width:100%; height:360px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    #leaguePickMap { width:100%; height:100%; }
   </style>
 </head>
 <body>
@@ -60,6 +67,26 @@
 
         <label for="region">Region</label>
         <input id="region" name="region" maxlength="64" placeholder="e.g. Ljubljana" required>
+
+        <label>League location (for discover by distance)</label>
+        <div class="sub-card stack" style="gap:8px;">
+          <div class="row" style="margin-top:0;">
+            <button class="btn ghost" id="pickLeagueLocationBtn" type="button">Pick on map</button>
+            <button class="btn ghost" id="useMyLeagueLocationBtn" type="button">Use my location</button>
+            <button class="btn ghost" id="clearLeagueLocationBtn" type="button">Clear location</button>
+            <span class="location-pill" id="leagueLocationState">Location not set</span>
+          </div>
+          <div class="row" style="margin-top:0;">
+            <div style="flex:1;min-width:160px;">
+              <label for="leagueLatitude" style="margin:0 0 6px;">Latitude</label>
+              <input id="leagueLatitude" type="number" step="0.000001" min="-90" max="90" placeholder="46.0569" readonly>
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <label for="leagueLongitude" style="margin:0 0 6px;">Longitude</label>
+              <input id="leagueLongitude" type="number" step="0.000001" min="-180" max="180" placeholder="14.5058" readonly>
+            </div>
+          </div>
+        </div>
 
         <label for="description">Description</label>
         <textarea id="description" name="description" maxlength="300" placeholder="Friday five-a-side..."></textarea>
@@ -153,6 +180,20 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="leagueMapPickerModal">
+    <div class="modal-card">
+      <div class="row" style="justify-content:space-between; margin-top:0; margin-bottom:8px;">
+        <strong>Pick league location on map</strong>
+        <button class="btn ghost" id="closeLeagueMapPickerBtn" type="button">Close</button>
+      </div>
+      <div class="subtle" style="font-size:.85rem; margin-bottom:8px;">Click anywhere on the map to set league location.</div>
+      <div class="map-wrap"><div id="leaguePickMap"></div></div>
+      <div class="row" style="margin-top:10px; justify-content:flex-end;">
+        <button class="btn primary" id="applyLeagueMapLocationBtn" type="button">Use selected point</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function(){
       if (localStorage.getItem("rs_theme") !== "light") {
@@ -187,6 +228,16 @@
     const presets = [];
     const advancedOptionsEl = document.getElementById("advancedOptions");
     const toggleAdvancedBtn = document.getElementById("toggleAdvancedBtn");
+    const leagueLatitudeEl = document.getElementById("leagueLatitude");
+    const leagueLongitudeEl = document.getElementById("leagueLongitude");
+    const leagueLocationStateEl = document.getElementById("leagueLocationState");
+    const leagueMapPickerModalEl = document.getElementById("leagueMapPickerModal");
+    let leagueLatitude = null;
+    let leagueLongitude = null;
+    let leagueMapPicker = null;
+    let leagueMapMarker = null;
+    let pickedLeagueLatitude = null;
+    let pickedLeagueLongitude = null;
 
     function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase() { return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -198,6 +249,57 @@
       const el = document.getElementById(id);
       const val = Number(el ? el.value : fallback);
       return Number.isFinite(val) ? val : fallback;
+    }
+
+    function syncLeagueLocationInputs() {
+      if (leagueLatitudeEl) leagueLatitudeEl.value = leagueLatitude === null ? "" : String(leagueLatitude);
+      if (leagueLongitudeEl) leagueLongitudeEl.value = leagueLongitude === null ? "" : String(leagueLongitude);
+      if (leagueLocationStateEl) {
+        leagueLocationStateEl.textContent = (leagueLatitude === null || leagueLongitude === null)
+          ? "Location not set"
+          : `Location set (${leagueLatitude.toFixed(4)}, ${leagueLongitude.toFixed(4)})`;
+      }
+    }
+
+    function ensureLeagueMapPicker() {
+      if (leagueMapPicker || typeof L === "undefined") return;
+      leagueMapPicker = L.map("leaguePickMap", { zoomControl: true }).setView([46.1512, 14.9955], 8);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(leagueMapPicker);
+      leagueMapPicker.on("click", function(e){
+        pickedLeagueLatitude = Number(e.latlng.lat.toFixed(6));
+        pickedLeagueLongitude = Number(e.latlng.lng.toFixed(6));
+        if (leagueMapMarker) leagueMapPicker.removeLayer(leagueMapMarker);
+        leagueMapMarker = L.marker([pickedLeagueLatitude, pickedLeagueLongitude]).addTo(leagueMapPicker);
+      });
+    }
+
+    function openLeagueMapPicker() {
+      ensureLeagueMapPicker();
+      if (!leagueMapPicker) {
+        show("Map failed to load. Check internet connection.", "error");
+        return;
+      }
+      if (leagueLatitude !== null && leagueLongitude !== null) {
+        pickedLeagueLatitude = Number(leagueLatitude);
+        pickedLeagueLongitude = Number(leagueLongitude);
+        leagueMapPicker.setView([pickedLeagueLatitude, pickedLeagueLongitude], 12);
+        if (leagueMapMarker) leagueMapPicker.removeLayer(leagueMapMarker);
+        leagueMapMarker = L.marker([pickedLeagueLatitude, pickedLeagueLongitude]).addTo(leagueMapPicker);
+      } else {
+        pickedLeagueLatitude = null;
+        pickedLeagueLongitude = null;
+        leagueMapPicker.setView([46.1512, 14.9955], 8);
+        if (leagueMapMarker) { leagueMapPicker.removeLayer(leagueMapMarker); leagueMapMarker = null; }
+      }
+      leagueMapPickerModalEl.style.display = "flex";
+      setTimeout(() => leagueMapPicker.invalidateSize(), 50);
+    }
+
+    function closeLeagueMapPicker() {
+      if (leagueMapPickerModalEl) leagueMapPickerModalEl.style.display = "none";
     }
 
     function clearPresetEditor() {
@@ -307,6 +409,46 @@
       });
     }
 
+    document.getElementById("pickLeagueLocationBtn")?.addEventListener("click", openLeagueMapPicker);
+    document.getElementById("closeLeagueMapPickerBtn")?.addEventListener("click", closeLeagueMapPicker);
+    document.getElementById("applyLeagueMapLocationBtn")?.addEventListener("click", () => {
+      if (pickedLeagueLatitude === null || pickedLeagueLongitude === null) {
+        show("Please click a point on the map first.", "error");
+        return;
+      }
+      leagueLatitude = Number(pickedLeagueLatitude);
+      leagueLongitude = Number(pickedLeagueLongitude);
+      syncLeagueLocationInputs();
+      closeLeagueMapPicker();
+      show("League location selected.", "");
+    });
+    document.getElementById("useMyLeagueLocationBtn")?.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        show("Geolocation is not supported in this browser.", "error");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition((pos) => {
+        leagueLatitude = Number(pos.coords.latitude.toFixed(6));
+        leagueLongitude = Number(pos.coords.longitude.toFixed(6));
+        syncLeagueLocationInputs();
+        show("League location loaded from your device.", "");
+      }, () => {
+        show("Could not read your location.", "error");
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+    document.getElementById("clearLeagueLocationBtn")?.addEventListener("click", () => {
+      leagueLatitude = null;
+      leagueLongitude = null;
+      syncLeagueLocationInputs();
+      show("League location cleared.", "");
+    });
+    if (leagueMapPickerModalEl) {
+      leagueMapPickerModalEl.addEventListener("click", (e) => {
+        if (e.target === leagueMapPickerModalEl) closeLeagueMapPicker();
+      });
+    }
+    syncLeagueLocationInputs();
+
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.currentTarget;
@@ -329,6 +471,8 @@
             goal_size: form.goal_size.value,
             region: form.region.value.trim(),
             description: form.description.value.trim() || null,
+            latitude: leagueLatitude,
+            longitude: leagueLongitude,
             fee_type: form.fee_type.value,
             fee_value: Number(form.fee_value.value) || 0,
             rating_config: ratingConfig,

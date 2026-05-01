@@ -4756,8 +4756,8 @@ def discover_leagues(
             "(l.terminated_until IS NULL OR datetime(l.terminated_until) <= datetime('now'))",
         ]
         if region and region.strip():
-            where_clauses.append("LOWER(l.region) = LOWER(?)")
-            params.append(region.strip())
+            where_clauses.append("LOWER(l.region) LIKE LOWER(?)")
+            params.append(f"%{region.strip()}%")
         if q and q.strip():
             where_clauses.append("(LOWER(l.name) LIKE LOWER(?) OR LOWER(COALESCE(l.description, '')) LIKE LOWER(?))")
             like_q = f"%{q.strip()}%"
