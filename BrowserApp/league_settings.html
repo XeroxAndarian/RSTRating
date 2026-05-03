@@ -116,6 +116,17 @@
           <label for="settingAutoAccept" style="margin:0;font-weight:700;">Auto-accept new members</label>
         </div>
         <div class="row">
+          <input id="settingAllowJoinByCode" type="checkbox" style="width:auto;">
+          <label for="settingAllowJoinByCode" style="margin:0;font-weight:700;">Allow joining via permanent league code</label>
+        </div>
+        <div class="row" style="align-items:flex-end;">
+          <div style="flex:1;min-width:220px;">
+            <label for="settingPermanentCode">Permanent league code</label>
+            <input id="settingPermanentCode" type="text" readonly class="mono" placeholder="Loading...">
+          </div>
+          <button class="btn ghost sm" id="copyPermanentCodeBtn" type="button">Copy code</button>
+        </div>
+        <div class="row">
           <div style="flex:1;min-width:180px;">
             <label for="settingVisibility">League visibility</label>
             <select id="settingVisibility">
@@ -283,6 +294,27 @@
     </div>
 
     <div class="status" id="globalStatus"></div>
+  </div>
+
+  <!-- Edit Season Modal -->
+  <div class="modal-backdrop" id="editSeasonModal" style="display:none;">
+    <div class="modal-card">
+      <h3>Edit season</h3>
+      <input type="hidden" id="editSeasonId">
+      <label for="editSeasonName">Name</label>
+      <input id="editSeasonName" type="text" maxlength="80">
+      <label for="editSeasonDesc">Description (optional)</label>
+      <input id="editSeasonDesc" type="text" maxlength="300" placeholder="Optional">
+      <label for="editSeasonStart">Start</label>
+      <input id="editSeasonStart" type="datetime-local">
+      <label for="editSeasonEnd">End</label>
+      <input id="editSeasonEnd" type="datetime-local">
+      <div class="row" style="margin-top:16px;">
+        <button class="btn primary" id="editSeasonSaveBtn" type="button">Save</button>
+        <button class="btn ghost" id="editSeasonCancelBtn" type="button">Cancel</button>
+      </div>
+      <div class="status" id="editSeasonStatus"></div>
+    </div>
   </div>
 
   <!-- Ban Modal -->
@@ -775,6 +807,8 @@
         document.getElementById("settingName").value = lg.name || "";
         document.getElementById("settingDesc").value = lg.description || "";
         document.getElementById("settingAutoAccept").checked = !!lg.auto_accept_members;
+        document.getElementById("settingAllowJoinByCode").checked = (lg.allow_join_by_code !== false);
+        document.getElementById("settingPermanentCode").value = lg.invite_code || "";
         document.getElementById("settingFeeType").value = lg.fee_type || "none";
         document.getElementById("settingFeeValue").value = Number(lg.fee_value || 0);
         document.getElementById("settingVisibility").value = lg.league_visibility || "private";
@@ -802,8 +836,9 @@
                 const endLbl = s.end_at ? new Date(s.end_at).toLocaleString() : "-";
                 const activeBadge = s.is_active ? '<span class="pill">Current</span>' : '';
                 const activateBtn = s.is_active ? '' : `<button type="button" class="btn ghost sm activateSeasonBtn" data-season-id="${Number(s.id)}">Activate</button>`;
-                const closeBtn = !s.end_at || (s.is_active) ? `<button type="button" class="btn ghost sm closeSeasonBtn" data-season-id="${Number(s.id)}" style="color:var(--danger);">Close</button>` : '';
-                return `<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong>${esc(s.name || ("Season " + s.id))}</strong> ${activeBadge}<div class="muted" style="font-size:.82rem;">${esc(startLbl)} - ${esc(endLbl)}</div>${s.description ? `<div class="muted" style="font-size:.82rem;">${esc(s.description)}</div>` : ""}</div><div style="display:flex;gap:6px;">${activateBtn}${closeBtn}</div></div>`;
+                const closeBtn = !s.end_at || s.is_active ? `<button type="button" class="btn ghost sm closeSeasonBtn" data-season-id="${Number(s.id)}" style="color:var(--danger);">Close</button>` : '';
+                const editBtn = `<button type="button" class="btn ghost sm editSeasonBtn" data-season-id="${Number(s.id)}" data-season-name="${esc(s.name)}" data-season-start="${s.start_at||""}" data-season-end="${s.end_at||""}" data-season-desc="${esc(s.description||"")}">Edit</button>`;
+                return `<div class="item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong>${esc(s.name || ("Season " + s.id))}</strong> ${activeBadge}<div class="muted" style="font-size:.82rem;">${esc(startLbl)} – ${esc(endLbl)}</div>${s.description ? `<div class="muted" style="font-size:.82rem;">${esc(s.description)}</div>` : ""}</div><div style="display:flex;gap:6px;">${editBtn}${activateBtn}${closeBtn}</div></div>`;
               }).join("")
             : '<div class="muted">No seasons yet.</div>';
         }
@@ -890,6 +925,7 @@
         name: document.getElementById("settingName").value.trim() || null,
         description: document.getElementById("settingDesc").value.trim() || null,
         auto_accept_members: document.getElementById("settingAutoAccept").checked,
+        allow_join_by_code: document.getElementById("settingAllowJoinByCode").checked,
         league_visibility: document.getElementById("settingVisibility").value,
         discover_visible: document.getElementById("settingDiscoverVisible").checked,
         region: document.getElementById("settingRegion").value.trim() || null,
@@ -962,10 +998,79 @@
         } catch (err) {
           show(err.message || "Failed to close season.", "error", "seasonStatus");
         }
+        return;
+      }
+      const editBtn = e.target.closest(".editSeasonBtn");
+      if (editBtn) {
+        const sid = Number(editBtn.dataset.seasonId || 0);
+        if (!sid) return;
+        document.getElementById("editSeasonId").value = String(sid);
+        document.getElementById("editSeasonName").value = editBtn.dataset.seasonName || "";
+        document.getElementById("editSeasonDesc").value = editBtn.dataset.seasonDesc || "";
+        const toLocalDT = (iso) => {
+          if (!iso) return "";
+          const d = new Date(iso);
+          const pad = (n) => String(n).padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        document.getElementById("editSeasonStart").value = toLocalDT(editBtn.dataset.seasonStart);
+        document.getElementById("editSeasonEnd").value = toLocalDT(editBtn.dataset.seasonEnd);
+        show("", "", "editSeasonStatus");
+        document.getElementById("editSeasonModal").style.display = "flex";
+      }
+    });
+
+    document.getElementById("copyPermanentCodeBtn")?.addEventListener("click", async () => {
+      const code = (document.getElementById("settingPermanentCode")?.value || "").trim();
+      if (!code) {
+        show("No permanent code available.", "error", "settingsStatus");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(code);
+        show("Permanent code copied.", "", "settingsStatus");
+      } catch (_) {
+        show("Copy failed.", "error", "settingsStatus");
       }
     });
 
     // New invite
+    document.getElementById("editSeasonCancelBtn")?.addEventListener("click", () => {
+      document.getElementById("editSeasonModal").style.display = "none";
+    });
+    document.getElementById("editSeasonModal")?.addEventListener("click", (e) => {
+      if (e.target === document.getElementById("editSeasonModal")) document.getElementById("editSeasonModal").style.display = "none";
+    });
+    document.getElementById("editSeasonSaveBtn")?.addEventListener("click", async () => {
+      const sid = Number(document.getElementById("editSeasonId").value || 0);
+      if (!sid) return;
+      const name = document.getElementById("editSeasonName").value.trim();
+      const desc = document.getElementById("editSeasonDesc").value.trim();
+      const startRaw = document.getElementById("editSeasonStart").value;
+      const endRaw = document.getElementById("editSeasonEnd").value;
+      if (!name) { show("Season name is required.", "error", "editSeasonStatus"); return; }
+      if (startRaw && endRaw && new Date(endRaw) <= new Date(startRaw)) {
+        show("End must be after start.", "error", "editSeasonStatus"); return;
+      }
+      const payload = {
+        name,
+        description: desc || null,
+        start_at: startRaw ? new Date(startRaw).toISOString() : null,
+        end_at: endRaw ? new Date(endRaw).toISOString() : null,
+      };
+      try {
+        await apiFetch(`/leagues/${leagueId}/seasons/${sid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        document.getElementById("editSeasonModal").style.display = "none";
+        show("Season updated.", "", "seasonStatus");
+        await load();
+      } catch (err) {
+        show(err.message || "Failed to update season.", "error", "editSeasonStatus");
+      }
+    });
     document.getElementById("newInviteBtn").addEventListener("click", async () => {
       try {
         await apiFetch(`/leagues/${leagueId}/invites`, { method: "POST" });

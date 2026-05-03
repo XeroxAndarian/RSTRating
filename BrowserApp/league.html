@@ -519,10 +519,10 @@
         var when=m.scheduled_at?new Date(m.scheduled_at).getTime():0;
         if(start!==null && when<start) return;
         if(end!==null && when>=end) return;
-        var teamA=Array.isArray(m.team_a_players)?m.team_a_players:[];
-        var teamB=Array.isArray(m.team_b_players)?m.team_b_players:[];
-        var inA=teamA.some(function(p){return Number(p.user_id)===Number(userId);});
-        var inB=teamB.some(function(p){return Number(p.user_id)===Number(userId);});
+        var teamA=Array.isArray(m.team_a)?m.team_a:[];
+        var teamB=Array.isArray(m.team_b)?m.team_b:[];
+        var inA=teamA.some(function(p){return Number(p)===Number(userId);});
+        var inB=teamB.some(function(p){return Number(p)===Number(userId);});
         if(!inA && !inB) return;
         var a=Number(m.score_a||0), b=Number(m.score_b||0);
         if(a===b){ draws++; return; }

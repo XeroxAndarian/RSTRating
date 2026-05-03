@@ -446,7 +446,7 @@
       const aMap = new Map();
       const bMap = new Map();
       rows.forEach((e) => {
-        const benefitingTeam = e.event_type === "own_goal" ? (e.team === "b" ? "a" : "b") : (e.team === "b" ? "b" : "a");
+        const benefitingTeam = e.team === "b" ? "b" : "a";
         const baseName = playerName(e.user_id);
         const name = `${baseName}${e.event_type === "own_goal" ? "*" : ""}`;
         const target = benefitingTeam === "a" ? aMap : bMap;
@@ -466,7 +466,15 @@
       const btns = [];
 
       if (!isCensored() && m.status === "registration_open") {
-        if (!my || my === "cancelled") btns.push('<button class="btn primary" data-act="register">Register</button>');
+        const isFull = m.registered_count >= m.max_participants;
+        const hasQueue = m.waitlisted_count > 0;
+        if (!my || my === "cancelled") {
+          if (my === "offered" || (!isFull && !hasQueue)) {
+            btns.push('<button class="btn primary" data-act="register">Register</button>');
+          } else {
+            btns.push('<button class="btn ghost" data-act="register">Join waitlist</button>');
+          }
+        }
         if (my && my !== "cancelled") btns.push('<button class="btn danger" data-act="cancel-reg">Cancel registration</button>');
       }
 
@@ -682,8 +690,9 @@
       leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
 
       const hasTeams = hasGeneratedTeams(m);
-      const showRegistrations = (m.status === "registration_open") || (m.status === "registration_closed" && !m.teams_confirmed);
-      const showTeams = ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
+      const privateRestricted = m.visibility === "private" && !isAdmin();
+      const showRegistrations = !privateRestricted && ((m.status === "registration_open") || (m.status === "registration_closed" && !m.teams_confirmed));
+      const showTeams = !privateRestricted && ["registration_closed", "live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       const showEvents = ["live", "finished", "completed", "cancelled"].includes(m.status) && hasTeams;
       teamsCard.style.display = (showRegistrations || showTeams) ? "block" : "none";
       registrationsSection.style.display = showRegistrations ? "block" : "none";
@@ -801,13 +810,25 @@
               }),
             });
           }
-          if (act === "confirm-teams") await apiFetch(`/matches/${m.id}/confirm-teams`, { method: "POST" });
+          if (act === "confirm-teams") {
+            const ok = window.confirm("Confirm teams? This will lock team rosters before match start.");
+            if (!ok) return;
+            await apiFetch(`/matches/${m.id}/confirm-teams`, { method: "POST" });
+          }
           if (act === "start") await apiFetch(`/matches/${m.id}/start`, { method: "POST" });
           if (act === "pause") await apiFetch(`/matches/${m.id}/pause`, { method: "POST" });
           if (act === "resume") await apiFetch(`/matches/${m.id}/resume`, { method: "POST" });
-          if (act === "finish") await apiFetch(`/matches/${m.id}/finish`, { method: "POST" });
+          if (act === "finish") {
+            const ok = window.confirm("Finish match now? You can still review events before confirming the final result.");
+            if (!ok) return;
+            await apiFetch(`/matches/${m.id}/finish`, { method: "POST" });
+          }
           if (act === "confirm") await apiFetch(`/matches/${m.id}/confirm`, { method: "POST" });
-          if (act === "cancel") await apiFetch(`/matches/${m.id}/cancel`, { method: "POST" });
+          if (act === "cancel") {
+            const ok = window.confirm("Cancel this match? This action cannot be undone.");
+            if (!ok) return;
+            await apiFetch(`/matches/${m.id}/cancel`, { method: "POST" });
+          }
           if (act === "toggle-vis") {
             const next = m.visibility === "private" ? "public" : "private";
             await apiFetch(`/matches/${m.id}/visibility`, {

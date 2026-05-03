@@ -2133,14 +2133,18 @@
                     return;
                 }
                 try {
-                    const league = await apiFetch("/leagues/join-by-code", {
+                    const result = await apiFetch("/leagues/join-by-code", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ invite_code: code })
                     });
                     closeJoinDrawer();
-                    showStatus(`Joined ${league.name}. Redirecting...`, "ok");
-                    window.location.href = `./league.html?id=${league.id}`;
+                    if (result && result.status === "joined") {
+                        showStatus(result.detail || `Joined ${result.league_name}. Redirecting...`, "ok");
+                        window.location.href = `./league.html?id=${result.league_id}`;
+                        return;
+                    }
+                    showStatus(result && result.detail ? result.detail : "Join request submitted. Waiting for manager/ref approval.", "ok");
                 } catch (error) {
                     showStatus(error.message || "Could not join with invite code.", "error");
                 }
