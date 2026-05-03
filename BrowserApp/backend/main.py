@@ -277,6 +277,14 @@ class AdminLeaguePermanentTerminatePayload(BaseModel):
     confirm: bool = Field(default=False)
 
 
+class AdminSettingsOut(BaseModel):
+    auto_approve_leagues: bool
+
+
+class AdminSettingsPatchPayload(BaseModel):
+    auto_approve_leagues: bool | None = None
+
+
 class PlayerSettingsOut(BaseModel):
     profile_visibility: str
     friend_request_policy: str
@@ -796,6 +804,29 @@ def ensure_column(conn: sqlite3.Connection, table_name: str, column_name: str, d
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
+def get_app_setting(conn: sqlite3.Connection, key: str, default: str) -> str:
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return default
+    return str(row["value"])
+
+
+def set_app_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO app_settings (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+        """,
+        (key, value, utc_now_iso()),
+    )
+
+
+def get_bool_app_setting(conn: sqlite3.Connection, key: str, default: bool = False) -> bool:
+    raw = get_app_setting(conn, key, "1" if default else "0")
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def infer_football_type(old_sport: str | None) -> str:
     if old_sport is None:
         return "outdoor"
@@ -826,6 +857,22 @@ def _is_valid_recovery_token(value: str | None) -> bool:
 
 def init_db() -> None:
     with get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        set_app_setting(
+            conn,
+            "auto_approve_leagues",
+            get_app_setting(conn, "auto_approve_leagues", "0"),
+        )
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -3555,9 +3602,12 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
     created_at = utc_now_iso()
     user_id = int(current_user["id"])
     is_admin_creator = str(current_user["role"] or "") == "admin"
-    approval_status = "approved" if is_admin_creator else "pending"
-    approved_at = created_at if is_admin_creator else None
     with get_conn() as conn:
+        auto_approve_leagues = get_bool_app_setting(conn, "auto_approve_leagues", default=False)
+        should_auto_approve = is_admin_creator or auto_approve_leagues
+        approval_status = "approved" if should_auto_approve else "pending"
+        approved_at = created_at if should_auto_approve else None
+
         cursor = conn.execute(
             """
             INSERT INTO leagues (name, sport, football_type, goal_size, region, league_visibility, discover_visible, latitude, longitude, invite_code, description, fee_type, fee_value, match_presets_json, rating_config_json, approval_status, approved_at, approved_by_user_id, approval_note, owner_id, created_at, updated_at)
@@ -4415,6 +4465,28 @@ def admin_overview(current_admin: sqlite3.Row = Depends(resolve_current_admin)) 
     }
 
 
+@app.get("/admin/settings", response_model=AdminSettingsOut)
+def admin_get_settings(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> AdminSettingsOut:
+    with get_conn() as conn:
+        return AdminSettingsOut(
+            auto_approve_leagues=get_bool_app_setting(conn, "auto_approve_leagues", default=False),
+        )
+
+
+@app.patch("/admin/settings", response_model=AdminSettingsOut)
+def admin_patch_settings(
+    payload: AdminSettingsPatchPayload,
+    current_admin: sqlite3.Row = Depends(resolve_current_admin),
+) -> AdminSettingsOut:
+    with get_conn() as conn:
+        if payload.auto_approve_leagues is not None:
+            set_app_setting(conn, "auto_approve_leagues", "1" if payload.auto_approve_leagues else "0")
+        conn.commit()
+        return AdminSettingsOut(
+            auto_approve_leagues=get_bool_app_setting(conn, "auto_approve_leagues", default=False),
+        )
+
+
 @app.get("/admin/users", response_model=list[AdminUserOut])
 def admin_list_users(current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> list[AdminUserOut]:
     with get_conn() as conn:
@@ -4653,6 +4725,23 @@ def admin_unblock_user(user_id: int, current_admin: sqlite3.Row = Depends(resolv
         )
         conn.commit()
     return MessageOut(detail=f"Account '{user['username']}' unblocked.")
+
+
+@app.post("/admin/users/{user_id}/promote", response_model=MessageOut)
+def admin_promote_user(user_id: int, current_admin: sqlite3.Row = Depends(resolve_current_admin)) -> MessageOut:
+    with get_conn() as conn:
+        user = conn.execute("SELECT id, username, role, is_active FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if str(user["role"] or "") == "admin":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already an admin")
+
+        conn.execute(
+            "UPDATE users SET role = 'admin', is_active = 1, terminated_at = NULL, updated_at = ? WHERE id = ?",
+            (utc_now_iso(), user_id),
+        )
+        conn.commit()
+    return MessageOut(detail=f"User '{user['username']}' promoted to admin.")
 
 
 @app.post("/admin/users/{user_id}/terminate", response_model=MessageOut)

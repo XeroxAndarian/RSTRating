@@ -106,7 +106,10 @@
       <div class="card">
         <div class="section-head">
           <h2 style="margin:0;">Leagues</h2>
-          <input id="leagueSearch" type="text" placeholder="Search leagues or owners" style="max-width:280px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="btn" id="autoApproveToggleBtn" type="button">Auto approve: off</button>
+            <input id="leagueSearch" type="text" placeholder="Search leagues or owners" style="max-width:280px;">
+          </div>
         </div>
         <div class="list" id="leagueList"><p class="meta">Loading...</p></div>
         <div class="pager" id="leaguePager">
@@ -239,6 +242,7 @@
     var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
     var HOSTED_API_BASE = "https://rstrating-accounts-api.onrender.com";
     var users = [], leagues = [], matches = [];
+    var adminSettings = { auto_approve_leagues: false };
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"', '&quot;'); }
     function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
@@ -297,6 +301,15 @@
         ["Matches", matches.length]
       ];
       grid.innerHTML = items.map(function(item){ return '<div class="stat"><div class="label">' + esc(item[0]) + '</div><div class="value">' + esc(item[1]) + '</div></div>'; }).join("");
+    }
+
+    function renderAdminSettings(){
+      var btn = document.getElementById("autoApproveToggleBtn");
+      if (!btn) return;
+      var on = !!adminSettings.auto_approve_leagues;
+      btn.textContent = on ? "Auto approve: on" : "Auto approve: off";
+      btn.className = on ? "btn primary" : "btn";
+      btn.title = on ? "New leagues are approved automatically." : "New leagues require manual approval.";
     }
 
     var ITEMS_PER_PAGE = 20;
@@ -366,10 +379,11 @@
       list.innerHTML = paged.map(function(u){
         var pill = u.is_active ? '<span class="pill">active</span>' : '<span class="pill rejected">blocked</span>';
         var resetBtn = u.is_active ? '<button class="btn" data-user-reset="' + u.id + '">Reset password</button>' : '';
+        var promoteBtn = (u.role !== 'admin') ? '<button class="btn primary" data-user-promote="' + u.id + '" data-user-name="' + esc(u.username) + '">Promote to admin</button>' : '';
         var blockBtn = (u.is_active && u.role !== 'admin') ? '<button class="btn warn" data-user-block="' + u.id + '">Block</button>' : '';
         var deleteUserBtn = (u.role !== 'admin') ? '<button class="btn danger" data-user-delete="' + u.id + '" data-user-name="' + esc(u.username) + '">Delete user</button>' : '';
         var unblockBtn = (!u.is_active) ? '<button class="btn primary" data-user-unblock="' + u.id + '">Unblock</button>' : '';
-        return '<div class="row clickable" data-open-player="' + u.id + '"><div class="row-top"><div><div class="title">' + esc(u.username) + pill + '</div><div class="meta">' + esc(u.email || '-') + ' · role ' + esc(u.role) + ' · recovery token ' + esc(u.recovery_token || u.recovery_id || '-') + '</div><div class="meta">Leagues ' + esc(u.league_count) + ' · Owns ' + esc(u.owned_league_count) + ' · Rating ' + esc(Number(u.global_rating || 0).toFixed(1)) + '</div></div></div><div class="toolbar">' + resetBtn + blockBtn + unblockBtn + deleteUserBtn + '</div></div>';
+        return '<div class="row clickable" data-open-player="' + u.id + '"><div class="row-top"><div><div class="title">' + esc(u.username) + pill + '</div><div class="meta">' + esc(u.email || '-') + ' · role ' + esc(u.role) + ' · recovery token ' + esc(u.recovery_token || u.recovery_id || '-') + '</div><div class="meta">Leagues ' + esc(u.league_count) + ' · Owns ' + esc(u.owned_league_count) + ' · Rating ' + esc(Number(u.global_rating || 0).toFixed(1)) + '</div></div></div><div class="toolbar">' + resetBtn + promoteBtn + blockBtn + unblockBtn + deleteUserBtn + '</div></div>';
       }).join("") || '<p class="meta">No users found.</p>';
       var pager = document.getElementById("userPager");
       var totalUserPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -385,14 +399,17 @@
         if (!me || me.role !== 'admin') { show('Admin access required.', 'error'); return; }
         var results = await Promise.all([
           apiFetch('/admin/overview'),
+          apiFetch('/admin/settings'),
           apiFetch('/admin/users'),
           apiFetch('/admin/leagues'),
           apiFetch('/admin/matches')
         ]);
-        users   = Array.isArray(results[1]) ? results[1] : [];
-        leagues = Array.isArray(results[2]) ? results[2] : [];
-        matches = Array.isArray(results[3]) ? results[3] : [];
+        adminSettings = results[1] && typeof results[1] === 'object' ? results[1] : { auto_approve_leagues: false };
+        users   = Array.isArray(results[2]) ? results[2] : [];
+        leagues = Array.isArray(results[3]) ? results[3] : [];
+        matches = Array.isArray(results[4]) ? results[4] : [];
         renderStats(results[0]);
+        renderAdminSettings();
         renderLeagues();
         renderMatches();
         renderUsers();
@@ -403,6 +420,21 @@
     }
 
     document.getElementById('refreshBtn').addEventListener('click', load);
+    document.getElementById('autoApproveToggleBtn').addEventListener('click', async function(){
+      var nextValue = !adminSettings.auto_approve_leagues;
+      try {
+        var updated = await apiFetch('/admin/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auto_approve_leagues: nextValue })
+        });
+        adminSettings = updated && typeof updated === 'object' ? updated : { auto_approve_leagues: nextValue };
+        renderAdminSettings();
+        show(adminSettings.auto_approve_leagues ? 'Auto-approve leagues enabled.' : 'Auto-approve leagues disabled.', 'ok');
+      } catch (err) {
+        show(err.message || 'Failed to update setting.', 'error');
+      }
+    });
     document.getElementById('leagueSearch').addEventListener('input', function(){ leaguePage = 1; renderLeagues(); });
     document.getElementById('matchSearch').addEventListener('input', function(){ matchPage = 1; renderMatches(); });
     document.getElementById('userSearch').addEventListener('input', function(){ userPage = 1; renderUsers(); });
@@ -523,6 +555,18 @@
         return;
       }
       var blockBtn = e.target.closest('[data-user-block]');
+      var promoteBtn = e.target.closest('[data-user-promote]');
+      if (promoteBtn) {
+        var promoteName = promoteBtn.dataset.userName || 'this user';
+        var promoteResult = await _openModal({ title: 'Promote User', message: 'Promote "' + promoteName + '" to admin? They will get full admin panel access.', fields: [], confirmText: 'Promote', cancelText: 'Cancel', confirmClass: 'primary' });
+        if (!promoteResult) return;
+        try {
+          var promoteResponse = await apiFetch('/admin/users/' + promoteBtn.dataset.userPromote + '/promote', { method: 'POST' });
+          await load();
+          show(promoteResponse.detail || 'User promoted to admin.', 'ok');
+        } catch (err) { show(err.message || 'Failed.', 'error'); }
+        return;
+      }
       if (blockBtn) {
         var blockResult = await _openModal({ title: 'Block Account', message: 'Temporarily block this account? The user will no longer be able to sign in until unblocked.', fields: [], confirmText: 'Block account', cancelText: 'Cancel', confirmClass: 'danger' });
         if (!blockResult) return;
