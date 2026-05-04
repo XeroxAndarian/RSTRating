@@ -39,13 +39,15 @@
     "--bg": lightBg, "--panel": "#ffffff", "--panel-soft": mix("#ffffff", lightBg, 0.25),
     "--card": rgba("#ffffff", 0.92), "--text": "#1a2530", "--muted": mix("#1a2530", lightBg, 0.52),
     "--accent": ACCENT, "--accent-dark": mix(ACCENT, "#000000", 0.2),
-    "--line": rgba("#1a2530", 0.16), "--bg-a": BGA, "--bg-b": BGB
+    "--line": rgba("#1a2530", 0.16), "--bg-a": BGA, "--bg-b": BGB,
+    "--danger": "#b42318"
   };
   var DARK = {
     "--bg": darkBg, "--panel": darkPanel, "--panel-soft": darkPanelSoft,
     "--card": rgba(darkPanel, 0.9), "--text": "#e8eef5", "--muted": "#9fb1c3",
     "--accent": darkAccent, "--accent-dark": mix(darkAccent, "#000000", 0.2),
-    "--line": rgba("#e8eef5", 0.2), "--bg-a": darkBgA, "--bg-b": darkBgB
+    "--line": rgba("#e8eef5", 0.2), "--bg-a": darkBgA, "--bg-b": darkBgB,
+    "--danger": "#b42318"
   };
 
   function getApiBase() {
@@ -100,24 +102,24 @@
       + ".rs-quick-danger{background:var(--danger,#b42318);border-color:transparent;color:#fff;}"
       + ".rs-notif-bell{position:relative;}"
       + ".rs-notif-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--danger,#b42318);color:#fff;font-size:.7rem;display:none;align-items:center;justify-content:center;}"
-      + ".rs-notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:9998;}"
-      + ".rs-notif-backdrop.open{display:block;}"
-      + ".rs-notif-drawer{position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);transform:translateX(100%);transition:transform .18s ease;z-index:9999;background:var(--panel,#fff);border-left:1px solid var(--line,rgba(0,0,0,.15));display:flex;flex-direction:column;}"
-      + ".rs-notif-drawer.open{transform:translateX(0);}"
-      + ".rs-notif-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));}"
-      + ".rs-notif-head h3{margin:0;font-size:1.05rem;}"
-      + ".rs-icon-button{background:transparent;border:none;cursor:pointer;color:var(--muted,#666);font-size:1rem;padding:6px;border-radius:6px;transition:background .12s,color .12s;}"
-      + ".rs-icon-button:hover{background:var(--panel-soft,#f5f9ff);color:var(--text,#0e2c1d);}"
-      + ".rs-notif-tab-bar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));}"
-      + ".rs-notif-tab-btn{border:1px solid var(--line,rgba(0,0,0,.15));background:var(--panel-soft,#f5f9ff);color:var(--text,#0e2c1d);border-radius:999px;padding:6px 11px;font:inherit;font-weight:700;cursor:pointer;}"
-      + ".rs-notif-tab-btn.active{background:var(--accent,#1f8a4c);color:#fff;border-color:var(--accent,#1f8a4c);}"
-      + ".rs-notif-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}"
-      + ".rs-notif-item{border:1px solid var(--line,rgba(0,0,0,.15));border-radius:10px;padding:9px 10px;background:var(--panel-soft,#f5f9ff);cursor:pointer;}"
-      + ".rs-notif-item.unread{border-left:3px solid var(--accent,#1f8a4c);background:rgba(31,138,76,.1);border-color:rgba(31,138,76,.35);}"
-      + ".rs-notif-item-title{font-weight:700;font-size:.9rem;}"
-      + ".rs-notif-item-msg{font-size:.82rem;color:var(--muted,#666);margin-top:2px;}"
-      + ".rs-notif-item-time{font-size:.75rem;color:var(--muted,#666);margin-top:4px;}"
-      + ".rs-notif-actions{padding:10px 14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));display:flex;justify-content:flex-start;align-items:center;gap:8px;}";
+      + ".notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80;}"
+      + ".notif-drawer{position:fixed;top:0;right:0;width:min(400px,100vw);height:100vh;background:var(--panel-strong,var(--panel,#fff));border-left:1px solid var(--border,var(--line,rgba(0,0,0,.15)));display:flex;flex-direction:column;z-index:90;transform:translateX(100%);transition:transform .25s ease;overflow:hidden;}"
+      + ".notif-drawer.open{transform:translateX(0);}"
+      + ".notif-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border,var(--line,rgba(0,0,0,.15)));}"
+      + ".notif-drawer-header h3{margin:0;font-size:1.05rem;}"
+      + ".notif-drawer-actions{padding:10px 20px;border-bottom:1px solid var(--border,var(--line,rgba(0,0,0,.15)));}"
+      + ".notif-list{flex:1;overflow-y:auto;padding:12px;}"
+      + ".notif-item{padding:12px;border-radius:8px;margin-bottom:8px;background:var(--bg);border:1px solid var(--border,var(--line,rgba(0,0,0,.15)));cursor:pointer;transition:background .12s;}"
+      + ".notif-item:hover{background:var(--card);}"
+      + ".notif-item.unread{border-left:3px solid var(--accent);}"
+      + ".notif-item-title{font-weight:600;font-size:.9rem;margin-bottom:3px;}"
+      + ".notif-item-msg{font-size:.82rem;color:var(--muted,#666);}"
+      + ".notif-item-time{font-size:.75rem;color:var(--muted,#666);margin-top:4px;}"
+      + ".icon-button{background:transparent;border:none;cursor:pointer;color:var(--muted,#666);font-size:1rem;padding:6px;border-radius:6px;transition:background .12s,color .12s;}"
+      + ".icon-button:hover{background:var(--bg);color:var(--text,#0e2c1d);}"
+      + ".notif-tab-bar{display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border,var(--line,rgba(0,0,0,.15)));background:var(--panel-strong,var(--panel-soft,#f5f9ff));}"
+      + ".notif-tab-btn{appearance:none;border:1px solid var(--line,rgba(0,0,0,.15));border-radius:999px;padding:5px 16px;background:var(--card,var(--panel,#fff));color:var(--muted,#666);font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .12s,color .12s;}"
+      + ".notif-tab-btn.active{background:var(--accent,#1f8a4c);color:#fff;border-color:transparent;}";
     document.head.appendChild(st);
   }
 
@@ -143,32 +145,32 @@
   }
 
   function ensureFallbackNotifDrawer() {
-    if (document.getElementById("rsNotifDrawer")) return;
-    if (document.getElementById("notifDrawer")) return; // lobby already has native drawer
+    if (document.getElementById("notifDrawer")) return;
     var activeNotifTab = "unread";
     var notifications = [];
 
     var backdrop = document.createElement("div");
-    backdrop.id = "rsNotifBackdrop";
-    backdrop.className = "rs-notif-backdrop";
+    backdrop.id = "notifBackdrop";
+    backdrop.className = "notif-backdrop";
+    backdrop.style.display = "none";
     var drawer = document.createElement("aside");
-    drawer.id = "rsNotifDrawer";
-    drawer.className = "rs-notif-drawer";
+    drawer.id = "notifDrawer";
+    drawer.className = "notif-drawer";
     drawer.innerHTML = ""
-      + '<div class="rs-notif-head"><h3>Notifications</h3><button class="rs-icon-button" id="rsNotifClose" type="button" aria-label="Close">✕</button></div>'
-      + '<div class="rs-notif-tab-bar">'
-      + '<button class="rs-notif-tab-btn active" id="rsNotifTabUnread" type="button">Unread</button>'
-      + '<button class="rs-notif-tab-btn" id="rsNotifTabRead" type="button">Read</button>'
-      + '<button class="rs-notif-tab-btn" id="rsNotifTabHistory" type="button">See All</button>'
+      + '<div class="notif-drawer-header"><h3>Notifications</h3><button class="icon-button" id="closeNotifButton" type="button" aria-label="Close">✕</button></div>'
+      + '<div class="notif-tab-bar">'
+      + '<button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>'
+      + '<button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>'
+      + '<button class="notif-tab-btn" id="notifTabHistory" type="button">See All</button>'
       + '</div>'
-      + '<div class="rs-notif-actions"><button class="rs-quick-link" id="rsNotifMarkAll" type="button">Mark all as read</button></div>'
-      + '<div class="rs-notif-list" id="rsNotifList"><div class="rs-notif-item">Loading...</div></div>';
+      + '<div class="notif-drawer-actions"><button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button></div>'
+      + '<div class="notif-list" id="notifList"></div>';
     document.body.appendChild(backdrop);
     document.body.appendChild(drawer);
 
     function closeDrawer() {
-      backdrop.classList.remove("open");
       drawer.classList.remove("open");
+      backdrop.style.display = "none";
     }
 
     async function apiFetch(path, opts) {
@@ -184,7 +186,6 @@
 
     function notifLink(n) {
       var d = n && n.data ? n.data : {};
-      if (d.match_id) return "./match.html?id=" + d.match_id;
       if (d.league_id) return "./league.html?id=" + d.league_id;
       if (d.from_user_id) return "./player.html?id=" + d.from_user_id;
       return "";
@@ -209,6 +210,10 @@
         if (eventType === "own_goal") return "🥅";
         if (eventType === "yellow_card") return "🟨";
         if (eventType === "red_card") return "🟥";
+        if (eventType === "offside") return "🚩";
+        if (eventType === "corner") return "🏳️";
+        if (eventType === "foul") return "🤚";
+        if (eventType === "injury") return "🚑";
         return "📋";
       }
       if (["new_match", "match_started", "fan_player_started_match"].indexOf(type) >= 0) return "⚽";
@@ -231,9 +236,9 @@
         return;
       }
       activeNotifTab = tab;
-      var tabUnread = drawer.querySelector("#rsNotifTabUnread");
-      var tabRead = drawer.querySelector("#rsNotifTabRead");
-      var tabHistory = drawer.querySelector("#rsNotifTabHistory");
+      var tabUnread = drawer.querySelector("#notifTabUnread");
+      var tabRead = drawer.querySelector("#notifTabRead");
+      var tabHistory = drawer.querySelector("#notifTabHistory");
       if (tabUnread) tabUnread.classList.toggle("active", tab === "unread");
       if (tabRead) tabRead.classList.toggle("active", tab === "read");
       if (tabHistory) tabHistory.classList.remove("active");
@@ -241,23 +246,24 @@
     }
 
     function renderNotifList() {
-      var list = drawer.querySelector("#rsNotifList");
+      var list = drawer.querySelector("#notifList");
       if (!list) return;
       var filtered = notifications.filter(function (n) { return activeNotifTab === "unread" ? !n.read : !!n.read; });
       if (!filtered.length) {
         var msg = notifications.length === 0
           ? "No notifications yet."
           : (activeNotifTab === "unread" ? "No unread notifications." : "No read notifications.");
-        list.innerHTML = '<div class="rs-notif-item">' + msg + '</div>';
+        list.innerHTML = '<p class="hint" style="padding:16px;">' + msg + '</p>';
         return;
       }
       list.innerHTML = filtered.map(function (n) {
+        var d = n && n.data ? n.data : {};
         var link = notifLink(n);
         var emoji = notifEmoji(n.notif_type, n.data || {});
-        return '<div class="rs-notif-item ' + (n.read ? '' : 'unread') + '" data-id="' + n.id + '" data-link="' + link + '">'
-          + '<div class="rs-notif-item-title">' + emoji + ' ' + String(n.title || "Notification") + '</div>'
-          + '<div class="rs-notif-item-msg">' + String(n.message || "") + '</div>'
-          + '<div class="rs-notif-item-time">' + formatRelativeTime(n.created_at) + '</div>'
+        return '<div class="notif-item ' + (n.read ? '' : 'unread') + '" data-notif-id="' + n.id + '" data-match-id="' + (d.match_id ? d.match_id : '') + '" data-link="' + link + '">'
+          + '<div class="notif-item-title">' + emoji + ' ' + String(n.title || "Notification") + '</div>'
+          + '<div class="notif-item-msg">' + String(n.message || "") + '</div>'
+          + '<div class="notif-item-time">' + formatRelativeTime(n.created_at) + '</div>'
           + '</div>';
       }).join("");
     }
@@ -270,39 +276,57 @@
         updateBadgeCount(unread);
         renderNotifList();
       } catch (_) {
-        var list = drawer.querySelector("#rsNotifList");
-        if (list) list.innerHTML = '<div class="rs-notif-item">Unable to load notifications.</div>';
+        var list = drawer.querySelector("#notifList");
+        if (list) list.innerHTML = '<p class="hint" style="padding:16px;">Unable to load notifications.</p>';
       }
     }
 
     async function markAllRead() {
       try {
         await apiFetch("/notifications/read-all", { method: "PATCH" });
-        await renderNotifications();
+        notifications = notifications.map(function (n) {
+          var c = Object.assign({}, n);
+          c.read = true;
+          return c;
+        });
+        renderNotifList();
+        updateBadgeCount(0);
       } catch (_) {}
     }
 
     function openDrawer() {
       var unread = notifications.filter(function (n) { return !n.read; }).length;
       setNotifTab(unread > 0 ? "unread" : "read");
-      backdrop.classList.add("open");
       drawer.classList.add("open");
+      backdrop.style.display = "block";
       renderNotifications();
     }
 
     backdrop.addEventListener("click", closeDrawer);
-    drawer.querySelector("#rsNotifClose").addEventListener("click", closeDrawer);
-    drawer.querySelector("#rsNotifTabUnread").addEventListener("click", function () { setNotifTab("unread"); });
-    drawer.querySelector("#rsNotifTabRead").addEventListener("click", function () { setNotifTab("read"); });
-    drawer.querySelector("#rsNotifTabHistory").addEventListener("click", function () { setNotifTab("history"); });
-    drawer.querySelector("#rsNotifMarkAll").addEventListener("click", markAllRead);
-    drawer.querySelector("#rsNotifList").addEventListener("click", async function (ev) {
-      var item = ev.target.closest(".rs-notif-item[data-id]");
+    drawer.querySelector("#closeNotifButton").addEventListener("click", closeDrawer);
+    drawer.querySelector("#notifTabUnread").addEventListener("click", function () { setNotifTab("unread"); });
+    drawer.querySelector("#notifTabRead").addEventListener("click", function () { setNotifTab("read"); });
+    drawer.querySelector("#notifTabHistory").addEventListener("click", function () { setNotifTab("history"); });
+    drawer.querySelector("#markAllReadButton").addEventListener("click", markAllRead);
+    drawer.querySelector("#notifList").addEventListener("click", async function (ev) {
+      var item = ev.target.closest(".notif-item");
       if (!item) return;
-      var id = Number(item.getAttribute("data-id") || 0);
+      var id = Number(item.getAttribute("data-notif-id") || 0);
+      var matchId = Number(item.getAttribute("data-match-id") || 0);
       var link = item.getAttribute("data-link") || "";
-      try { await apiFetch("/notifications/" + id + "/read", { method: "PATCH" }); } catch (_) {}
-      if (link) window.location.href = link;
+      try {
+        if (item.classList.contains("unread") && id) {
+          await apiFetch("/notifications/" + id + "/read", { method: "PATCH" });
+          item.classList.remove("unread");
+          notifications.forEach(function (n) { if (Number(n.id) === id) n.read = true; });
+          updateBadgeCount(notifications.filter(function (n) { return !n.read; }).length);
+        }
+      } catch (_) {}
+      if (link) {
+        window.location.href = link;
+      } else if (matchId) {
+        window.location.href = "./match.html?id=" + matchId;
+      }
     });
     drawer._open = openDrawer;
   }
@@ -322,7 +346,7 @@
       return;
     }
     ensureFallbackNotifDrawer();
-    var drawer = document.getElementById("rsNotifDrawer");
+    var drawer = document.getElementById("notifDrawer");
     if (drawer && typeof drawer._open === "function") drawer._open();
   }
 
@@ -383,31 +407,10 @@
       host.appendChild(makeLink("rsTopPlayerBtn", "My player page", "👤", "./player.html"));
     }
 
-    if (!document.querySelector('a[href*="admin.html"], #rsTopAdminBtn')) {
-      var adminLink = makeLink("rsTopAdminBtn", "Admin console", "🛡", "./admin.html");
-      adminLink.style.display = "none";
-      host.appendChild(adminLink);
-    }
-
-    // Hide admin controls by default and reveal only for admins.
+    // Never inject admin into the generic top menu.
     document.querySelectorAll('a[href*="admin.html"], #rsTopAdminBtn').forEach(function (a) {
       a.style.display = "none";
     });
-    (async function syncAdminVisibility() {
-      var token = localStorage.getItem(TOKEN_KEY) || "";
-      if (!token) return;
-      try {
-        var res = await fetch(getApiBase() + "/auth/me", { headers: { Authorization: "Bearer " + token } });
-        if (!res.ok) return;
-        var me = null;
-        try { me = await res.json(); } catch (_) { return; }
-        if (me && me.role === "admin") {
-          document.querySelectorAll('a[href*="admin.html"], #rsTopAdminBtn').forEach(function (a) {
-            a.style.display = "inline-flex";
-          });
-        }
-      } catch (_) {}
-    })();
 
     if (!document.querySelector('a[href*="account.html"], #rsTopAccountBtn')) {
       host.appendChild(makeLink("rsTopAccountBtn", "Account settings", "⚙", "./account.html"));
