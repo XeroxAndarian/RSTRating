@@ -103,6 +103,14 @@
         if (window.RSPalette && typeof window.RSPalette.openNotifMenu === "function") window.RSPalette.openNotifMenu();
       });
     }
+    const logoutBtn = document.getElementById("logoutButton");
+    if (logoutBtn && !logoutBtn.getAttribute("data-rs-logout-bound-page")) {
+      logoutBtn.setAttribute("data-rs-logout-bound-page", "1");
+      logoutBtn.addEventListener("click", function () {
+        localStorage.removeItem("rs_access_token");
+        window.location.href = "./index.html";
+      });
+    }
     darkBtn.addEventListener("click", () => {
       const d = document.documentElement.getAttribute("data-theme") === "dark";
       if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }

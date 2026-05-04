@@ -149,6 +149,15 @@
       });
     }
 
+    const logoutBtn = document.getElementById("logoutButton");
+    if (logoutBtn && !logoutBtn.getAttribute("data-rs-logout-bound-page")) {
+      logoutBtn.setAttribute("data-rs-logout-bound-page", "1");
+      logoutBtn.addEventListener("click", function () {
+        localStorage.removeItem("rs_access_token");
+        window.location.href = "./index.html";
+      });
+    }
+
     const params = new URLSearchParams(window.location.search);
     const targetIdFromUrl = Number(params.get("id") || 0);
     const TOKEN_KEY = "rs_access_token";

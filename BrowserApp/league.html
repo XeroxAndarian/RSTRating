@@ -36,6 +36,7 @@
     .btn.primary { background:var(--accent); color:#fff; }
     .btn.confirm { background:var(--success); color:#fff; }
     .btn.danger-btn { background:var(--danger); color:#fff; }
+    .btn.danger { background:var(--danger); color:#fff; }
     .btn.ghost { border:1px solid var(--line); background:var(--card); color:var(--text); }
     .btn.sm { padding:5px 9px; font-size:.78rem; }
     .pill { display:inline-flex; padding:3px 9px; border-radius:999px; background:var(--panel-soft); border:1px solid var(--line); font-size:.8rem; color:var(--accent-dark); font-weight:700; }
@@ -83,7 +84,7 @@
         <div class="muted" id="subtitle">Loading...</div>
       </div>
       <div class="row">
-        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">&#x1F319;</button>
+        <button class="btn ghost" id="darkModeToggle" title="Toggle dark mode">&#x1F319;</button>
         <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
         <a class="btn ghost" href="./player.html" title="My profile">👤</a>
         <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
@@ -254,6 +255,14 @@
         notifBtn.addEventListener("click",function(e){
           e.preventDefault();
           if(window.RSPalette&&typeof window.RSPalette.openNotifMenu==="function") window.RSPalette.openNotifMenu();
+        });
+      }
+      var logoutBtn=document.getElementById("logoutButton");
+      if(logoutBtn && !logoutBtn.getAttribute("data-rs-logout-bound-page")){
+        logoutBtn.setAttribute("data-rs-logout-bound-page","1");
+        logoutBtn.addEventListener("click",function(){
+          localStorage.removeItem("rs_access_token");
+          window.location.href="./index.html";
         });
       }
     });

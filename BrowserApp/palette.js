@@ -216,8 +216,10 @@
 
     backdrop.addEventListener("click", closeDrawer);
     drawer.querySelector("#rsNotifClose").addEventListener("click", closeDrawer);
-    drawer.querySelector("#rsNotifShowAll").addEventListener("click", function () {
+    drawer.querySelector("#rsNotifShowAll").addEventListener("click", function (ev) {
+      ev.preventDefault();
       try { sessionStorage.setItem("rs_notifications_allowed", "1"); } catch (_) {}
+      window.location.href = "./notifications.html?from=drawer";
     });
     drawer.querySelector("#rsNotifMarkAll").addEventListener("click", markAllRead);
     drawer.querySelector("#rsNotifList").addEventListener("click", async function (ev) {
@@ -240,7 +242,7 @@
   }
 
   function openUniversalNotifMenu() {
-    var existingBell = document.querySelector("#notifBellButton, #notifBellBtn, .notif-bell");
+    var existingBell = document.querySelector("#notifBellButton, #notifBellBtn");
     if (existingBell && typeof existingBell.click === "function") {
       existingBell.click();
       return;
@@ -289,8 +291,8 @@
     }
 
     var topNotifBtn = document.getElementById("topNotifLink");
-    if (topNotifBtn && !topNotifBtn.getAttribute("data-rs-notif-bound")) {
-      topNotifBtn.setAttribute("data-rs-notif-bound", "1");
+    if (topNotifBtn && !topNotifBtn.getAttribute("data-rs-notif-bound-palette")) {
+      topNotifBtn.setAttribute("data-rs-notif-bound-palette", "1");
       topNotifBtn.addEventListener("click", function (ev) {
         ev.preventDefault();
         openUniversalNotifMenu();
@@ -324,15 +326,16 @@
       host.appendChild(logoutBtn);
     }
 
-    // Bind any existing native #logoutButton that doesn't have a handler yet
-    var nativeLogout = document.getElementById("logoutButton");
-    if (nativeLogout && !nativeLogout.getAttribute("data-rs-logout-bound")) {
-      nativeLogout.setAttribute("data-rs-logout-bound", "1");
-      nativeLogout.addEventListener("click", function () {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.href = "./index.html";
-      });
-    }
+    // Bind any existing native #logoutButton instances that don't have handlers yet
+    document.querySelectorAll("#logoutButton").forEach(function (nativeLogout) {
+      if (!nativeLogout.getAttribute("data-rs-logout-bound")) {
+        nativeLogout.setAttribute("data-rs-logout-bound", "1");
+        nativeLogout.addEventListener("click", function () {
+          localStorage.removeItem(TOKEN_KEY);
+          window.location.href = "./index.html";
+        });
+      }
+    });
 
     document.body.setAttribute("data-rs-universal-controls", "1");
     syncDarkButtons();

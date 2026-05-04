@@ -219,6 +219,15 @@
         });
       }
 
+      const logoutBtn = document.getElementById("logoutButton");
+      if (logoutBtn && !logoutBtn.getAttribute("data-rs-logout-bound-page")) {
+        logoutBtn.setAttribute("data-rs-logout-bound-page", "1");
+        logoutBtn.addEventListener("click", function () {
+          localStorage.removeItem("rs_access_token");
+          window.location.href = "./index.html";
+        });
+      }
+
       const btn = document.getElementById("darkModeToggle");
       if (!btn) return;
       const sync = () => { btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; };
