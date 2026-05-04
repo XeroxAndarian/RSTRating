@@ -1056,7 +1056,7 @@
         <div class="notif-tab-bar">
             <button class="notif-tab-btn active" id="notifTabUnread" type="button">Unread</button>
             <button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>
-            <button class="notif-tab-btn" id="notifTabHistory" type="button">See All</button>
+            <button class="notif-tab-btn" id="notifTabHistory" type="button" onclick="try{sessionStorage.setItem('rs_notifications_allowed','1');}catch(e){}window.location.href='./notifications.html?from=drawer';">See All</button>
         </div>
         <div class="notif-drawer-actions">
             <button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button>

@@ -41,7 +41,8 @@
     .score-main { font-size:2.2rem; font-weight:800; min-width:130px; }
     .clock { margin-top:6px; font-weight:700; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media (max-width:860px){ .grid { grid-template-columns:1fr; } .team-title.right,.team-title.left { text-align:center; } .score-grid { grid-template-columns:1fr; } }
+    @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
+    @media (max-width:480px){ .score-grid { gap:4px; } .team-title { font-size:1rem; } .score-main { font-size:1.6rem; min-width:80px; } }
     .list { display:flex; flex-direction:column; gap:8px; }
     .item { border:1px solid var(--line); border-radius:10px; padding:10px; }
     .events-grid { display:grid; grid-template-columns:1fr; gap:10px; }
@@ -75,8 +76,8 @@
         <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
         <a class="btn ghost" href="./player.html" id="topProfileLink" title="My profile">👤</a>
         <a class="btn ghost" href="./account.html" id="topAccountLink" title="Account settings">⚙</a>
-        <a class="btn ghost" href="./lobby.html">Lobby</a>
-        <a class="btn ghost" id="leagueLink" href="./index.html">League</a>
+        <a class="btn ghost" href="./lobby.html" title="Lobby">🏠</a>
+        <a class="btn ghost" id="leagueLink" href="#" title="League">🏆</a>
         <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
@@ -831,7 +832,9 @@
       } else {
         clockEl.textContent = "Full Time";
       }
-      leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
+      if (leagueLink) {
+        leagueLink.href = m.league_id ? `./league.html?id=${m.league_id}` : "./index.html";
+      }
 
       const hasTeams = hasGeneratedTeams(m);
       const privateRestricted = m.visibility === "private" && !isAdmin();

@@ -105,12 +105,19 @@
       + ".rs-notif-drawer{position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);transform:translateX(100%);transition:transform .18s ease;z-index:9999;background:var(--panel,#fff);border-left:1px solid var(--line,rgba(0,0,0,.15));display:flex;flex-direction:column;}"
       + ".rs-notif-drawer.open{transform:translateX(0);}"
       + ".rs-notif-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));}"
-      + ".rs-notif-list{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;}"
+      + ".rs-notif-head h3{margin:0;font-size:1.05rem;}"
+      + ".rs-icon-button{background:transparent;border:none;cursor:pointer;color:var(--muted,#666);font-size:1rem;padding:6px;border-radius:6px;transition:background .12s,color .12s;}"
+      + ".rs-icon-button:hover{background:var(--panel-soft,#f5f9ff);color:var(--text,#0e2c1d);}"
+      + ".rs-notif-tab-bar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));}"
+      + ".rs-notif-tab-btn{border:1px solid var(--line,rgba(0,0,0,.15));background:var(--panel-soft,#f5f9ff);color:var(--text,#0e2c1d);border-radius:999px;padding:6px 11px;font:inherit;font-weight:700;cursor:pointer;}"
+      + ".rs-notif-tab-btn.active{background:var(--accent,#1f8a4c);color:#fff;border-color:var(--accent,#1f8a4c);}"
+      + ".rs-notif-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}"
       + ".rs-notif-item{border:1px solid var(--line,rgba(0,0,0,.15));border-radius:10px;padding:9px 10px;background:var(--panel-soft,#f5f9ff);cursor:pointer;}"
-      + ".rs-notif-item.unread{background:rgba(31,138,76,.1);border-color:rgba(31,138,76,.35);}"
+      + ".rs-notif-item.unread{border-left:3px solid var(--accent,#1f8a4c);background:rgba(31,138,76,.1);border-color:rgba(31,138,76,.35);}"
       + ".rs-notif-item-title{font-weight:700;font-size:.9rem;}"
       + ".rs-notif-item-msg{font-size:.82rem;color:var(--muted,#666);margin-top:2px;}"
-      + ".rs-notif-actions{padding:14px;border-top:1px solid var(--line,rgba(0,0,0,.15));display:flex;justify-content:space-between;align-items:center;gap:8px;}";
+      + ".rs-notif-item-time{font-size:.75rem;color:var(--muted,#666);margin-top:4px;}"
+      + ".rs-notif-actions{padding:10px 14px;border-bottom:1px solid var(--line,rgba(0,0,0,.15));display:flex;justify-content:flex-start;align-items:center;gap:8px;}";
     document.head.appendChild(st);
   }
 
@@ -138,6 +145,9 @@
   function ensureFallbackNotifDrawer() {
     if (document.getElementById("rsNotifDrawer")) return;
     if (document.getElementById("notifDrawer")) return; // lobby already has native drawer
+    var activeNotifTab = "unread";
+    var notifications = [];
+
     var backdrop = document.createElement("div");
     backdrop.id = "rsNotifBackdrop";
     backdrop.className = "rs-notif-backdrop";
@@ -145,9 +155,14 @@
     drawer.id = "rsNotifDrawer";
     drawer.className = "rs-notif-drawer";
     drawer.innerHTML = ""
-      + '<div class="rs-notif-head"><strong>Notifications</strong><button class="rs-quick-link" id="rsNotifClose" type="button" style="padding:6px 10px;">✕</button></div>'
-      + '<div class="rs-notif-list" id="rsNotifList"><div class="rs-notif-item">Loading...</div></div>'
-      + '<div class="rs-notif-actions"><button class="rs-quick-link" id="rsNotifMarkAll" type="button">Mark all read</button><a class="rs-quick-link" id="rsNotifShowAll" href="./notifications.html?from=drawer">Show all</a></div>';
+      + '<div class="rs-notif-head"><h3>Notifications</h3><button class="rs-icon-button" id="rsNotifClose" type="button" aria-label="Close">✕</button></div>'
+      + '<div class="rs-notif-tab-bar">'
+      + '<button class="rs-notif-tab-btn active" id="rsNotifTabUnread" type="button">Unread</button>'
+      + '<button class="rs-notif-tab-btn" id="rsNotifTabRead" type="button">Read</button>'
+      + '<button class="rs-notif-tab-btn" id="rsNotifTabHistory" type="button">See All</button>'
+      + '</div>'
+      + '<div class="rs-notif-actions"><button class="rs-quick-link" id="rsNotifMarkAll" type="button">Mark all as read</button></div>'
+      + '<div class="rs-notif-list" id="rsNotifList"><div class="rs-notif-item">Loading...</div></div>';
     document.body.appendChild(backdrop);
     document.body.appendChild(drawer);
 
@@ -175,28 +190,88 @@
       return "";
     }
 
-    async function renderNotifications() {
+    function formatRelativeTime(isoStr) {
+      if (!isoStr) return "";
+      var d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return String(isoStr);
+      var diff = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (diff < 60) return "Just now";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      return d.toLocaleDateString();
+    }
+
+    function notifEmoji(type, data) {
+      if (type === "fan_player_match_event" && data && data.event_type) {
+        var eventType = String(data.event_type);
+        if (eventType === "goal") return "⚽";
+        if (eventType === "assist") return "🅰️";
+        if (eventType === "own_goal") return "🥅";
+        if (eventType === "yellow_card") return "🟨";
+        if (eventType === "red_card") return "🟥";
+        return "📋";
+      }
+      if (["new_match", "match_started", "fan_player_started_match"].indexOf(type) >= 0) return "⚽";
+      if (type === "match_result") return "🏁";
+      if (type === "match_cancelled") return "❌";
+      if (type === "waitlist_offer") return "📨";
+      if (type === "friend_request") return "👋";
+      if (type === "friend_request_accepted") return "🤝";
+      if (type === "league_approved") return "✅";
+      if (type === "league_rejected") return "❌";
+      if (type === "league_announcement") return "📢";
+      if (["fan_event", "fan_player_registered"].indexOf(type) >= 0) return "⭐";
+      return "🔔";
+    }
+
+    function setNotifTab(tab) {
+      if (tab === "history") {
+        try { sessionStorage.setItem("rs_notifications_allowed", "1"); } catch (_) {}
+        window.location.href = "./notifications.html?from=drawer";
+        return;
+      }
+      activeNotifTab = tab;
+      var tabUnread = drawer.querySelector("#rsNotifTabUnread");
+      var tabRead = drawer.querySelector("#rsNotifTabRead");
+      var tabHistory = drawer.querySelector("#rsNotifTabHistory");
+      if (tabUnread) tabUnread.classList.toggle("active", tab === "unread");
+      if (tabRead) tabRead.classList.toggle("active", tab === "read");
+      if (tabHistory) tabHistory.classList.remove("active");
+      renderNotifList();
+    }
+
+    function renderNotifList() {
       var list = drawer.querySelector("#rsNotifList");
       if (!list) return;
+      var filtered = notifications.filter(function (n) { return activeNotifTab === "unread" ? !n.read : !!n.read; });
+      if (!filtered.length) {
+        var msg = notifications.length === 0
+          ? "No notifications yet."
+          : (activeNotifTab === "unread" ? "No unread notifications." : "No read notifications.");
+        list.innerHTML = '<div class="rs-notif-item">' + msg + '</div>';
+        return;
+      }
+      list.innerHTML = filtered.map(function (n) {
+        var link = notifLink(n);
+        var emoji = notifEmoji(n.notif_type, n.data || {});
+        return '<div class="rs-notif-item ' + (n.read ? '' : 'unread') + '" data-id="' + n.id + '" data-link="' + link + '">'
+          + '<div class="rs-notif-item-title">' + emoji + ' ' + String(n.title || "Notification") + '</div>'
+          + '<div class="rs-notif-item-msg">' + String(n.message || "") + '</div>'
+          + '<div class="rs-notif-item-time">' + formatRelativeTime(n.created_at) + '</div>'
+          + '</div>';
+      }).join("");
+    }
+
+    async function renderNotifications() {
       try {
         var rows = await apiFetch("/notifications", { method: "GET" });
-        var notifs = Array.isArray(rows) ? rows : [];
-        if (!notifs.length) {
-          list.innerHTML = '<div class="rs-notif-item">No notifications.</div>';
-          updateBadgeCount(0);
-          return;
-        }
-        var unread = notifs.filter(function (n) { return !n.read; }).length;
+        notifications = Array.isArray(rows) ? rows : [];
+        var unread = notifications.filter(function (n) { return !n.read; }).length;
         updateBadgeCount(unread);
-        list.innerHTML = notifs.slice(0, 20).map(function (n) {
-          var link = notifLink(n);
-          return '<div class="rs-notif-item ' + (n.read ? '' : 'unread') + '" data-id="' + n.id + '" data-link="' + link + '">'
-            + '<div class="rs-notif-item-title">' + String(n.title || "Notification") + '</div>'
-            + '<div class="rs-notif-item-msg">' + String(n.message || "") + '</div>'
-            + '</div>';
-        }).join("");
+        renderNotifList();
       } catch (_) {
-        list.innerHTML = '<div class="rs-notif-item">Unable to load notifications.</div>';
+        var list = drawer.querySelector("#rsNotifList");
+        if (list) list.innerHTML = '<div class="rs-notif-item">Unable to load notifications.</div>';
       }
     }
 
@@ -208,6 +283,8 @@
     }
 
     function openDrawer() {
+      var unread = notifications.filter(function (n) { return !n.read; }).length;
+      setNotifTab(unread > 0 ? "unread" : "read");
       backdrop.classList.add("open");
       drawer.classList.add("open");
       renderNotifications();
@@ -215,11 +292,9 @@
 
     backdrop.addEventListener("click", closeDrawer);
     drawer.querySelector("#rsNotifClose").addEventListener("click", closeDrawer);
-    drawer.querySelector("#rsNotifShowAll").addEventListener("click", function (ev) {
-      ev.preventDefault();
-      try { sessionStorage.setItem("rs_notifications_allowed", "1"); } catch (_) {}
-      window.location.href = "./notifications.html?from=drawer";
-    });
+    drawer.querySelector("#rsNotifTabUnread").addEventListener("click", function () { setNotifTab("unread"); });
+    drawer.querySelector("#rsNotifTabRead").addEventListener("click", function () { setNotifTab("read"); });
+    drawer.querySelector("#rsNotifTabHistory").addEventListener("click", function () { setNotifTab("history"); });
     drawer.querySelector("#rsNotifMarkAll").addEventListener("click", markAllRead);
     drawer.querySelector("#rsNotifList").addEventListener("click", async function (ev) {
       var item = ev.target.closest(".rs-notif-item[data-id]");
@@ -309,8 +384,30 @@
     }
 
     if (!document.querySelector('a[href*="admin.html"], #rsTopAdminBtn')) {
-      host.appendChild(makeLink("rsTopAdminBtn", "Admin console", "🛡", "./admin.html"));
+      var adminLink = makeLink("rsTopAdminBtn", "Admin console", "🛡", "./admin.html");
+      adminLink.style.display = "none";
+      host.appendChild(adminLink);
     }
+
+    // Hide admin controls by default and reveal only for admins.
+    document.querySelectorAll('a[href*="admin.html"], #rsTopAdminBtn').forEach(function (a) {
+      a.style.display = "none";
+    });
+    (async function syncAdminVisibility() {
+      var token = localStorage.getItem(TOKEN_KEY) || "";
+      if (!token) return;
+      try {
+        var res = await fetch(getApiBase() + "/auth/me", { headers: { Authorization: "Bearer " + token } });
+        if (!res.ok) return;
+        var me = null;
+        try { me = await res.json(); } catch (_) { return; }
+        if (me && me.role === "admin") {
+          document.querySelectorAll('a[href*="admin.html"], #rsTopAdminBtn').forEach(function (a) {
+            a.style.display = "inline-flex";
+          });
+        }
+      } catch (_) {}
+    })();
 
     if (!document.querySelector('a[href*="account.html"], #rsTopAccountBtn')) {
       host.appendChild(makeLink("rsTopAccountBtn", "Account settings", "⚙", "./account.html"));

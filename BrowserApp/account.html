@@ -23,7 +23,7 @@
         linear-gradient(135deg, var(--panel) 0%, var(--bg) 45%, var(--bg) 100%);
     }
     .wrap { max-width:620px; margin:0 auto; padding:24px 16px 40px; }
-    .top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:18px; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:14px; }
     h2 { margin:0 0 14px; font-size:1.05rem; }
@@ -34,6 +34,7 @@
     .btn { border:none; border-radius:9px; padding:9px 14px; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
     .btn.primary { background:var(--accent); color:#fff; }
     .btn.ghost { background:var(--panel-soft); border:1px solid var(--line); color:var(--text); }
+    .btn.danger { background:var(--danger); color:#fff; }
     .muted { color:var(--muted); }
     .status { min-height:18px; font-size:.88rem; color:var(--muted); margin-top:8px; }
     .status.error { color:var(--danger); }
@@ -52,7 +53,11 @@
       </div>
       <div class="row">
         <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
-        <a class="btn ghost" href="./lobby.html">← Lobby</a>
+        <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
+        <a class="btn ghost" href="./player.html" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
+        <a class="btn ghost" href="./lobby.html" title="Lobby">🏠</a>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -109,6 +114,24 @@
     const darkBtn = document.getElementById("darkModeToggle");
     function syncDark(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
     syncDark();
+    const notifBtn = document.getElementById("topNotifLink");
+    if (notifBtn && !notifBtn.getAttribute("data-rs-notif-bound")) {
+      notifBtn.setAttribute("data-rs-notif-bound", "1");
+      notifBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        if (window.RSPalette && typeof window.RSPalette.openNotifMenu === "function") {
+          window.RSPalette.openNotifMenu();
+        }
+      });
+    }
+    const logoutBtn = document.getElementById("logoutButton");
+    if (logoutBtn && !logoutBtn.getAttribute("data-rs-logout-bound-page")) {
+      logoutBtn.setAttribute("data-rs-logout-bound-page", "1");
+      logoutBtn.addEventListener("click", function () {
+        localStorage.removeItem("rs_access_token");
+        window.location.href = "./index.html";
+      });
+    }
     darkBtn.addEventListener("click", () => {
       const d = document.documentElement.getAttribute("data-theme") === "dark";
       if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }

@@ -39,8 +39,8 @@
         <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
         <a class="btn ghost" href="./player.html" title="My profile">👤</a>
         <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
-        <a class="btn ghost" href="./lobby.html">Lobby</a>
-        <a class="btn ghost" id="backToLeague" href="./lobby.html">League</a>
+        <a class="btn ghost" href="./lobby.html" title="Lobby">🏠</a>
+        <a class="btn ghost" id="backToLeague" href="#" title="League">🏆</a>
         <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
@@ -88,7 +88,10 @@
 
     const params = new URLSearchParams(window.location.search);
     const leagueId = Number(params.get("id") || 0);
-    document.getElementById("backToLeague").href = "./league.html?id=" + leagueId;
+    var backToLeague = document.getElementById("backToLeague");
+    if (backToLeague) {
+      backToLeague.href = "./league.html?id=" + leagueId;
+    }
 
     const TOKEN_KEY = "rs_access_token";
     const API_BASE_KEY = "rs_api_base_override";
