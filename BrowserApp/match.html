@@ -63,6 +63,8 @@
     <div class="row" style="justify-content:flex-end; margin-bottom:8px;">
       <div class="row" style="justify-content:flex-end;">
         <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+        <a class="btn ghost" href="./notifications.html" id="topNotifLink" title="Notifications">🔔</a>
+        <a class="btn ghost" href="./account.html" id="topAccountLink" title="Account">👤</a>
         <a class="btn ghost" href="./lobby.html">Lobby</a>
         <a class="btn ghost" id="leagueLink" href="./index.html">League</a>
       </div>
@@ -127,15 +129,15 @@
       </div>
     </div>
 
+    <div class="card" id="receiptCard" style="display:none;">
+      <h3 style="cursor:pointer;user-select:none;" id="receiptToggle">
+        Match Receipt <span id="receiptChevron" style="font-size:.85em;">▼</span>
+      </h3>
+      <div id="receiptBody" style="margin-top:10px;overflow-x:auto;"></div>
+    </div>
+
     <div class="card" id="eventsCard">
       <h3 style="margin-bottom:8px;">Match Events</h3>
-          <div class="card" id="receiptCard" style="display:none;">
-            <h3 style="cursor:pointer;user-select:none;" id="receiptToggle">
-              Match Receipt <span id="receiptChevron" style="font-size:.85em;">▼</span>
-            </h3>
-            <div id="receiptBody" style="margin-top:10px;overflow-x:auto;"></div>
-          </div>
-
       <div class="events-grid">
         <div class="events-col">
           <div class="row" style="justify-content:space-between;">

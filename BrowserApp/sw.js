@@ -3,7 +3,7 @@
  * Cache-first strategy for static HTML, JS, and CSS assets.
  */
 
-var CACHE_NAME = "rst-rating-v2";
+var CACHE_NAME = "rst-rating-v3";
 
 var PRECACHE_URLS = [
   "./lobby.html",
@@ -74,6 +74,25 @@ self.addEventListener("fetch", function (event) {
         return caches.match(event.request).then(function (cached) {
           return cached || caches.match("./lobby.html");
         });
+      })
+    );
+    return;
+  }
+
+  // For critical static assets, prefer network so updates are picked up quickly.
+  var isCriticalStatic = /\.(js|css|html)$/i.test(url.pathname);
+  if (isCriticalStatic) {
+    event.respondWith(
+      fetch(event.request).then(function (response) {
+        if (response && response.status === 200 && response.type === "basic") {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) {
+            cache.put(event.request, clone);
+          });
+        }
+        return response;
+      }).catch(function () {
+        return caches.match(event.request);
       })
     );
     return;
