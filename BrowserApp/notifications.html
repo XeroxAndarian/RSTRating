@@ -57,8 +57,12 @@
       </div>
       <div class="row">
         <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
-        <a class="btn ghost" href="./lobby.html">← Lobby</a>
+        <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
+        <a class="btn ghost" href="./player.html" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
+        <a class="btn ghost" href="./lobby.html">Lobby</a>
         <button class="btn primary" id="markAllReadBtn" type="button">Mark all read</button>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -91,6 +95,14 @@
     const darkBtn = document.getElementById("darkModeToggle");
     function syncDark(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
     syncDark();
+    const _notifBtn = document.getElementById("topNotifLink");
+    if (_notifBtn) {
+      _notifBtn.setAttribute("data-rs-notif-bound", "1");
+      _notifBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        if (window.RSPalette && typeof window.RSPalette.openNotifMenu === "function") window.RSPalette.openNotifMenu();
+      });
+    }
     darkBtn.addEventListener("click", () => {
       const d = document.documentElement.getAttribute("data-theme") === "dark";
       if(d){ document.documentElement.removeAttribute("data-theme"); localStorage.setItem("rs_theme","light"); }

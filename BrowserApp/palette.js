@@ -138,6 +138,7 @@
 
   function ensureFallbackNotifDrawer() {
     if (document.getElementById("rsNotifDrawer")) return;
+    if (document.getElementById("notifDrawer")) return; // lobby already has native drawer
     var backdrop = document.createElement("div");
     backdrop.id = "rsNotifBackdrop";
     backdrop.className = "rs-notif-backdrop";
@@ -323,6 +324,16 @@
       host.appendChild(logoutBtn);
     }
 
+    // Bind any existing native #logoutButton that doesn't have a handler yet
+    var nativeLogout = document.getElementById("logoutButton");
+    if (nativeLogout && !nativeLogout.getAttribute("data-rs-logout-bound")) {
+      nativeLogout.setAttribute("data-rs-logout-bound", "1");
+      nativeLogout.addEventListener("click", function () {
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.href = "./index.html";
+      });
+    }
+
     document.body.setAttribute("data-rs-universal-controls", "1");
     syncDarkButtons();
   }
@@ -338,6 +349,7 @@
     applyPalette();
     applyLobbyBackground();
     ensureUniversalTopControls();
+    ensureFallbackNotifDrawer(); // ensure sidebar is in DOM on every non-lobby page
   }
 
   if (document.readyState === "loading") {
@@ -349,6 +361,7 @@
   window.RSPalette = {
     get: function () { return "woodland"; },
     apply: function () { applyPalette(); applyLobbyBackground(); syncDarkButtons(); },
-    reapply: function () { applyPalette(); applyLobbyBackground(); syncDarkButtons(); }
+    reapply: function () { applyPalette(); applyLobbyBackground(); syncDarkButtons(); },
+    openNotifMenu: openUniversalNotifMenu
   };
 })();

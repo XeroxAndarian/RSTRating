@@ -84,8 +84,12 @@
       </div>
       <div class="row">
         <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">&#x1F319;</button>
-        <a class="btn ghost" href="./lobby.html">&#x2190; Lobby</a>
+        <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
+        <a class="btn ghost" href="./player.html" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
+        <a class="btn ghost" href="./lobby.html">Lobby</a>
         <a class="btn ghost" id="settingsBtn" href="#" style="display:none;" title="Manager settings">&#x1F4CB; Settings</a>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -244,6 +248,14 @@
         else{document.documentElement.setAttribute("data-theme","dark");localStorage.setItem("rs_theme","dark");}
         upd();
       });
+      var notifBtn=document.getElementById("topNotifLink");
+      if(notifBtn){
+        notifBtn.setAttribute("data-rs-notif-bound","1");
+        notifBtn.addEventListener("click",function(e){
+          e.preventDefault();
+          if(window.RSPalette&&typeof window.RSPalette.openNotifMenu==="function") window.RSPalette.openNotifMenu();
+        });
+      }
     });
 
     var params=new URLSearchParams(window.location.search);

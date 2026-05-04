@@ -73,9 +73,11 @@
       <div class="row" style="justify-content:flex-end;">
         <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
         <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
-        <a class="btn ghost" href="./account.html" id="topAccountLink" title="Account">👤</a>
+        <a class="btn ghost" href="./player.html" id="topProfileLink" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" id="topAccountLink" title="Account settings">⚙</a>
         <a class="btn ghost" href="./lobby.html">Lobby</a>
         <a class="btn ghost" id="leagueLink" href="./index.html">League</a>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -140,7 +142,7 @@
 
     <div class="card" id="receiptCard" style="display:none;">
       <h3 style="cursor:pointer;user-select:none;" id="receiptToggle">
-        Match Receipt <span id="receiptChevron" style="font-size:.85em;">▼</span>
+        Match Report <span id="receiptChevron" style="font-size:.85em;">▼</span>
       </h3>
       <div id="receiptBody" style="margin-top:10px;overflow-x:auto;"></div>
     </div>
@@ -205,6 +207,18 @@
     })();
 
     document.addEventListener("DOMContentLoaded", function () {
+      // Wire notification button to palette.js drawer
+      const notifBtn = document.getElementById("topNotifLink");
+      if (notifBtn && !notifBtn.getAttribute("data-rs-notif-bound")) {
+        notifBtn.setAttribute("data-rs-notif-bound", "1");
+        notifBtn.addEventListener("click", function(e) {
+          e.preventDefault();
+          if (window.RSPalette && typeof window.RSPalette.openNotifMenu === "function") {
+            window.RSPalette.openNotifMenu();
+          }
+        });
+      }
+
       const btn = document.getElementById("darkModeToggle");
       if (!btn) return;
       const sync = () => { btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; };

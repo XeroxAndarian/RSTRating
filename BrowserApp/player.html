@@ -45,8 +45,12 @@
         <div class="muted" id="subtitle">Loading...</div>
       </div>
       <div class="row">
-        <button class="btn ghost" id="darkModeToggle" type="button">🌙</button>
-        <a class="btn ghost" href="./lobby.html" style="text-decoration:none;display:inline-flex;align-items:center;">← Lobby</a>
+        <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+        <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
+        <a class="btn ghost" href="./player.html" id="topProfileLink" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" id="topAccountLink" title="Account settings">⚙</a>
+        <a class="btn ghost" href="./lobby.html" style="text-decoration:none;display:inline-flex;align-items:center;">Lobby</a>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -133,6 +137,17 @@
     function syncThemeBtn(){ darkBtn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; }
     syncThemeBtn();
     darkBtn.addEventListener("click", ()=>{ const dark = document.documentElement.getAttribute("data-theme") === "dark"; if(dark){document.documentElement.removeAttribute("data-theme");localStorage.setItem("rs_theme","light");} else {document.documentElement.setAttribute("data-theme","dark");localStorage.setItem("rs_theme","dark");} syncThemeBtn(); });
+
+    const topNotifLink = document.getElementById("topNotifLink");
+    if (topNotifLink) {
+      topNotifLink.setAttribute("data-rs-notif-bound", "1");
+      topNotifLink.addEventListener("click", function(e) {
+        e.preventDefault();
+        if (window.RSPalette && typeof window.RSPalette.openNotifMenu === "function") {
+          window.RSPalette.openNotifMenu();
+        }
+      });
+    }
 
     const params = new URLSearchParams(window.location.search);
     const targetIdFromUrl = Number(params.get("id") || 0);
