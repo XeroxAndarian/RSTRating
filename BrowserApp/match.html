@@ -687,14 +687,13 @@
       cornerBtnB.style.display = (showGoalButtons && detail.match.corners_enabled) ? "inline-flex" : "none";
     }
 
-    function render(){
-          function renderReceipt(){
-            const bodyEl = document.getElementById("receiptBody");
-            if (!bodyEl || !playerResults) return;
-            const m = detail.match;
-            const teamAName = m.team_a_name || "Team A";
-            const teamBName = m.team_b_name || "Team B";
-            const overallMvpId = playerResults.mvp_user_id;
+    function renderReceipt(){
+      const bodyEl = document.getElementById("receiptBody");
+      if (!bodyEl || !playerResults) return;
+      const m = detail.match;
+      const teamAName = m.team_a_name || "Team A";
+      const teamBName = m.team_b_name || "Team B";
+      const overallMvpId = playerResults.mvp_user_id;
             const mkTeamTable = (teamLabel, teamKey) => {
               const players = playerResults.players.filter(r => r.team === teamKey);
               if (!players.length) return "";
@@ -733,10 +732,10 @@
                 </table>
               </div>`;
             };
-            bodyEl.innerHTML = mkTeamTable(teamAName, "a") + mkTeamTable(teamBName, "b");
-          }
+      bodyEl.innerHTML = mkTeamTable(teamAName, "a") + mkTeamTable(teamBName, "b");
+    }
 
-          function render(){
+    function render(){
       const m = detail.match;
       titleEl.textContent = m.title;
       subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
