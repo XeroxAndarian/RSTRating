@@ -3,7 +3,7 @@
  * Cache-first strategy for static HTML, JS, and CSS assets.
  */
 
-var CACHE_NAME = "rst-rating-v3";
+var CACHE_NAME = "rst-rating-v4";
 
 var PRECACHE_URLS = [
   "./lobby.html",

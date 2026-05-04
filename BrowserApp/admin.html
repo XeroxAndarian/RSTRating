@@ -267,7 +267,7 @@
 
 
     var TOKEN_KEY = "rs_access_token", API_BASE_KEY = "rs_api_base_override";
-    var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
+    var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "http://127.0.0.1:8000" : "https://rstrating-accounts-api.onrender.com";
     var HOSTED_API_BASE = "https://rstrating-accounts-api.onrender.com";
     var users = [], leagues = [], matches = [], tempProfiles = [];
     var adminSettings = { auto_approve_leagues: false };
