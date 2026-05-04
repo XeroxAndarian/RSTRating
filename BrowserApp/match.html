@@ -207,6 +207,9 @@
           document.documentElement.setAttribute("data-theme", "dark");
           localStorage.setItem("rs_theme", "dark");
         }
+        if (window.RSPalette && typeof window.RSPalette.reapply === "function") {
+          window.RSPalette.reapply();
+        }
         sync();
       });
     });
@@ -218,11 +221,12 @@
     const API_BASE_KEY = "rs_api_base_override";
     const DEFAULT_API_BASE = (
       window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.protocol === "file:"
+      window.location.hostname === "127.0.0.1"
     )
       ? "http://127.0.0.1:8000"
       : "https://rstrating-accounts-api.onrender.com";
+    const REMOTE_API_BASE = "https://rstrating-accounts-api.onrender.com";
+    const LOCAL_API_BASE = "http://127.0.0.1:8000";
 
     const titleEl = document.getElementById("title");
     const subEl = document.getElementById("sub");
@@ -276,6 +280,13 @@
     function show(msg, kind){ statusEl.textContent = msg; statusEl.className = kind ? `status ${kind}` : "status"; }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
     function getApiBase(){ return (localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE).trim(); }
+    function getApiCandidates(){
+      const override = (localStorage.getItem(API_BASE_KEY) || "").trim();
+      const primary = override || DEFAULT_API_BASE;
+      if (override) return [primary];
+      const secondary = primary === LOCAL_API_BASE ? REMOTE_API_BASE : LOCAL_API_BASE;
+      return [primary, secondary];
+    }
     function isAdmin(){ return viewMode === "admin"; }
     function isCensored(){ return viewMode === "censored"; }
 
@@ -283,17 +294,37 @@
       const headers = Object.assign({}, options?.headers || {});
       const token = getToken();
       if (token) headers.Authorization = "Bearer " + token;
-      const res = await fetch(getApiBase() + path, Object.assign({}, options || {}, { headers }));
-      let body = null; try { body = await res.json(); } catch {}
-      if (!res.ok) throw new Error(body?.detail || "Request failed");
-      return body;
+      const candidates = getApiCandidates();
+      let lastErr = null;
+      for (let i = 0; i < candidates.length; i++) {
+        try {
+          const res = await fetch(candidates[i] + path, Object.assign({}, options || {}, { headers }));
+          let body = null; try { body = await res.json(); } catch {}
+          if (!res.ok) throw new Error(body?.detail || "Request failed");
+          return body;
+        } catch (err) {
+          lastErr = err;
+          if (i < candidates.length - 1) continue;
+        }
+      }
+      throw lastErr || new Error("Request failed");
     }
 
     async function publicFetch(path){
-      const res = await fetch(getApiBase() + path);
-      let body = null; try { body = await res.json(); } catch {}
-      if (!res.ok) throw new Error(body?.detail || "Request failed");
-      return body;
+      const candidates = getApiCandidates();
+      let lastErr = null;
+      for (let i = 0; i < candidates.length; i++) {
+        try {
+          const res = await fetch(candidates[i] + path);
+          let body = null; try { body = await res.json(); } catch {}
+          if (!res.ok) throw new Error(body?.detail || "Request failed");
+          return body;
+        } catch (err) {
+          lastErr = err;
+          if (i < candidates.length - 1) continue;
+        }
+      }
+      throw lastErr || new Error("Request failed");
     }
 
     function statusLabel(s){

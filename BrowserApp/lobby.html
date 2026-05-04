@@ -1384,16 +1384,10 @@
                     league_player_stats: lobby.league_player_stats || []
                 };
             } catch (err) {
-                if (err.status === 401) {
-                    // Token rejected by server — clear it
-                    clearToken();
-                    currentUser = null;
-                    lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
-                } else {
-                    // Network / server error — keep token, show login with error hint
-                    currentUser = null;
-                    lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
-                }
+                // Keep the token in storage on refresh failures (including 401) so
+                // transient backend/base mismatches don't force an unexpected sign-out.
+                currentUser = null;
+                lobbyState = { leagues: [], invites: [], user_stats: null, league_player_stats: [] };
             }
         }
 
