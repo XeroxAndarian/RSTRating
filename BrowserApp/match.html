@@ -129,6 +129,13 @@
 
     <div class="card" id="eventsCard">
       <h3 style="margin-bottom:8px;">Match Events</h3>
+          <div class="card" id="receiptCard" style="display:none;">
+            <h3 style="cursor:pointer;user-select:none;" id="receiptToggle">
+              Match Receipt <span id="receiptChevron" style="font-size:.85em;">▼</span>
+            </h3>
+            <div id="receiptBody" style="margin-top:10px;overflow-x:auto;"></div>
+          </div>
+
       <div class="events-grid">
         <div class="events-col">
           <div class="row" style="justify-content:space-between;">
@@ -249,6 +256,7 @@
     const NOUNS = ["Falcons", "Titans", "Wolves", "Strikers", "United", "Rangers", "Storm", "Warriors", "Athletic", "Legends"];
 
     let detail = null;
+    let playerResults = null; // fetched for completed matches
     let leagueRole = null;
     let viewMode = "normal"; // admin | normal | censored
     let editingTeams = false;
@@ -468,8 +476,10 @@
       if (!isCensored() && m.status === "registration_open") {
         const isFull = m.registered_count >= m.max_participants;
         const hasQueue = m.waitlisted_count > 0;
-        if (!my || my === "cancelled") {
-          if (my === "offered" || (!isFull && !hasQueue)) {
+        if (my === "offered") {
+          btns.push('<button class="btn primary" data-act="accept-offer">Accept offer</button>');
+        } else if (!my || my === "cancelled") {
+          if (!isFull && !hasQueue) {
             btns.push('<button class="btn primary" data-act="register">Register</button>');
           } else {
             btns.push('<button class="btn ghost" data-act="register">Join waitlist</button>');
@@ -544,6 +554,20 @@
           ? `<a href="./player.html?id=${uid}" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(name)}</a>`
           : esc(name);
         const rate = (!isCensored() && p) ? ` <span class="muted small">(${Number(p.seasonal_rating || 0).toFixed(1)})</span>` : "";
+              const prData = playerResults?.players?.find(r => r.user_id === Number(uid));
+                const isMvp = !isCensored() && prData?.is_team_mvp;
+                const isOverallMvp = !isCensored() && playerResults?.mvp_user_id === Number(uid);
+                const mvpBadge = isOverallMvp ? `<span title="Match MVP">🏆</span> ` : (isMvp ? `<span title="Team MVP">⭐</span> ` : "");
+                const rateDisplay = (() => {
+                  if (isCensored() || !p) return "";
+                  if (prData) {
+                    const delta = prData.lmmr_delta;
+                    const sign = delta >= 0 ? "+" : "";
+                    const col = delta > 0 ? "var(--success,#2a9d4e)" : delta < 0 ? "var(--danger,#c0392b)" : "var(--muted,#888)";
+                    return ` <span class="muted small">(${Number(prData.lmmr_before).toFixed(1)} <span style="color:${col};font-weight:700;">${sign}${Number(delta).toFixed(1)}</span>)</span>`;
+                  }
+                  return ` <span class="muted small">(${Number(p.seasonal_rating || 0).toFixed(1)})</span>`;
+                })();
         const move = editingTeams && isAdmin() ? `<button class="btn ghost small" data-move="${uid}" data-move-team="${team}">${team === "a" ? "→" : "←"}</button>` : "";
         const statsHtml = (() => {
           if (isCensored()) return "";
@@ -562,7 +586,7 @@
         const offsideControl = (liveControls && m.offsides_enabled) ? `<button class="btn ghost icon-btn" data-live="offside" data-team="${team}" data-player="${uid}" title="Offside">🚩</button>` : "";
         const foulControl = (liveControls && m.fouls_enabled) ? `<button class="btn ghost icon-btn" data-live="foul" data-team="${team}" data-player="${uid}" title="Foul">🤚</button>` : "";
         const controls = liveControls ? `<span class="player-actions">${injuryControl}${cardsControls}${offsideControl}${foulControl}</span>` : "";
-        return `<div class="player-line"><span>${nameHtml}${rate}</span><span class="player-actions" style="align-items:center;">${statsHtml}${move}${controls}</span></div>`;
+        return `<div class="player-line"><span>${mvpBadge}${nameHtml}${rateDisplay}</span><span class="player-actions" style="align-items:center;">${statsHtml}${move}${controls}</span></div>`;
       }).join("") || '<div class="muted small">No players.</div>';
 
       if (isCensored() && m.visibility === "private" && m.teams_confirmed) {
@@ -615,6 +639,55 @@
     }
 
     function render(){
+          function renderReceipt(){
+            const bodyEl = document.getElementById("receiptBody");
+            if (!bodyEl || !playerResults) return;
+            const m = detail.match;
+            const teamAName = m.team_a_name || "Team A";
+            const teamBName = m.team_b_name || "Team B";
+            const overallMvpId = playerResults.mvp_user_id;
+            const mkTeamTable = (teamLabel, teamKey) => {
+              const players = playerResults.players.filter(r => r.team === teamKey);
+              if (!players.length) return "";
+              const rows = players.map(r => {
+                const badge = r.user_id === overallMvpId ? "🏆 " : (r.is_team_mvp ? "⭐ " : "");
+                const deltaSign = r.lmmr_delta >= 0 ? "+" : "";
+                const deltaColor = r.lmmr_delta > 0 ? "var(--success,#2a9d4e)" : r.lmmr_delta < 0 ? "var(--danger,#c0392b)" : "inherit";
+                const srColor = r.sr_delta > 0 ? "var(--success,#2a9d4e)" : r.sr_delta < 0 ? "var(--danger,#c0392b)" : "inherit";
+                return `<tr>
+                  <td>${badge}${esc(r.display_name)}</td>
+                  <td style="text-align:center;">${r.goals}</td>
+                  <td style="text-align:center;">${r.assists}</td>
+                  <td style="text-align:center;">${r.own_goals || 0}</td>
+                  <td style="text-align:right;">${r.sr_goal_pts > 0 ? "+" : ""}${r.sr_goal_pts.toFixed(1)}</td>
+                  <td style="text-align:right;">${r.sr_assist_pts > 0 ? "+" : ""}${r.sr_assist_pts.toFixed(1)}</td>
+                  <td style="text-align:right;">${r.sr_result_pts >= 0 ? "+" : ""}${r.sr_result_pts.toFixed(1)}</td>
+                  <td style="text-align:right;font-weight:700;color:${srColor};">${r.sr_delta >= 0 ? "+" : ""}${r.sr_delta.toFixed(1)}</td>
+                  <td style="text-align:right;color:${deltaColor};font-weight:700;">${deltaSign}${r.lmmr_delta.toFixed(1)}</td>
+                </tr>`;
+              }).join("");
+              return `<div style="margin-bottom:14px;">
+                <div style="font-weight:700;margin-bottom:4px;">${esc(teamLabel)}</div>
+                <table style="width:100%;border-collapse:collapse;font-size:.88em;">
+                  <thead><tr style="border-bottom:1px solid var(--line,#dde3ee);">
+                    <th style="text-align:left;padding:3px 6px;">Player</th>
+                    <th style="text-align:center;padding:3px 6px;" title="Goals">⚽</th>
+                    <th style="text-align:center;padding:3px 6px;" title="Assists">🅰️</th>
+                    <th style="text-align:center;padding:3px 6px;" title="Own goals">🥅</th>
+                    <th style="text-align:right;padding:3px 6px;">SR Goals</th>
+                    <th style="text-align:right;padding:3px 6px;">SR Ast</th>
+                    <th style="text-align:right;padding:3px 6px;">SR Result</th>
+                    <th style="text-align:right;padding:3px 6px;">SR Total</th>
+                    <th style="text-align:right;padding:3px 6px;">LMMR Δ</th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>`;
+            };
+            bodyEl.innerHTML = mkTeamTable(teamAName, "a") + mkTeamTable(teamBName, "b");
+          }
+
+          function render(){
       const m = detail.match;
       titleEl.textContent = m.title;
       subEl.textContent = `${formatIso(m.scheduled_at)}${m.location ? " · " + m.location : ""}`;
@@ -700,6 +773,9 @@
       eventsCard.style.display = showEvents ? "block" : "none";
 
       renderActions();
+        const receiptCard = document.getElementById("receiptCard");
+        if (receiptCard) receiptCard.style.display = (m.status === "completed" && playerResults) ? "block" : "none";
+
       if (showRegistrations) {
         renderRegistrations();
       }
@@ -708,6 +784,7 @@
       }
       if (showEvents) {
         renderEvents();
+        renderReceipt();
       }
       // Balance warning - shown/cleared based on current draft state
       if (editingTeams && Math.abs(draft.teamA.length - draft.teamB.length) > 1) {
@@ -765,6 +842,16 @@
         if (detail.match.status !== "registration_closed" || detail.match.teams_confirmed) editingTeams = false;
         if (detail.match.status !== "finished") editingEvents = false;
 
+        if (detail.match.status === "completed" && getToken()) {
+          try {
+            playerResults = await apiFetch(`/matches/${matchId}/player-results`, { method: "GET" });
+          } catch {
+            playerResults = null;
+          }
+        } else {
+          playerResults = null;
+        }
+
         render();
       } catch (err) {
         const message = err && err.message ? err.message : "Failed loading match.";
@@ -780,6 +867,7 @@
         const act = actBtn.dataset.act;
         try {
           if (act === "register") await apiFetch(`/matches/${m.id}/register`, { method: "POST" });
+          if (act === "accept-offer") await apiFetch(`/matches/${m.id}/register`, { method: "POST" });
           if (act === "cancel-reg") await apiFetch(`/matches/${m.id}/register`, { method: "DELETE" });
           if (act === "open-reg") await apiFetch(`/matches/${m.id}/open-registration`, { method: "POST" });
           if (act === "close-reg") await apiFetch(`/matches/${m.id}/close-registration`, { method: "POST" });
@@ -1006,6 +1094,15 @@
 
     load();
     // 1-second tick for smooth timer; full data reload every 5 seconds
+        document.getElementById("receiptToggle")?.addEventListener("click", () => {
+          const body = document.getElementById("receiptBody");
+          const chevron = document.getElementById("receiptChevron");
+          if (!body) return;
+          const collapsed = body.style.display === "none";
+          body.style.display = collapsed ? "block" : "none";
+          if (chevron) chevron.textContent = collapsed ? "▼" : "▶";
+        });
+
     let _tickCount = 0;
     setInterval(() => {
       _tickCount++;

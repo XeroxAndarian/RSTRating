@@ -392,6 +392,7 @@
       var activeSeason=Array.isArray(seasons)?seasons.find(function(s){return !!s.is_active;}):null;
       var seasonLine="";
       var approvalLine="";
+      var inviteCodeLine="";
       function fmtDateOnly(iso){
         if(!iso) return "-";
         var d=new Date(iso);
@@ -406,11 +407,15 @@
       if(lg.approval_status && lg.approval_status !== "approved"){
         approvalLine="<div><strong>Status:</strong> <span class=\"pill\">"+esc(lg.approval_status)+(lg.approval_note?": "+esc(lg.approval_note):"")+"</span></div>";
       }
+      if(lg.allow_join_by_code && lg.invite_code){
+        inviteCodeLine="<div><strong>Invite code:</strong> <span class=\"pill\">"+esc(lg.invite_code)+"</span></div>";
+      }
       document.getElementById("meta").innerHTML=
         "<div><strong>Manager:</strong> "+esc(lg.owner_username)+"</div>"+
         "<div><strong>Region:</strong> "+esc(lg.region||"-")+"</div>"+
         "<div><strong>Type:</strong> "+esc(lg.football_type)+" / "+esc(lg.goal_size)+"</div>"+
         "<div><strong>Join:</strong> "+(lg.auto_accept_members?"Auto-accept":"Request only")+"</div>"+
+        inviteCodeLine+
         "<div><strong>Members:</strong> "+esc(lg.member_count)+"</div>"+
         "<div><strong>Created:</strong> "+esc((lg.created_at||"").slice(0,10))+"</div>"+
         approvalLine+
@@ -700,7 +705,16 @@
     function renderAnnouncements(notifs){
       var el=document.getElementById("announcements");
       var allowedTypes=["registration_open","registration_opened","new_match","match_result"];
-      var filtered=(Array.isArray(notifs)?notifs:[]).filter(function(n){return allowedTypes.includes(String(n.notif_type||""));});
+      var leagueMatchIds=new Set((Array.isArray(matches)?matches:[]).map(function(m){return Number(m.id);}));
+      var filtered=(Array.isArray(notifs)?notifs:[]).filter(function(n){
+        if(!allowedTypes.includes(String(n.notif_type||""))) return false;
+        var data=(n&&n.data&&typeof n.data==="object")?n.data:{};
+        var dataLeagueId=Number(data.league_id||0);
+        var dataMatchId=Number(data.match_id||0);
+        if(dataLeagueId && dataLeagueId===Number(leagueId)) return true;
+        if(dataMatchId && leagueMatchIds.has(dataMatchId)) return true;
+        return false;
+      });
       if(!filtered.length){el.innerHTML="<p class=\"muted\" style=\"font-size:.85rem;\">No announcements.</p>";return;}
       el.innerHTML=filtered.slice(0,10).map(function(n){
         var matchId=(n && n.data && n.data.match_id)?Number(n.data.match_id):0;

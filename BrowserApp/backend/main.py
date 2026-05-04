@@ -616,6 +616,24 @@ DEFAULT_RATING_CONFIG = {
     "sr_win_points": 20.0,
     "sr_draw_points": 0.0,
     "sr_loss_points": -20.0,
+    # ELO contribution weights for zero-sum teammate redistribution.
+    "elo_goal_bonus": 6.0,
+    "elo_assist_bonus": 3.0,
+    # Scales how far teammates separate by contribution while preserving zero-sum.
+    "elo_contribution_spread": 3.5,
+    # Dynamic K thresholds
+    "elo_k_new": 48.0,       # < elo_k_threshold_mid games
+    "elo_k_mid": 32.0,       # < elo_k_threshold_vet games
+    "elo_k_vet": 20.0,       # >= elo_k_threshold_vet games
+    "elo_k_threshold_mid": 10,
+    "elo_k_threshold_vet": 30,
+    # Dynamic MVP bonus (overall match MVP only).
+    # Final bonus = base + span * (2 * dominance - 1), where dominance in [0,1].
+    # With base=10 and span=5 this yields roughly 5..15.
+    "sr_mvp_bonus_base": 10.0,
+    "sr_mvp_bonus_dynamic_span": 5.0,
+    "elo_mvp_bonus_base": 10.0,
+    "elo_mvp_bonus_dynamic_span": 5.0,
 }
 
 
@@ -1278,6 +1296,33 @@ def init_db() -> None:
         ensure_column(conn, "matches", "offsides_enabled", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "matches", "corners_enabled", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "matches", "fouls_enabled", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "matches", "mvp_user_id", "INTEGER")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS match_player_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                team TEXT NOT NULL,
+                lmmr_before REAL,
+                lmmr_after REAL,
+                lmmr_delta REAL,
+                sr_delta REAL,
+                sr_goal_pts REAL NOT NULL DEFAULT 0,
+                sr_assist_pts REAL NOT NULL DEFAULT 0,
+                sr_own_goal_pts REAL NOT NULL DEFAULT 0,
+                sr_result_pts REAL NOT NULL DEFAULT 0,
+                goals INTEGER NOT NULL DEFAULT 0,
+                assists INTEGER NOT NULL DEFAULT 0,
+                own_goals INTEGER NOT NULL DEFAULT 0,
+                is_team_mvp INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(match_id, user_id),
+                FOREIGN KEY(match_id) REFERENCES matches(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
 
         conn.execute(
             """
@@ -4129,31 +4174,151 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
             )
         ]
 
+        base_by_user: dict[int, dict] = {
+            int(r["user_id"]): {
+                "user_id": int(r["user_id"]),
+                "username": str(r["username"]),
+                "display_name": r["display_name"],
+                "lmmr": float(r["lmmr"]),
+            }
+            for r in general_rows
+        }
+        cfg = _load_league_rating_config(conn, league_id)
+
+        completed_matches = conn.execute(
+            """
+            SELECT id, scheduled_at, team_a, team_b, score_a, score_b
+            FROM matches
+            WHERE league_id = ? AND status IN ('completed', 'finished')
+            ORDER BY scheduled_at ASC, id ASC
+            """,
+            (league_id,),
+        ).fetchall()
+
+        def _to_utc_dt(raw: str | None) -> datetime | None:
+            if not raw:
+                return None
+            dt = datetime.fromisoformat(str(raw))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            else:
+                dt = dt.astimezone(timezone.utc)
+            return dt
+
         seasons = conn.execute(
             "SELECT id, name, is_active, start_at, end_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
             (league_id,),
         ).fetchall()
 
         for season in seasons:
-            rows = conn.execute(
-                """
-                SELECT u.id AS user_id, u.username, u.display_name,
-                       COALESCE(ss.attendance, 0) AS attendance,
-                       COALESCE(ss.wins, 0) AS wins,
-                       COALESCE(ss.goals, 0) AS goals,
-                      COALESCE(ss.own_goals, 0) AS own_goals,
-                       COALESCE(ss.assists, 0) AS assists,
-                       COALESCE(lps.rating, ?) AS lmmr,
-                       COALESCE(ss.points, ?) AS sr_points
-                FROM league_memberships AS lm
-                JOIN users AS u ON u.id = lm.user_id
-                LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
-                LEFT JOIN league_season_player_stats AS ss ON ss.season_id = ? AND ss.user_id = lm.user_id
-                WHERE lm.league_id = ?
-                ORDER BY sr_points DESC, lmmr DESC, u.username
-                """,
-                (DEFAULT_GLOBAL_RATING, DEFAULT_RATING_CONFIG["sr_start_points"], int(season["id"]), league_id),
-            ).fetchall()
+            season_start = _to_utc_dt(str(season["start_at"]) if season["start_at"] else None)
+            season_end = _to_utc_dt(str(season["end_at"]) if season["end_at"] else None)
+
+            season_match_ids: list[int] = []
+            seasonal_stats: dict[int, dict[str, int]] = {
+                uid: {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0}
+                for uid in base_by_user.keys()
+            }
+
+            for m in completed_matches:
+                when = _to_utc_dt(str(m["scheduled_at"]) if m["scheduled_at"] else None)
+                if when is None:
+                    continue
+                if season_start is not None and when < season_start:
+                    continue
+                if season_end is not None and when >= season_end:
+                    continue
+
+                match_id = int(m["id"])
+                season_match_ids.append(match_id)
+
+                team_a = [int(x) for x in json.loads(str(m["team_a"] or "[]"))]
+                team_b = [int(x) for x in json.loads(str(m["team_b"] or "[]"))]
+                score_a = int(m["score_a"] or 0)
+                score_b = int(m["score_b"] or 0)
+
+                for uid in team_a:
+                    if uid in seasonal_stats:
+                        seasonal_stats[uid]["attendance"] += 1
+                for uid in team_b:
+                    if uid in seasonal_stats:
+                        seasonal_stats[uid]["attendance"] += 1
+
+                if score_a == score_b:
+                    for uid in team_a:
+                        if uid in seasonal_stats:
+                            seasonal_stats[uid]["draws"] += 1
+                    for uid in team_b:
+                        if uid in seasonal_stats:
+                            seasonal_stats[uid]["draws"] += 1
+                elif score_a > score_b:
+                    for uid in team_a:
+                        if uid in seasonal_stats:
+                            seasonal_stats[uid]["wins"] += 1
+                else:
+                    for uid in team_b:
+                        if uid in seasonal_stats:
+                            seasonal_stats[uid]["wins"] += 1
+
+            if season_match_ids:
+                placeholders = ",".join("?" for _ in season_match_ids)
+                event_rows = conn.execute(
+                    f"""
+                    SELECT user_id, event_type
+                    FROM match_events
+                    WHERE undone = 0
+                      AND user_id IS NOT NULL
+                      AND event_type IN ('goal', 'assist', 'own_goal')
+                      AND match_id IN ({placeholders})
+                    """,
+                    season_match_ids,
+                ).fetchall()
+                for ev in event_rows:
+                    uid = int(ev["user_id"])
+                    if uid not in seasonal_stats:
+                        continue
+                    ev_type = str(ev["event_type"])
+                    if ev_type == "goal":
+                        seasonal_stats[uid]["goals"] += 1
+                    elif ev_type == "assist":
+                        seasonal_stats[uid]["assists"] += 1
+                    elif ev_type == "own_goal":
+                        seasonal_stats[uid]["own_goals"] += 1
+
+            rows_out: list[LeaguePlayerStatsTabRow] = []
+            for uid, base in base_by_user.items():
+                s = seasonal_stats.get(uid, {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0})
+                attendance = int(s["attendance"])
+                wins = int(s["wins"])
+                draws = int(s["draws"])
+                losses = max(0, attendance - wins - draws)
+                if attendance > 0:
+                    sr_points = (
+                        float(cfg["sr_start_points"])
+                        + wins * float(cfg["sr_win_points"])
+                        + draws * float(cfg["sr_draw_points"])
+                        + losses * float(cfg["sr_loss_points"])
+                        + int(s["goals"]) * float(cfg["sr_goal_points"])
+                        + int(s["assists"]) * float(cfg["sr_assist_points"])
+                        + int(s["own_goals"]) * float(cfg["sr_own_goal_points"])
+                    )
+                else:
+                    sr_points = float(cfg["sr_start_points"])
+                rows_out.append(
+                    LeaguePlayerStatsTabRow(
+                        user_id=uid,
+                        username=base["username"],
+                        display_name=base["display_name"],
+                        attendance=attendance,
+                        wins=wins,
+                        goals=int(s["goals"]),
+                        own_goals=int(s["own_goals"]),
+                        assists=int(s["assists"]),
+                        lmmr=float(base["lmmr"]),
+                        sr_points=round(float(sr_points), 2),
+                    )
+                )
+
             label = str(season["name"])
             if season["start_at"] or season["end_at"]:
                 start_lbl = str(season["start_at"] or "?")[:10]
@@ -4165,25 +4330,9 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                 LeaguePlayerStatsTabOut(
                     key=f"season-{int(season['id'])}",
                     label=label,
-                    rows=[
-                        LeaguePlayerStatsTabRow(
-                            user_id=int(r["user_id"]),
-                            username=str(r["username"]),
-                            display_name=r["display_name"],
-                            attendance=int(r["attendance"]),
-                            wins=int(r["wins"]),
-                            goals=int(r["goals"]),
-                            own_goals=int(r["own_goals"]),
-                            assists=int(r["assists"]),
-                            lmmr=float(r["lmmr"]),
-                            sr_points=float(r["sr_points"]),
-                        )
-                        for r in rows
-                    ],
+                    rows=rows_out,
                 )
             )
-
-            conn.commit()
 
     return tabs
 
@@ -5955,6 +6104,17 @@ def _generate_two_teams(player_ratings: list[tuple[int, float]]) -> tuple[list[i
 # RATING HELPERS
 # ============================================================
 
+def _dynamic_k(attendance: int, cfg: dict) -> float:
+    """Return ELO K factor based on number of league matches played."""
+    mid_thresh = int(cfg.get("elo_k_threshold_mid", 10))
+    vet_thresh = int(cfg.get("elo_k_threshold_vet", 30))
+    if attendance < mid_thresh:
+        return float(cfg.get("elo_k_new", 48.0))
+    if attendance < vet_thresh:
+        return float(cfg.get("elo_k_mid", 32.0))
+    return float(cfg.get("elo_k_vet", 20.0))
+
+
 def _elo_update(rating: float, opp_avg: float, won: bool, drew: bool = False, k: float = ELO_K) -> float:
     expected = 1.0 / (1.0 + 10 ** ((opp_avg - rating) / 400.0))
     actual = 0.5 if drew else (1.0 if won else 0.0)
@@ -6234,10 +6394,26 @@ def _match_active_elapsed_seconds(conn: sqlite3.Connection, match_id: int, start
     return max(0, absolute_elapsed - paused_total)
 
 
+_GLOBAL_RATING_MIN_LEAGUE_SIZE = 8   # leagues with fewer members fall back to raw rating
+_GLOBAL_RATING_MIN_STD = 25.0        # leagues with std dev below this fall back to raw rating
+_GLOBAL_RATING_PRIOR_WEIGHT = 10.0   # Bayesian shrinkage toward DEFAULT_GLOBAL_RATING
+_GLOBAL_RATING_TARGET_STD = 80.0     # assumed global std dev for z-score rescaling
+
+
 def _recompute_global_rating(conn: sqlite3.Connection, user_id: int) -> None:
-    """Recompute global_rating as attendance-weighted average with Bayesian shrinkage to prior."""
+    """Recompute global_rating using z-score normalised, attendance-weighted average with Bayesian shrinkage.
+
+    For each league the player has played in:
+    - If the league has >= _GLOBAL_RATING_MIN_LEAGUE_SIZE members with attendance and std dev
+      >= _GLOBAL_RATING_MIN_STD, convert the player's rating to a z-score relative to the
+      league distribution, then rescale back to the global rating scale. This makes ratings
+      comparable across leagues of different difficulty.
+    - Otherwise fall back to raw rating for that league (avoids noisy z-scores in tiny/new leagues).
+
+    The per-league normalised values are attendance-weighted then Bayesian-shrunk toward 1000.
+    """
     rows = conn.execute(
-        "SELECT rating, attendance FROM league_player_stats WHERE user_id = ? AND attendance > 0",
+        "SELECT league_id, rating, attendance FROM league_player_stats WHERE user_id = ? AND attendance > 0",
         (user_id,),
     ).fetchall()
     if not rows:
@@ -6245,12 +6421,43 @@ def _recompute_global_rating(conn: sqlite3.Connection, user_id: int) -> None:
     total_att = sum(int(r["attendance"]) for r in rows)
     if total_att == 0:
         return
-    weighted = sum(float(r["rating"]) * int(r["attendance"]) for r in rows) / total_att
-    prior_weight = 10.0
-    weighted = ((weighted * total_att) + (DEFAULT_GLOBAL_RATING * prior_weight)) / (total_att + prior_weight)
+
+    normalised_contributions: list[tuple[float, int]] = []  # (normalised_rating, attendance)
+
+    for row in rows:
+        league_id = int(row["league_id"])
+        player_rating = float(row["rating"])
+        attendance = int(row["attendance"])
+
+        # Fetch all members with attendance in this league for distribution stats
+        peer_rows = conn.execute(
+            "SELECT rating FROM league_player_stats WHERE league_id = ? AND attendance > 0",
+            (league_id,),
+        ).fetchall()
+        peer_ratings = [float(p["rating"]) for p in peer_rows]
+        n = len(peer_ratings)
+
+        use_normalised = False
+        if n >= _GLOBAL_RATING_MIN_LEAGUE_SIZE:
+            mu = sum(peer_ratings) / n
+            variance = sum((r - mu) ** 2 for r in peer_ratings) / n
+            sigma = math.sqrt(variance)
+            if sigma >= _GLOBAL_RATING_MIN_STD:
+                z = (player_rating - mu) / sigma
+                normalised = DEFAULT_GLOBAL_RATING + z * _GLOBAL_RATING_TARGET_STD
+                normalised_contributions.append((normalised, attendance))
+                use_normalised = True
+
+        if not use_normalised:
+            normalised_contributions.append((player_rating, attendance))
+
+    weighted = sum(r * a for r, a in normalised_contributions) / total_att
+    # Bayesian shrinkage toward DEFAULT_GLOBAL_RATING
+    prior_weight = _GLOBAL_RATING_PRIOR_WEIGHT
+    global_rating = ((weighted * total_att) + (DEFAULT_GLOBAL_RATING * prior_weight)) / (total_att + prior_weight)
     conn.execute(
         "UPDATE users SET global_rating = ?, updated_at = ? WHERE id = ?",
-        (round(weighted, 2), utc_now_iso(), user_id),
+        (round(global_rating, 2), utc_now_iso(), user_id),
     )
 
 
@@ -6455,18 +6662,52 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
 
     all_participants = [(uid, "a") for uid in team_a_ids] + [(uid, "b") for uid in team_b_ids]
 
+    # Pre-fetch all player stats so we can do zero-sum contribution redistribution per team.
+    lps_by_uid: dict[int, sqlite3.Row] = {}
+    if all_participants:
+        all_uids = [uid for uid, _ in all_participants]
+        rows = conn.execute(
+            f"SELECT id, user_id, rating, attendance, wins, goals, assists, is_temporary_lmmr, temporary_lmmr_match_limit "
+            f"FROM league_player_stats WHERE league_id = ? AND user_id IN ({','.join('?' * len(all_uids))})",
+            [league_id] + all_uids,
+        ).fetchall()
+        for r in rows:
+            lps_by_uid[int(r["user_id"])] = r
+
+    goal_w = float(cfg.get("elo_goal_bonus", 6.0))
+    assist_w = float(cfg.get("elo_assist_bonus", 3.0))
+    spread_w = float(cfg.get("elo_contribution_spread", 3.5))
+
+    def _contribution(uid: int) -> float:
+        return goals_by_player.get(uid, 0) * goal_w + assists_by_player.get(uid, 0) * assist_w
+
+    def _zero_sum_adjustments(team_ids: list[int]) -> dict[int, float]:
+        """Return per-player ELO adjustment that is zero-sum across the team."""
+        if not team_ids:
+            return {}
+        contribs = {uid: _contribution(uid) for uid in team_ids}
+        avg_c = sum(contribs.values()) / len(team_ids)
+        return {uid: (contribs[uid] - avg_c) * spread_w for uid in team_ids}
+
+    # Per-player receipts accumulated during the loop
+    lmmr_results: dict[int, tuple[float, float, float]] = {}  # uid -> (before, after, delta)
+    sr_results: dict[int, tuple[float, float, float, float, float]] = {}  # uid -> (total, goal, assist, own_goal, result)
+
+    adj_a = _zero_sum_adjustments(team_a_ids)
+    adj_b = _zero_sum_adjustments(team_b_ids)
+    contribution_adj: dict[int, float] = {**adj_a, **adj_b}
+
     for uid, team in all_participants:
         opp_avg = avg_b if team == "a" else avg_a
         won = (team == "a" and a_won) or (team == "b" and b_won)
 
-        existing = conn.execute(
-            "SELECT id, rating, attendance, wins, goals, assists, is_temporary_lmmr, temporary_lmmr_match_limit FROM league_player_stats WHERE league_id = ? AND user_id = ?",
-            (league_id, uid),
-        ).fetchone()
+        existing = lps_by_uid.get(uid)
 
         if existing is None:
             old_rating = DEFAULT_GLOBAL_RATING
-            new_rating = _elo_update(old_rating, opp_avg, won, drew)
+            k = _dynamic_k(0, cfg)
+            base_change = _elo_update(old_rating, opp_avg, won, drew, k) - old_rating
+            new_rating = round(old_rating + base_change + contribution_adj.get(uid, 0.0), 2)
             conn.execute(
                 """
                 INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating)
@@ -6478,7 +6719,9 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             old_rating = float(existing["rating"])
             prev_attendance = int(existing["attendance"] or 0)
             temp_limit = int(existing["temporary_lmmr_match_limit"] or TEMP_LMMR_MATCH_LIMIT)
-            new_rating = _elo_update(old_rating, opp_avg, won, drew)
+            k = _dynamic_k(prev_attendance, cfg)
+            base_change = _elo_update(old_rating, opp_avg, won, drew, k) - old_rating
+            new_rating = round(old_rating + base_change + contribution_adj.get(uid, 0.0), 2)
             should_disable_temp = bool(int(existing["is_temporary_lmmr"] or 0)) and (prev_attendance + 1) >= temp_limit
             conn.execute(
                 """
@@ -6493,6 +6736,9 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
                 """,
                 (1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), new_rating, 1 if should_disable_temp else 0, int(existing["id"])),
             )
+
+        # Track LMMR change for receipt
+        lmmr_results[uid] = (old_rating, new_rating, round(new_rating - old_rating, 2))
 
         # Update global user stats too
         conn.execute(
@@ -6564,12 +6810,15 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             adjusted_magnitude = base_magnitude * (1.0 + adjustment_cap * combined_component)
             won_bonus = -adjusted_magnitude
 
-        delta_points = (
-            goals_by_player.get(uid, 0) * float(cfg["sr_goal_points"])
-            + assists_by_player.get(uid, 0) * float(cfg["sr_assist_points"])
-            + own_goals_by_player.get(uid, 0) * float(cfg["sr_own_goal_points"])
-            + won_bonus
-        )
+        sr_goal_pts = round(goals_by_player.get(uid, 0) * float(cfg["sr_goal_points"]), 2)
+        sr_assist_pts = round(assists_by_player.get(uid, 0) * float(cfg["sr_assist_points"]), 2)
+        sr_own_goal_pts = round(own_goals_by_player.get(uid, 0) * float(cfg["sr_own_goal_points"]), 2)
+        sr_result_pts = round(won_bonus, 2)
+        delta_points = sr_goal_pts + sr_assist_pts + sr_own_goal_pts + sr_result_pts
+
+        # Store SR receipt breakdown for this player
+        sr_results[uid] = (round(delta_points, 2), sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts)
+
         if season_row is None:
             start_points = float(cfg["sr_start_points"])
             conn.execute(
@@ -6608,6 +6857,99 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
                     int(season_row["id"]),
                 ),
             )
+
+    # ---- Post-loop: detect MVP per team and write match_player_results ----
+    def _team_mvp(team_ids: list[int]) -> int | None:
+        """Return uid of team MVP by contribution score; goals as tiebreaker."""
+        best_uid: int | None = None
+        best_score = -1.0
+        for tid in team_ids:
+            c = _contribution(tid)
+            if c > best_score or (c == best_score and goals_by_player.get(tid, 0) > goals_by_player.get(best_uid or -1, 0)):
+                best_score = c
+                best_uid = tid
+        return best_uid if best_score > 0 else None
+
+    mvp_a = _team_mvp(team_a_ids)
+    mvp_b = _team_mvp(team_b_ids)
+
+    # Overall match MVP: highest contribution regardless of team
+    overall_mvp: int | None = None
+    overall_best = -1.0
+    overall_second = -1.0
+    for uid, _ in all_participants:
+        c = _contribution(uid)
+        if c > overall_best or (c == overall_best and goals_by_player.get(uid, 0) > goals_by_player.get(overall_mvp or -1, 0)):
+            overall_second = overall_best
+            overall_best = c
+            overall_mvp = uid
+        elif c > overall_second:
+            overall_second = c
+    if overall_best <= 0:
+        overall_mvp = None
+
+    # Apply dynamic MVP bonuses to the overall MVP only.
+    if overall_mvp is not None:
+        # Dominance is based on the gap vs second-best contributor.
+        # 0 => very close MVP race, 1 => clear standout.
+        denom = max(1.0, float(overall_best))
+        dominance = max(0.0, min(1.0, (float(overall_best) - max(0.0, float(overall_second))) / denom))
+
+        sr_base = float(cfg.get("sr_mvp_bonus_base", 10.0))
+        sr_span = max(0.0, float(cfg.get("sr_mvp_bonus_dynamic_span", 5.0)))
+        elo_base = float(cfg.get("elo_mvp_bonus_base", 10.0))
+        elo_span = max(0.0, float(cfg.get("elo_mvp_bonus_dynamic_span", 5.0)))
+        sr_mvp_bonus = round(sr_base + sr_span * (2.0 * dominance - 1.0), 2)
+        elo_mvp_bonus = round(elo_base + elo_span * (2.0 * dominance - 1.0), 2)
+
+        # LMMR: bump league rating directly and reflect this in the receipt snapshot.
+        conn.execute(
+            "UPDATE league_player_stats SET rating = rating + ? WHERE league_id = ? AND user_id = ?",
+            (elo_mvp_bonus, league_id, overall_mvp),
+        )
+        before_l, after_l, delta_l = lmmr_results.get(overall_mvp, (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, 0.0))
+        after_l = round(after_l + elo_mvp_bonus, 2)
+        delta_l = round(delta_l + elo_mvp_bonus, 2)
+        lmmr_results[overall_mvp] = (before_l, after_l, delta_l)
+
+        # SR: add MVP bonus to current season points and fold it into SR breakdown.
+        conn.execute(
+            "UPDATE league_season_player_stats SET points = points + ? WHERE season_id = ? AND user_id = ?",
+            (sr_mvp_bonus, season_id, overall_mvp),
+        )
+        total_sr, g_sr, a_sr, og_sr, r_sr = sr_results.get(overall_mvp, (0.0, 0.0, 0.0, 0.0, 0.0))
+        total_sr = round(total_sr + sr_mvp_bonus, 2)
+        r_sr = round(r_sr + sr_mvp_bonus, 2)
+        sr_results[overall_mvp] = (total_sr, g_sr, a_sr, og_sr, r_sr)
+
+        _recompute_global_rating(conn, overall_mvp)
+
+    conn.execute("UPDATE matches SET mvp_user_id = ? WHERE id = ?", (overall_mvp, match_id))
+
+    for uid, team in all_participants:
+        lmmr_before, lmmr_after, lmmr_delta = lmmr_results.get(uid, (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, 0.0))
+        sr_delta, sr_g, sr_a, sr_og, sr_r = sr_results.get(uid, (0.0, 0.0, 0.0, 0.0, 0.0))
+        is_team_mvp = 1 if (team == "a" and uid == mvp_a) or (team == "b" and uid == mvp_b) else 0
+        conn.execute(
+            """
+            INSERT INTO match_player_results
+                (match_id, user_id, team, lmmr_before, lmmr_after, lmmr_delta,
+                 sr_delta, sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts,
+                 goals, assists, own_goals, is_team_mvp)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(match_id, user_id) DO UPDATE SET
+                lmmr_before=excluded.lmmr_before, lmmr_after=excluded.lmmr_after,
+                lmmr_delta=excluded.lmmr_delta, sr_delta=excluded.sr_delta,
+                sr_goal_pts=excluded.sr_goal_pts, sr_assist_pts=excluded.sr_assist_pts,
+                sr_own_goal_pts=excluded.sr_own_goal_pts, sr_result_pts=excluded.sr_result_pts,
+                goals=excluded.goals, assists=excluded.assists, own_goals=excluded.own_goals,
+                is_team_mvp=excluded.is_team_mvp
+            """,
+            (match_id, uid, team, lmmr_before, lmmr_after, lmmr_delta,
+             sr_delta, sr_g, sr_a, sr_og, sr_r,
+             goals_by_player.get(uid, 0), assists_by_player.get(uid, 0),
+             own_goals_by_player.get(uid, 0), is_team_mvp),
+        )
 
 
 # ============================================================
@@ -7759,6 +8101,75 @@ def confirm_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_cur
         )
         conn.commit()
     return MessageOut(detail="Match confirmed. Stats and ratings updated.")
+
+
+class MatchPlayerResultOut(BaseModel):
+    user_id: int
+    display_name: str
+    team: str
+    lmmr_before: float
+    lmmr_after: float
+    lmmr_delta: float
+    sr_delta: float
+    sr_goal_pts: float
+    sr_assist_pts: float
+    sr_own_goal_pts: float
+    sr_result_pts: float
+    goals: int
+    assists: int
+    own_goals: int
+    is_team_mvp: bool
+
+
+class MatchResultsOut(BaseModel):
+    mvp_user_id: int | None
+    players: list[MatchPlayerResultOut]
+
+
+@app.get("/matches/{match_id}/player-results", response_model=MatchResultsOut)
+def get_match_player_results(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MatchResultsOut:
+    with get_conn() as conn:
+        match_row = _fetch_match_row(conn, match_id)
+        if match_row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        rows = conn.execute(
+            """
+            SELECT mpr.user_id, u.display_name, mpr.team,
+                   mpr.lmmr_before, mpr.lmmr_after, mpr.lmmr_delta,
+                   mpr.sr_delta, mpr.sr_goal_pts, mpr.sr_assist_pts,
+                   mpr.sr_own_goal_pts, mpr.sr_result_pts,
+                   mpr.goals, mpr.assists, mpr.own_goals, mpr.is_team_mvp
+            FROM match_player_results mpr
+            JOIN users u ON u.id = mpr.user_id
+            WHERE mpr.match_id = ?
+            ORDER BY mpr.team, mpr.sr_delta DESC
+            """,
+            (match_id,),
+        ).fetchall()
+    mvp_uid = match_row["mvp_user_id"]
+    return MatchResultsOut(
+        mvp_user_id=int(mvp_uid) if mvp_uid is not None else None,
+        players=[
+            MatchPlayerResultOut(
+                user_id=int(r["user_id"]),
+                display_name=str(r["display_name"]),
+                team=str(r["team"]),
+                lmmr_before=float(r["lmmr_before"] or 0),
+                lmmr_after=float(r["lmmr_after"] or 0),
+                lmmr_delta=float(r["lmmr_delta"] or 0),
+                sr_delta=float(r["sr_delta"] or 0),
+                sr_goal_pts=float(r["sr_goal_pts"] or 0),
+                sr_assist_pts=float(r["sr_assist_pts"] or 0),
+                sr_own_goal_pts=float(r["sr_own_goal_pts"] or 0),
+                sr_result_pts=float(r["sr_result_pts"] or 0),
+                goals=int(r["goals"] or 0),
+                assists=int(r["assists"] or 0),
+                own_goals=int(r["own_goals"] or 0),
+                is_team_mvp=bool(r["is_team_mvp"]),
+            )
+            for r in rows
+        ],
+    )
 
 
 @app.post("/matches/{match_id}/cancel", response_model=MessageOut)

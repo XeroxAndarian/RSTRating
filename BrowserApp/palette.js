@@ -56,5 +56,68 @@
   applyPalette();
   new MutationObserver(applyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+  function ensureQuickNavStyles() {
+    if (document.getElementById("rsQuickNavStyles")) return;
+    var st = document.createElement("style");
+    st.id = "rsQuickNavStyles";
+    st.textContent = ""
+      + ".rs-quick-link{border:none;border-radius:9px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer;"
+      + "text-decoration:none;display:inline-flex;align-items:center;gap:6px;line-height:1;"
+      + "background:var(--panel-soft,#f5f9ff);border:1px solid var(--line,rgba(14,44,29,.15));color:var(--text,#0e2c1d);}"
+      + ".rs-quick-link:hover{opacity:.85;}"
+      + ".rs-quick-float{position:fixed;top:12px;right:12px;z-index:9999;display:flex;gap:8px;}"
+      + ".rs-quick-float .rs-quick-link{box-shadow:0 6px 18px rgba(0,0,0,.12);}";
+    document.head.appendChild(st);
+  }
+
+  function makeQuickLink(href, title, text, id) {
+    var a = document.createElement("a");
+    a.id = id;
+    a.href = href;
+    a.className = "rs-quick-link";
+    a.title = title;
+    a.textContent = text;
+    return a;
+  }
+
+  function addQuickNavButtons() {
+    if (!document.body || document.body.getAttribute("data-rs-quick-nav") === "1") return;
+    var path = (window.location.pathname || "").toLowerCase();
+
+    var hasNotifShortcut = !!document.querySelector('#rsQuickNotifBtn, a[href*="notifications.html"], .notif-bell, #notifBellBtn');
+    var hasAccountShortcut = !!document.querySelector('#rsQuickAccountBtn, a[href*="account.html"], #accountBtn');
+
+    var wantNotif = !hasNotifShortcut && path.indexOf("notifications.html") === -1;
+    var wantAccount = !hasAccountShortcut && path.indexOf("account.html") === -1;
+    if (!wantNotif && !wantAccount) {
+      document.body.setAttribute("data-rs-quick-nav", "1");
+      return;
+    }
+
+    ensureQuickNavStyles();
+
+    var darkBtn = document.getElementById("darkModeToggle");
+    var host = darkBtn && darkBtn.parentElement ? darkBtn.parentElement : null;
+
+    if (host) {
+      if (wantNotif) host.appendChild(makeQuickLink("./notifications.html", "Notifications", "🔔", "rsQuickNotifBtn"));
+      if (wantAccount) host.appendChild(makeQuickLink("./account.html", "Account settings", "👤", "rsQuickAccountBtn"));
+    } else {
+      var wrap = document.createElement("div");
+      wrap.className = "rs-quick-float";
+      if (wantNotif) wrap.appendChild(makeQuickLink("./notifications.html", "Notifications", "🔔", "rsQuickNotifBtn"));
+      if (wantAccount) wrap.appendChild(makeQuickLink("./account.html", "Account settings", "👤", "rsQuickAccountBtn"));
+      if (wrap.children.length) document.body.appendChild(wrap);
+    }
+
+    document.body.setAttribute("data-rs-quick-nav", "1");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", addQuickNavButtons, { once: true });
+  } else {
+    addQuickNavButtons();
+  }
+
   window.RSPalette = { get: function () { return "woodland"; }, apply: applyPalette, reapply: applyPalette };
 })();
