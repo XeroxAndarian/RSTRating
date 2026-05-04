@@ -99,8 +99,7 @@
       + ".rs-quick-link:hover{opacity:.9;}"
       + ".rs-quick-danger{background:var(--danger,#b42318);border-color:transparent;color:#fff;}"
       + ".rs-notif-bell{position:relative;}"
-      + ".rs-notif-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--danger,#b42318);color:#fff;font-size:.7rem;display:none;align-items:center;justify-content:center;}
-"
+      + ".rs-notif-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--danger,#b42318);color:#fff;font-size:.7rem;display:none;align-items:center;justify-content:center;}"
       + ".rs-notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:9998;}"
       + ".rs-notif-backdrop.open{display:block;}"
       + ".rs-notif-drawer{position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);transform:translateX(100%);transition:transform .18s ease;z-index:9999;background:var(--panel,#fff);border-left:1px solid var(--line,rgba(0,0,0,.15));display:flex;flex-direction:column;}"

@@ -2319,7 +2319,8 @@
 
         function setNotifTab(tab) {
             if (tab === "history") {
-                window.location.href = "./notifications.html";
+                try { sessionStorage.setItem("rs_notifications_allowed", "1"); } catch (_) { }
+                window.location.href = "./notifications.html?from=drawer";
                 return;
             }
             activeNotifTab = tab;
