@@ -324,6 +324,7 @@
     }
     function isAdmin(){ return viewMode === "admin"; }
     function isCensored(){ return viewMode === "censored"; }
+    function isPrivateRestricted(){ return detail?.match?.visibility === "private" && !isAdmin(); }
 
     async function apiFetch(path, options){
       const headers = Object.assign({}, options?.headers || {});
@@ -889,7 +890,10 @@
             try {
               const leagueDetail = await apiFetch(`/leagues/${detail.match.league_id}`, { method: "GET" });
               leagueRole = leagueDetail.league.member_role;
-              viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin" : "normal";
+              const isActualMember = leagueRole === "owner" || leagueRole === "admin" || leagueRole === "member";
+              viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin"
+                       : isActualMember ? "normal"
+                       : (detail.match.visibility === "public" ? "normal" : "censored");
             } catch {
               leagueRole = null;
               viewMode = detail.match.visibility === "public" ? "normal" : "censored";
