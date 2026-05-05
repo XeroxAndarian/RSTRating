@@ -200,7 +200,13 @@
       <!-- RIGHT -->
       <div>
         <div class="card">
-          <h3 style="margin-bottom:8px;">League info</h3>
+          <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+            <h3 style="margin:0;">League info</h3>
+            <div class="row" style="gap:6px;">
+              <a class="btn ghost sm" id="settingsBtn" href="#" style="display:none;" title="Manager settings">📋 Settings</a>
+              <button class="btn ghost sm" id="leaveLeagueBtn" type="button" style="display:none;" title="Leave league">🏃 Leave</button>
+            </div>
+          </div>
           <div id="meta" class="muted" style="font-size:.88rem;line-height:1.9;"></div>
         </div>
         <div class="card">
@@ -211,9 +217,6 @@
     </div>
 
     <div id="status" class="status"></div>
-    <div class="row" style="justify-content:flex-end; margin-bottom:8px;">
-      <a class="btn ghost" id="settingsBtn" href="#" style="display:none;" title="Manager settings">&#x1F4CB; Settings</a>
-    </div>
     <div class="build-stamp">Build: league-v2026-05-01-2</div>
   </div>
 
@@ -565,7 +568,7 @@
       if(!rows.length && detail && Array.isArray(detail.members) && detail.members.length){
         rows=detail.members.map(function(m){
           return { user_id:m.user_id, username:m.username, display_name:m.display_name,
-            attendance:m.attendance||0, wins:m.wins||0, goals:m.goals||0,
+            attendance:m.attendance||0, wins:m.wins||0, draws:0, goals:m.goals||0,
             own_goals:0, assists:m.assists||0, lmmr:m.rating||1000, sr_points:0 };
         });
       }
@@ -589,10 +592,11 @@
         return;
       }
       var items=rows.map(function(r){
-        var wld=computeWldForUser(r.user_id);
-        var played=wld.wins+wld.losses+wld.draws;
-        var wr=played?Math.round((wld.wins/played)*100):0;
-        return { row:r, wld:wld, wr:wr };
+        var w=Number(r.wins||0), d=Number(r.draws||0);
+        var l=Math.max(0, Number(r.attendance||0)-w-d);
+        var played=w+l+d;
+        var wr=played?Math.round((w/played)*100):0;
+        return { row:r, wld:{wins:w,losses:l,draws:d}, wr:wr };
       });
       if(showSr){
         items.sort(function(a,b){ return Number(b.row.sr_points||0)-Number(a.row.sr_points||0); });
@@ -603,6 +607,11 @@
         var r=it.row;
         var cls=classifyScoreboardPlayer(r, it.wld);
         return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
+            tbody.innerHTML=items.map(function(it){
+              var r=it.row;
+              var cls=classifyScoreboardPlayer(r, it.wld);
+              return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
+            }).join("");
       }).join("");
     }
 
@@ -652,18 +661,19 @@
       // Fallback: if not in statsTabs rows, try detail.members
       if(!meRow && me && detail && Array.isArray(detail.members)){
         var meMember=detail.members.find(function(m){ return Number(m.user_id)===Number(me.id); });
-        if(meMember) meRow={ user_id:me.id, attendance:meMember.attendance||0, wins:meMember.wins||0,
+        if(meMember) meRow={ user_id:me.id, attendance:meMember.attendance||0, wins:meMember.wins||0, draws:0,
           goals:meMember.goals||0, own_goals:0, assists:meMember.assists||0, lmmr:meMember.rating||1000, sr_points:0 };
       }
       if(meRow){
-        var meWld=computeWldForUser(me.id);
-        var played=meWld.wins+meWld.losses+meWld.draws;
-        var meWr=played?Math.round((meWld.wins/played)*100):0;
+        var meW=Number(meRow.wins||0), meD=Number(meRow.draws||0);
+        var meL=Math.max(0, Number(meRow.attendance||0)-meW-meD);
+        var played=meW+meL+meD;
+        var meWr=played?Math.round((meW/played)*100):0;
         var att=Math.max(1,Number(meRow.attendance||0)||1);
         var gls=Number(meRow.goals||0); var ass=Number(meRow.assists||0); var og=Number(meRow.own_goals||0);
         setUserStatBoxes({
           attendance:String(meRow.attendance||0),
-          wld:meWld.wins+"-"+meWld.losses+"-"+meWld.draws,
+          wld:meW+"-"+meL+"-"+meD,
           winrate:meWr+"%",
           goals:String(gls),
           assists:String(ass),
@@ -674,8 +684,8 @@
           assistsPerGame:(ass/att).toFixed(2),
           ogPerGame:(og/att).toFixed(2),
           ga:String(gls+ass),
-          losses:String(meWld.losses),
-          draws:String(meWld.draws)
+          losses:String(meL),
+          draws:String(meD)
         });
       } else {
         setUserStatBoxes();
@@ -755,8 +765,22 @@
       addMatchBtn.href="./create_match.html?league_id="+lg.id;
       settingsBtn.style.display=canManage()?"inline-flex":"none";
       settingsBtn.href="./league_settings.html?id="+lg.id;
+      var leaveBtn=document.getElementById("leaveLeagueBtn");
+      var memberRole=lg.member_role||null;
+      leaveBtn.style.display=(memberRole&&memberRole!=="owner")?"inline-flex":"none";
       renderMeta();renderMatches();renderMembers();renderJoinRequests();renderSeasonManager();renderStatsTabs();
     }
+
+    document.getElementById("leaveLeagueBtn").addEventListener("click",async function(){
+      if(!detail||!detail.league)return;
+      if(!confirm("Are you sure you want to leave this league?"))return;
+      try{
+        await apiFetch("/leagues/"+detail.league.id+"/leave",{method:"POST"});
+        window.location.href="./lobby.html";
+      }catch(err){
+        var s=document.getElementById("status");s.textContent=err.message||"Failed to leave league.";s.className="status error";
+      }
+    });
 
     document.getElementById("memberTable").addEventListener("click",function(e){
       var th=e.target.closest("th[data-col]");

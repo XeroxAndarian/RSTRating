@@ -26,6 +26,7 @@
   var DEFAULT_API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
     ? "http://127.0.0.1:8000"
     : "https://rstrating-accounts-api.onrender.com";
+  var _authTimeoutRedirecting = false;
 
   var ACCENT = "#1f8a4c", BGA = "#f3fbf6", BGB = "#def0e6";
   var lightBg = mix(BGA, BGB, 0.5);
@@ -119,8 +120,38 @@
       + ".icon-button:hover{background:var(--bg);color:var(--text,#0e2c1d);}"
       + ".notif-tab-bar{display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border,var(--line,rgba(0,0,0,.15)));background:var(--panel-strong,var(--panel-soft,#f5f9ff));}"
       + ".notif-tab-btn{appearance:none;border:1px solid var(--line,rgba(0,0,0,.15));border-radius:999px;padding:5px 16px;background:var(--card,var(--panel,#fff));color:var(--muted,#666);font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .12s,color .12s;}"
-      + ".notif-tab-btn.active{background:var(--accent,#1f8a4c);color:#fff;border-color:transparent;}";
+      + ".notif-tab-btn.active{background:var(--accent,#1f8a4c);color:#fff;border-color:transparent;}"
+      + ".notif-action-btn{appearance:none;border:1px solid var(--line,rgba(0,0,0,.15));border-radius:8px;padding:6px 12px;background:var(--panel-soft,#f5f9ff);color:var(--text,#0e2c1d);font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .12s,color .12s,border-color .12s;}"
+      + ".notif-action-btn:hover{background:var(--card,var(--panel,#fff));border-color:var(--accent,#1f8a4c);}";
     document.head.appendChild(st);
+  }
+
+  function isAuthPage() {
+    var p = String(window.location.pathname || "").toLowerCase();
+    return p === "/" || p.endsWith("/index.html") || p.endsWith("index.html");
+  }
+
+  function handleAuthTimeoutRedirect() {
+    if (_authTimeoutRedirecting) return;
+    if (!localStorage.getItem(TOKEN_KEY)) return;
+    if (isAuthPage()) return;
+    _authTimeoutRedirecting = true;
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.replace("./index.html?session=expired");
+  }
+
+  function installGlobalAuthTimeoutGuard() {
+    if (window.__rsFetchAuthGuardInstalled) return;
+    window.__rsFetchAuthGuardInstalled = true;
+    var originalFetch = window.fetch;
+    if (typeof originalFetch !== "function") return;
+    window.fetch = async function () {
+      var response = await originalFetch.apply(this, arguments);
+      if (response && response.status === 401) {
+        handleAuthTimeoutRedirect();
+      }
+      return response;
+    };
   }
 
   function makeBtn(id, title, text, isDanger) {
@@ -163,7 +194,7 @@
       + '<button class="notif-tab-btn" id="notifTabRead" type="button">Read</button>'
       + '<button class="notif-tab-btn" id="notifTabHistory" type="button">See All</button>'
       + '</div>'
-      + '<div class="notif-drawer-actions"><button class="ghost" id="markAllReadButton" type="button" style="font-size:0.85rem;padding:6px 12px;">Mark all as read</button></div>'
+      + '<div class="notif-drawer-actions"><button class="notif-action-btn" id="markAllReadButton" type="button">Mark all as read</button></div>'
       + '<div class="notif-list" id="notifList"></div>';
     document.body.appendChild(backdrop);
     document.body.appendChild(drawer);
@@ -440,6 +471,40 @@
     syncDarkButtons();
   }
 
+  function normalizeTopActionsOrder() {
+    var canonical = [
+      ["#darkModeToggle", "#rsTopDarkBtn"],
+      ["#topNotifLink", "#notifBellButton", "#rsQuickNotifBtn"],
+      ["#topProfileLink", "a[href*='player.html']", "#rsTopPlayerBtn"],
+      ["#topAccountLink", "a[href*='account.html']", "#rsTopAccountBtn"],
+      ["a[href*='lobby.html']"],
+      ["#leagueLink", "#backToLeague"],
+      ["#logoutButton", "#rsTopLogoutBtn"]
+    ];
+    var containers = Array.prototype.slice.call(document.querySelectorAll(".row, .actions, .top-controls, .rs-top-controls"));
+    containers.forEach(function (container) {
+      var children = Array.prototype.slice.call(container.children || []);
+      if (!children.length) return;
+      var hasNav = children.some(function (el) {
+        return el.matches("#darkModeToggle, #topNotifLink, #notifBellButton, #logoutButton, #rsTopDarkBtn, #rsQuickNotifBtn, #rsTopLogoutBtn");
+      });
+      if (!hasNav) return;
+
+      canonical.forEach(function (group) {
+        var node = null;
+        group.some(function (sel) {
+          var candidate = container.querySelector(sel);
+          if (candidate && candidate.parentElement === container) {
+            node = candidate;
+            return true;
+          }
+          return false;
+        });
+        if (node) container.appendChild(node);
+      });
+    });
+  }
+
   if (localStorage.getItem("rs_theme") !== "light") {
     document.documentElement.setAttribute("data-theme", "dark");
   }
@@ -448,10 +513,12 @@
   new MutationObserver(applyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function boot() {
+    installGlobalAuthTimeoutGuard();
     applyPalette();
     applyLobbyBackground();
     ensureUniversalTopControls();
     ensureFallbackNotifDrawer(); // ensure sidebar is in DOM on every non-lobby page
+    normalizeTopActionsOrder();
   }
 
   if (document.readyState === "loading") {

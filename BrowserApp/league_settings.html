@@ -79,8 +79,13 @@
         <div class="muted" id="subtitle"></div>
       </div>
       <div class="row">
-        <button class="btn ghost sm" id="darkModeToggle" title="Toggle dark mode">🌙</button>
-        <a class="btn ghost" id="backToLeague" href="#">← League</a>
+        <button class="btn ghost" id="darkModeToggle" type="button" title="Toggle dark mode">🌙</button>
+        <button class="btn ghost" id="topNotifLink" title="Notifications" type="button">🔔</button>
+        <a class="btn ghost" href="./player.html" title="My profile">👤</a>
+        <a class="btn ghost" href="./account.html" title="Account settings">⚙</a>
+        <a class="btn ghost" href="./lobby.html" title="Lobby">🏠</a>
+        <a class="btn ghost" id="backToLeague" href="#" title="League">🏆</a>
+        <button class="btn danger" id="logoutButton" type="button" title="Sign out">🚪</button>
       </div>
     </div>
 
@@ -118,13 +123,6 @@
         <div class="row">
           <input id="settingAllowJoinByCode" type="checkbox" style="width:auto;">
           <label for="settingAllowJoinByCode" style="margin:0;font-weight:700;">Allow joining via permanent league code</label>
-        </div>
-        <div class="row" style="align-items:flex-end;">
-          <div style="flex:1;min-width:220px;">
-            <label for="settingPermanentCode">Permanent league code</label>
-            <input id="settingPermanentCode" type="text" readonly class="mono" placeholder="Loading...">
-          </div>
-          <button class="btn ghost sm" id="copyPermanentCodeBtn" type="button">Copy code</button>
         </div>
         <div class="row">
           <div style="flex:1;min-width:180px;">
@@ -279,6 +277,13 @@
         <h2>Invites</h2>
         <button class="btn confirm sm" id="newInviteBtn">+ New invite</button>
       </div>
+      <div class="row" style="align-items:flex-end; margin-top:0; margin-bottom:10px;">
+        <div style="flex:1;min-width:220px;">
+          <label for="settingPermanentCode">Permanent league code</label>
+          <input id="settingPermanentCode" type="text" readonly class="mono" placeholder="Loading...">
+        </div>
+        <button class="btn ghost sm" id="copyPermanentCodeBtn" type="button">Copy code</button>
+      </div>
       <div class="tab-bar">
         <button class="active" id="tabActive">Active</button>
         <button id="tabUsed">Used / Expired</button>
@@ -291,6 +296,26 @@
     <div class="card">
       <h2 style="margin-bottom:8px;">🚫 Banned Players</h2>
       <div id="banList" class="stack" style="gap:6px;"></div>
+    </div>
+
+    <!-- Transfer Ownership (owner only) -->
+    <div class="card" id="transferOwnershipCard" style="display:none;">
+      <h2 style="margin-bottom:6px;">🤝 Transfer Ownership</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:.88rem;">Transfer the manager role to one of the referees. You will become a referee yourself.</p>
+      <div class="row" style="align-items:flex-end;gap:8px;">
+        <div style="flex:1;">
+          <label for="transferOwnerSelect">Select new manager</label>
+          <select id="transferOwnerSelect" style="height:38px;"><option value="">— select a referee —</option></select>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label for="transferOwnerPassword">Confirm with your password</label>
+        <input id="transferOwnerPassword" type="password" placeholder="Your account password" autocomplete="current-password" style="margin-top:4px;">
+      </div>
+      <div style="margin-top:10px;">
+        <button class="btn danger" id="transferOwnerBtn" type="button">Transfer ownership</button>
+      </div>
+      <div class="status" id="transferOwnerStatus"></div>
     </div>
 
     <div class="status" id="globalStatus"></div>
@@ -397,7 +422,8 @@
     const API_BASE_KEY = "rs_api_base_override";
     const DEFAULT_API_BASE = "https://rstrating-accounts-api.onrender.com";
 
-    document.getElementById("backToLeague").href = `./league.html?id=${leagueId}`;
+    const backToLeagueLink = document.getElementById("backToLeague");
+    if (backToLeagueLink) backToLeagueLink.href = `./league.html?id=${leagueId}`;
 
     function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
     function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -847,6 +873,20 @@
         renderDiscipline();
         renderInvites();
         renderBans();
+
+        // Transfer ownership card: show only to owner
+        const myRole = detail && detail.league ? detail.league.member_role : null;
+        const transferCard = document.getElementById("transferOwnershipCard");
+        if (transferCard) transferCard.style.display = (myRole === "owner") ? "block" : "none";
+        if (myRole === "owner") {
+          const members = detail.league.members || [];
+          const refs = members.filter(m => m.role === "admin");
+          const sel = document.getElementById("transferOwnerSelect");
+          if (sel) {
+            sel.innerHTML = '<option value="">— select a referee —</option>' +
+              refs.map(m => `<option value="${m.user_id}">${esc(m.display_name || m.username)} (@${esc(m.username)})</option>`).join("");
+          }
+        }
       } catch(e){
         show(e.message || "Failed to load.", "error");
       }
@@ -870,6 +910,26 @@
     document.getElementById("disciplineFilterBanned")?.addEventListener("click", () => setDisciplineFilter("banned"));
     document.getElementById("disciplineFilterPenalized")?.addEventListener("click", () => setDisciplineFilter("penalized"));
     document.getElementById("disciplineFilterClean")?.addEventListener("click", () => setDisciplineFilter("clean"));
+
+    document.getElementById("transferOwnerBtn")?.addEventListener("click", async () => {
+      const sel = document.getElementById("transferOwnerSelect");
+      const newOwnerId = sel ? Number(sel.value) : 0;
+      if (!newOwnerId) { show("Please select a referee.", "error", "transferOwnerStatus"); return; }
+      const pwInput = document.getElementById("transferOwnerPassword");
+      const password = pwInput ? pwInput.value : "";
+      if (!password) { show("Please enter your password to confirm.", "error", "transferOwnerStatus"); return; }
+      if (!confirm("Transfer league ownership? You will become a referee and lose manager privileges.")) return;
+      try {
+        await apiFetch(`/leagues/${leagueId}/transfer-ownership`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ new_owner_user_id: newOwnerId, password }),
+        });
+        if (pwInput) pwInput.value = "";
+        show("Ownership transferred successfully.", "ok", "transferOwnerStatus");
+        await load();
+      } catch(e) { show(e.message || "Failed.", "error", "transferOwnerStatus"); }
+    });
 
     document.getElementById("pickLeagueSettingsLocationBtn")?.addEventListener("click", openLeagueSettingsMapPicker);
     document.getElementById("closeLeagueSettingsMapPickerBtn")?.addEventListener("click", closeLeagueSettingsMapPicker);

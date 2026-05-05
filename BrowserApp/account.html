@@ -107,6 +107,11 @@
       <div id="accountInfo" class="muted" style="font-size:.88rem;line-height:1.6;">Loading...</div>
     </div>
 
+    <div class="card">
+      <h2 style="margin-bottom:8px;">🏆 My Leagues</h2>
+      <div id="myLeaguesList"><p class="muted" style="font-size:.88rem;">Loading...</p></div>
+    </div>
+
   </div>
 
   <script>
@@ -216,7 +221,36 @@
         document.getElementById("profileSummary").textContent = "Not signed in.";
         document.getElementById("accountInfo").textContent = "Please sign in to manage your account.";
       }
+      try {
+        const leagues = await apiFetch("/players/me/leagues");
+        const el = document.getElementById("myLeaguesList");
+        if (!leagues || !leagues.length) { el.innerHTML = '<p class="muted" style="font-size:.88rem;">You are not in any leagues.</p>'; return; }
+        const roleLabel = r => r === "owner" ? "Manager" : r === "admin" ? "Referee" : "Member";
+        el.innerHTML = leagues.map(lg =>
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">'+
+          '<div><a href="./league.html?id='+lg.id+'" style="font-weight:700;color:var(--accent);text-decoration:none;">'+esc(lg.name)+'</a>'+
+          '<span style="font-size:.8rem;color:var(--muted);margin-left:8px;">'+esc(roleLabel(lg.role))+'</span></div>'+
+          (lg.role !== 'owner'
+            ? '<button class="btn ghost sm" data-leave-league="'+lg.id+'" type="button">🏃 Leave</button>'
+            : '<span class="muted" style="font-size:.8rem;">Owner</span>')+
+          '</div>'
+        ).join("");
+      } catch(e) {
+        document.getElementById("myLeaguesList").innerHTML = '<p class="muted" style="font-size:.88rem;">Could not load leagues.</p>';
+      }
     }
+
+    document.getElementById("myLeaguesList").addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-leave-league]");
+      if (!btn) return;
+      const leagueId = Number(btn.dataset.leagueLeague || btn.getAttribute("data-leave-league"));
+      if (!leagueId) return;
+      if (!confirm("Are you sure you want to leave this league?")) return;
+      try {
+        await apiFetch("/leagues/" + leagueId + "/leave", { method: "POST" });
+        load();
+      } catch(e) { alert(e.message || "Failed to leave league."); }
+    });
 
     load();
   </script>

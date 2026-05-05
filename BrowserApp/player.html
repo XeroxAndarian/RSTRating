@@ -120,6 +120,11 @@
           <div id="fanclubList"></div>
         </div>
 
+        <div class="card" id="blockedCard" style="display:none;">
+          <h3 style="margin:0 0 8px;" id="blockedTitle">🚫 Blocked (0)</h3>
+          <div id="blockedList"></div>
+        </div>
+
         <div class="card">
           <h3 style="margin:0 0 8px;">Find players</h3>
           <div class="row" style="display:block;">
@@ -209,18 +214,23 @@
       const isSelf = me && Number(me.id) === Number(profile.id);
       let html = "";
       if(!isSelf){
-        if(profile.is_friend){
-          html += '<button class="btn ghost" data-unfriend="'+profile.id+'" type="button">Unfriend</button>';
-        } else if(profile.can_send_friend_request){
-          html += '<button class="btn primary" id="sendFriendReqBtn" type="button">Add friend</button>';
-        } else if(profile.has_pending_outgoing_request){
-          html += '<span class="btn ghost" style="cursor:default;">Friend request sent</span>';
-        } else if(profile.has_pending_incoming_request){
-          html += '<span class="btn ghost" style="cursor:default;">Incoming friend request</span>';
+        if(profile.is_blocked_by_me){
+          html += '<button class="btn ghost" id="toggleBlockBtn" data-blocked="1" type="button">Unblock</button>';
+        } else {
+          if(profile.is_friend){
+            html += '<button class="btn ghost" data-unfriend="'+profile.id+'" type="button">Unfriend</button>';
+          } else if(profile.can_send_friend_request || profile.has_blocked_me){
+            html += '<button class="btn primary" id="sendFriendReqBtn" type="button">Add friend</button>';
+          } else if(profile.has_pending_outgoing_request){
+            html += '<span class="btn ghost" style="cursor:default;">Friend request sent</span>';
+          } else if(profile.has_pending_incoming_request){
+            html += '<span class="btn ghost" style="cursor:default;">Incoming friend request</span>';
+          }
+          html += (profile.is_following && !profile.has_blocked_me)
+            ? '<button class="btn ghost" id="toggleFollowBtn" data-follow="0" type="button">Unfan</button>'
+            : '<button class="btn ghost" id="toggleFollowBtn" data-follow="1" type="button">Become fan</button>';
+          html += '<button class="btn ghost" id="toggleBlockBtn" data-blocked="0" type="button">Block</button>';
         }
-        html += profile.is_following
-          ? '<button class="btn ghost" id="toggleFollowBtn" data-follow="0" type="button">Unfan</button>'
-          : '<button class="btn ghost" id="toggleFollowBtn" data-follow="1" type="button">Become fan</button>';
       }
       actions.innerHTML = html;
 
@@ -231,6 +241,7 @@
       document.getElementById("friendReqCard").style.display = isSelf ? "block" : "none";
       document.getElementById("friendsCard").style.display = isSelf ? "block" : "none";
       document.getElementById("fanclubCard").style.display = "block";
+      document.getElementById("blockedCard").style.display = isSelf ? "block" : "none";
     }
 
     function renderLeagueStats(){
@@ -289,14 +300,38 @@
         const fans = await apiFetch("/players/" + profile.id + "/fanclub");
         if(titleEl) titleEl.textContent = 'Fanclub (' + fans.length + ')';
         if(!fans.length){ listEl.innerHTML = '<div class="muted">No fans yet.</div>'; return; }
+        const isSelf = me && profile && Number(me.id) === Number(profile.id);
         listEl.innerHTML = fans.map(f =>
           '<div class="friend-req" style="display:flex;justify-content:space-between;align-items:center;">'+
           '<div><a href="./player.html?id='+f.id+'" style="font-weight:700;color:var(--accent);text-decoration:none;">'+esc(f.display_name || f.username)+'</a>'+
-          '<div class="muted" style="font-size:.82rem;">@'+esc(f.username)+'</div></div></div>'
+          '<div class="muted" style="font-size:.82rem;">@'+esc(f.username)+'</div></div>'+
+          (isSelf ? '<button class="btn ghost" style="font-size:.82rem;" data-remove-fan="'+f.id+'" type="button">Remove</button>' : '')+
+          '</div>'
         ).join('');
       } catch (e) {
         if(titleEl) titleEl.textContent = 'Fanclub (0)';
         listEl.innerHTML = '<div class="muted">Could not load fanclub.</div>';
+      }
+    }
+
+    async function renderBlockedList(){
+      const listEl = document.getElementById("blockedList");
+      const titleEl = document.getElementById("blockedTitle");
+      if(!(me && profile && Number(me.id) === Number(profile.id))){ if(listEl) listEl.innerHTML = ""; return; }
+      try {
+        const blocked = await apiFetch('/players/me/blocks');
+        if(titleEl) titleEl.textContent = '\uD83D\uDEAB Blocked (' + blocked.length + ')';
+        if(!blocked.length){ listEl.innerHTML = '<div class="muted">No blocked players.</div>'; return; }
+        listEl.innerHTML = blocked.map(b =>
+          '<div class="friend-req" style="display:flex;justify-content:space-between;align-items:center;">'+
+          '<div><a href="./player.html?id='+b.id+'" style="font-weight:700;color:var(--accent);text-decoration:none;">'+esc(b.display_name || b.username)+'</a>'+
+          '<div class="muted" style="font-size:.82rem;">@'+esc(b.username)+'</div></div>'+
+          '<button class="btn ghost" style="font-size:.82rem;" data-unblock="'+b.id+'" type="button">Unblock</button>'+
+          '</div>'
+        ).join('');
+      } catch(e) {
+        if(titleEl) titleEl.textContent = '\uD83D\uDEAB Blocked (0)';
+        listEl.innerHTML = '<div class="muted">Could not load blocked players.</div>';
       }
     }
 
@@ -313,6 +348,7 @@
       await renderFriendRequests();
       await renderFriendsList();
       await renderFanclub();
+      await renderBlockedList();
       if(me && Number(me.id) === Number(profile.id)){
         try {
           const s = await apiFetch('/players/me/settings');
@@ -354,6 +390,35 @@
       if(rejBtn){
         try { await apiFetch('/friend-requests/' + rejBtn.dataset.reject + '/reject', { method:'POST' }); await loadProfile(); show('Friend request rejected.'); }
         catch(err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const blockBtn = e.target.closest('#toggleBlockBtn');
+      if(blockBtn && profile){
+        const isBlocked = blockBtn.dataset.blocked === '1';
+        if(!isBlocked && !confirm('Block this player? They will not be able to send you friend requests or become your fan.')) return;
+        try {
+          if(isBlocked) await apiFetch('/players/' + profile.id + '/block', { method:'DELETE' });
+          else await apiFetch('/players/' + profile.id + '/block', { method:'POST' });
+          await loadProfile();
+          show(isBlocked ? 'Player unblocked.' : 'Player blocked.');
+        } catch(err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const removeFanBtn = e.target.closest('[data-remove-fan]');
+      if(removeFanBtn && profile){
+        const fanId = removeFanBtn.dataset.removeFan;
+        try {
+          await apiFetch('/players/' + profile.id + '/fanclub/' + fanId, { method:'DELETE' });
+          await renderFanclub();
+          show('Fan removed.');
+        } catch(err){ show(err.message || 'Failed.', 'error'); }
+      }
+      const unblockBtn = e.target.closest('[data-unblock]');
+      if(unblockBtn){
+        const uid = unblockBtn.dataset.unblock;
+        try {
+          await apiFetch('/players/' + uid + '/block', { method:'DELETE' });
+          await renderBlockedList();
+          show('Player unblocked.');
+        } catch(err){ show(err.message || 'Failed.', 'error'); }
       }
     });
 

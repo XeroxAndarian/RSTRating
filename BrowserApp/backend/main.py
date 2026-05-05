@@ -359,7 +359,22 @@ class PlayerProfileOut(BaseModel):
     can_send_friend_request: bool
     has_pending_outgoing_request: bool
     has_pending_incoming_request: bool
+    is_blocked_by_me: bool
+    has_blocked_me: bool
     league_stats: list[PlayerLeagueStatsOut]
+
+
+class MyLeagueOut(BaseModel):
+    id: int
+    name: str
+    role: str
+    member_count: int
+    joined_at: str
+
+
+class TransferOwnershipPayload(BaseModel):
+    new_owner_user_id: int
+    password: str = Field(min_length=1)
 
 
 class FriendRequestCreatePayload(BaseModel):
@@ -774,6 +789,7 @@ class LeaguePlayerStatsTabRow(BaseModel):
     display_name: str | None
     attendance: int
     wins: int
+    draws: int = 0
     goals: int
     own_goals: int
     assists: int
@@ -901,6 +917,14 @@ def _generate_recovery_id(conn: sqlite3.Connection) -> str:
         digits = "".join(str(secrets.randbelow(10)) for _ in range(16))
         candidate = f"{digits[:4]}-{digits[4:8]}-{digits[8:12]}-{digits[12:16]}"
         row = conn.execute("SELECT 1 FROM users WHERE recovery_id = ?", (candidate,)).fetchone()
+        if row is None:
+            return candidate
+
+
+def _generate_unique_league_invite_code(conn: sqlite3.Connection) -> str:
+    while True:
+        candidate = secrets.token_hex(3).upper()
+        row = conn.execute("SELECT 1 FROM leagues WHERE invite_code = ?", (candidate,)).fetchone()
         if row is None:
             return candidate
 
@@ -1130,9 +1154,7 @@ def init_db() -> None:
             "SELECT id FROM leagues WHERE invite_code IS NULL OR invite_code = ''"
         ).fetchall()
         for row in leagues_without_codes:
-            code = secrets.token_hex(3).upper()
-            while conn.execute("SELECT 1 FROM leagues WHERE invite_code = ?", (code,)).fetchone() is not None:
-                code = secrets.token_hex(3).upper()
+            code = _generate_unique_league_invite_code(conn)
             conn.execute("UPDATE leagues SET invite_code = ? WHERE id = ?", (code, int(row["id"])))
 
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_leagues_invite_code ON leagues(invite_code)")
@@ -1470,6 +1492,20 @@ def init_db() -> None:
                 UNIQUE(follower_user_id, target_user_id),
                 FOREIGN KEY(follower_user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY(target_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                blocker_user_id INTEGER NOT NULL,
+                blocked_user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(blocker_user_id, blocked_user_id),
+                FOREIGN KEY(blocker_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(blocked_user_id) REFERENCES users(id) ON DELETE CASCADE
             )
             """
         )
@@ -3383,7 +3419,17 @@ def get_player_profile(
         has_pending_out = False
         has_pending_in = False
         can_send_request = False
+        is_blocked_by_me = False
+        has_blocked_me = False
         if viewer_id is not None and viewer_id != int(target["id"]):
+            is_blocked_by_me = conn.execute(
+                "SELECT 1 FROM user_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?",
+                (viewer_id, int(target["id"])),
+            ).fetchone() is not None
+            has_blocked_me = conn.execute(
+                "SELECT 1 FROM user_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?",
+                (int(target["id"]), viewer_id),
+            ).fetchone() is not None
             is_following = conn.execute(
                 "SELECT 1 FROM player_follows WHERE follower_user_id = ? AND target_user_id = ?",
                 (viewer_id, int(target["id"])),
@@ -3396,7 +3442,7 @@ def get_player_profile(
                 "SELECT 1 FROM friend_requests WHERE from_user_id = ? AND to_user_id = ? AND status = 'pending'",
                 (int(target["id"]), viewer_id),
             ).fetchone() is not None
-            can_send_request = (not is_friend) and (not has_pending_out) and _can_send_friend_request(conn, viewer_id, target)
+            can_send_request = (not is_friend) and (not has_pending_out) and (not is_blocked_by_me) and (not has_blocked_me) and _can_send_friend_request(conn, viewer_id, target)
 
         league_stats: list[PlayerLeagueStatsOut] = []
         if can_view:
@@ -3445,6 +3491,8 @@ def get_player_profile(
             can_send_friend_request=bool(can_send_request),
             has_pending_outgoing_request=bool(has_pending_out),
             has_pending_incoming_request=bool(has_pending_in),
+            is_blocked_by_me=bool(is_blocked_by_me),
+            has_blocked_me=bool(has_blocked_me),
             league_stats=league_stats,
         )
 
@@ -3468,6 +3516,12 @@ def send_friend_request(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot send a friend request to yourself")
         if _are_friends(conn, from_user_id, target_user_id):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You are already friends")
+        blocked = conn.execute(
+            "SELECT 1 FROM user_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?)",
+            (from_user_id, target_user_id, target_user_id, from_user_id),
+        ).fetchone()
+        if blocked is not None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This player is not accepting friend requests at this time.")
         if not _can_send_friend_request(conn, from_user_id, target):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This player is not accepting your friend requests")
 
@@ -3671,6 +3725,12 @@ def follow_player(target_user_id: int, current_user: sqlite3.Row = Depends(resol
         target = conn.execute("SELECT id FROM users WHERE id = ?", (target_user_id,)).fetchone()
         if target is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+        blocked = conn.execute(
+            "SELECT 1 FROM user_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?)",
+            (follower_id, target_user_id, target_user_id, follower_id),
+        ).fetchone()
+        if blocked is not None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This player is not accepting fans at this time.")
         conn.execute(
             "INSERT OR IGNORE INTO player_follows (follower_user_id, target_user_id, created_at) VALUES (?, ?, ?)",
             (follower_id, target_user_id, utc_now_iso()),
@@ -3718,6 +3778,154 @@ def get_player_fanclub(target_user_id: int, current_user: sqlite3.Row = Depends(
         )
         for r in rows
     ]
+
+
+@app.get("/players/me/leagues", response_model=list[MyLeagueOut])
+def get_my_leagues(current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[MyLeagueOut]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT l.id, l.name, lm.role, lm.joined_at,
+                   (SELECT COUNT(*) FROM league_memberships lm2 WHERE lm2.league_id = l.id) AS member_count
+            FROM league_memberships lm
+            JOIN leagues l ON l.id = lm.league_id
+            WHERE lm.user_id = ?
+            ORDER BY l.name ASC
+            """,
+            (user_id,),
+        ).fetchall()
+    return [
+        MyLeagueOut(
+            id=int(r["id"]),
+            name=str(r["name"]),
+            role=str(r["role"]),
+            member_count=int(r["member_count"] or 0),
+            joined_at=str(r["joined_at"] or ""),
+        )
+        for r in rows
+    ]
+
+
+@app.post("/players/{target_user_id}/block", response_model=MessageOut)
+def block_player(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    blocker_id = int(current_user["id"])
+    if blocker_id == target_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot block yourself")
+    with get_conn() as conn:
+        target = conn.execute("SELECT id FROM users WHERE id = ?", (target_user_id,)).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+        conn.execute(
+            "INSERT OR IGNORE INTO user_blocks (blocker_user_id, blocked_user_id, created_at) VALUES (?, ?, ?)",
+            (blocker_id, target_user_id, utc_now_iso()),
+        )
+        # Remove any existing follow in both directions
+        conn.execute(
+            "DELETE FROM player_follows WHERE (follower_user_id = ? AND target_user_id = ?) OR (follower_user_id = ? AND target_user_id = ?)",
+            (blocker_id, target_user_id, target_user_id, blocker_id),
+        )
+        # Cancel any pending friend requests in both directions
+        conn.execute(
+            "UPDATE friend_requests SET status = 'rejected' WHERE status = 'pending' AND ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))",
+            (blocker_id, target_user_id, target_user_id, blocker_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Player blocked.")
+
+
+@app.delete("/players/{target_user_id}/block", response_model=MessageOut)
+def unblock_player(target_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    blocker_id = int(current_user["id"])
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM user_blocks WHERE blocker_user_id = ? AND blocked_user_id = ?",
+            (blocker_id, target_user_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Player unblocked.")
+
+
+@app.get("/players/me/blocks", response_model=list[FanclubMemberOut])
+def get_my_blocks(current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[FanclubMemberOut]:
+    user_id = int(current_user["id"])
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.display_name, COALESCE(u.global_rating, ?) AS global_rating
+            FROM user_blocks ub
+            JOIN users u ON u.id = ub.blocked_user_id
+            WHERE ub.blocker_user_id = ?
+            ORDER BY u.username ASC
+            """,
+            (DEFAULT_GLOBAL_RATING, user_id),
+        ).fetchall()
+    return [
+        FanclubMemberOut(
+            id=int(r["id"]),
+            username=str(r["username"]),
+            display_name=r["display_name"],
+            global_rating=float(r["global_rating"] or DEFAULT_GLOBAL_RATING),
+        )
+        for r in rows
+    ]
+
+
+@app.delete("/players/{target_user_id}/fanclub/{fan_user_id}", response_model=MessageOut)
+def remove_fan(target_user_id: int, fan_user_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
+    user_id = int(current_user["id"])
+    if user_id != target_user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only manage your own fanclub")
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM player_follows WHERE follower_user_id = ? AND target_user_id = ?",
+            (fan_user_id, target_user_id),
+        )
+        conn.commit()
+    return MessageOut(detail="Fan removed.")
+
+
+@app.post("/leagues/{league_id}/transfer-ownership", response_model=MessageOut)
+def transfer_league_ownership(
+    league_id: int,
+    payload: TransferOwnershipPayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    user_id = int(current_user["id"])
+    new_owner_id = payload.new_owner_user_id
+    if user_id == new_owner_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You are already the owner")
+    if not verify_password(payload.password, str(current_user["password_hash"])):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password")
+    with get_conn() as conn:
+        league = require_league_owner(conn, league_id, user_id)
+        new_owner_membership = conn.execute(
+            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, new_owner_id),
+        ).fetchone()
+        if new_owner_membership is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target user is not in this league")
+        if new_owner_membership["role"] != "admin":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New owner must be a referee (admin) in the league")
+        new_owner_user = conn.execute("SELECT username, display_name FROM users WHERE id = ?", (new_owner_id,)).fetchone()
+        conn.execute(
+            "UPDATE league_memberships SET role = 'admin' WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        )
+        conn.execute(
+            "UPDATE league_memberships SET role = 'owner' WHERE league_id = ? AND user_id = ?",
+            (league_id, new_owner_id),
+        )
+        league_name = str(league["name"])
+        prev_owner_name = str(current_user["display_name"] or current_user["username"])
+        _create_notification(
+            conn, new_owner_id, "league_ownership_received",
+            f"You are now the manager of {league_name}",
+            f"{prev_owner_name} transferred league ownership to you. You are now the manager of {league_name}.",
+            {"league_id": league_id},
+        )
+        conn.commit()
+    return MessageOut(detail="Ownership transferred.")
 
 
 @app.post("/leagues/{league_id}/leave", response_model=MessageOut)
@@ -3771,7 +3979,7 @@ def create_league(payload: LeagueCreatePayload, current_user: sqlite3.Row = Depe
                 1 if payload.discover_visible else 0,
                 payload.latitude,
                 payload.longitude,
-                secrets.token_hex(3).upper(),
+                _generate_unique_league_invite_code(conn),
                 payload.description.strip() if payload.description else None,
                 payload.fee_type,
                 float(payload.fee_value or 0),
@@ -4152,6 +4360,18 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
             (DEFAULT_GLOBAL_RATING, league_id),
         ).fetchall()
 
+        # Compute draws for general tab by scanning all completed matches
+        general_draws: dict[int, int] = {int(r["user_id"]): 0 for r in general_rows}
+        _general_completed = conn.execute(
+            "SELECT team_a, team_b, score_a, score_b FROM matches WHERE league_id = ? AND status IN ('completed', 'finished')",
+            (league_id,),
+        ).fetchall()
+        for _m in _general_completed:
+            if int(_m["score_a"] or 0) == int(_m["score_b"] or 0):
+                for _uid in json.loads(str(_m["team_a"] or "[]")) + json.loads(str(_m["team_b"] or "[]")):
+                    if int(_uid) in general_draws:
+                        general_draws[int(_uid)] += 1
+
         tabs: list[LeaguePlayerStatsTabOut] = [
             LeaguePlayerStatsTabOut(
                 key="general",
@@ -4163,6 +4383,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                         display_name=r["display_name"],
                         attendance=int(r["attendance"]),
                         wins=int(r["wins"]),
+                        draws=general_draws.get(int(r["user_id"]), 0),
                         goals=int(r["goals"]),
                         own_goals=int(r["own_goals"]),
                         assists=int(r["assists"]),
@@ -4311,6 +4532,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                         display_name=base["display_name"],
                         attendance=attendance,
                         wins=wins,
+                        draws=draws,
                         goals=int(s["goals"]),
                         own_goals=int(s["own_goals"]),
                         assists=int(s["assists"]),
@@ -4577,10 +4799,29 @@ def update_league_member_role(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
         if membership["role"] == "owner":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Owner role cannot be changed")
+        old_role = str(membership["role"])
+        new_role = payload.role
         conn.execute(
             "UPDATE league_memberships SET role = ? WHERE league_id = ? AND user_id = ?",
-            (payload.role, league_id, member_user_id),
+            (new_role, league_id, member_user_id),
         )
+        league_row = conn.execute("SELECT name FROM leagues WHERE id = ?", (league_id,)).fetchone()
+        league_name = str(league_row["name"]) if league_row else f"League #{league_id}"
+        if old_role != new_role:
+            if new_role == "admin":
+                _create_notification(
+                    conn, member_user_id, "league_role_promoted",
+                    f"You were promoted in {league_name}",
+                    f"You have been promoted to Referee in {league_name}.",
+                    {"league_id": league_id},
+                )
+            elif new_role == "member":
+                _create_notification(
+                    conn, member_user_id, "league_role_demoted",
+                    f"Your role changed in {league_name}",
+                    f"You have been demoted to Member in {league_name}.",
+                    {"league_id": league_id},
+                )
         conn.commit()
     return MessageOut(detail="Member role updated.")
 
