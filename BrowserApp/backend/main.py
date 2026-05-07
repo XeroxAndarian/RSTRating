@@ -1253,6 +1253,7 @@ def init_db() -> None:
         ensure_column(conn, "league_player_stats", "is_temporary_lmmr", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(conn, "league_player_stats", "temporary_lmmr_match_limit", "INTEGER NOT NULL DEFAULT 10")
         ensure_column(conn, "league_player_stats", "temp_lmmr_seed", "REAL")
+        ensure_column(conn, "league_player_stats", "own_goals", "INTEGER NOT NULL DEFAULT 0")
 
         conn.execute(
             """
