@@ -5,6 +5,7 @@ import math
 import os
 import secrets
 import sqlite3
+import traceback
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from itertools import combinations
@@ -4337,8 +4338,53 @@ def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_adm
 
 @app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
 def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeaguePlayerStatsTabOut]:
+    try:
+        return _get_league_player_stats_tabs_impl(league_id, int(current_user["id"]))
+    except HTTPException:
+        raise
+    except Exception as _exc:
+        traceback.print_exc()
+        print(f"[player-stats-tabs] ERROR for league {league_id}: {_exc}", flush=True)
+        # Return just the General tab so the page still loads
+        with get_conn() as _conn:
+            _rows = _conn.execute(
+                """
+                SELECT u.id AS user_id, u.username, u.display_name,
+                       COALESCE(lps.attendance,0) AS attendance,
+                       COALESCE(lps.wins,0) AS wins,
+                       COALESCE(lps.goals,0) AS goals,
+                       COALESCE(lps.own_goals,0) AS own_goals,
+                       COALESCE(lps.assists,0) AS assists,
+                       COALESCE(lps.rating,?) AS lmmr
+                FROM league_memberships AS lm
+                JOIN users AS u ON u.id = lm.user_id
+                LEFT JOIN league_player_stats AS lps ON lps.league_id=lm.league_id AND lps.user_id=lm.user_id
+                WHERE lm.league_id=?
+                ORDER BY lmmr DESC, u.username
+                """,
+                (DEFAULT_GLOBAL_RATING, league_id),
+            ).fetchall()
+        return [
+            LeaguePlayerStatsTabOut(
+                key="general",
+                label="General",
+                rows=[
+                    LeaguePlayerStatsTabRow(
+                        user_id=int(r["user_id"]), username=str(r["username"]),
+                        display_name=r["display_name"],
+                        attendance=int(r["attendance"]), wins=int(r["wins"]), draws=0,
+                        goals=int(r["goals"]), own_goals=int(r["own_goals"]),
+                        assists=int(r["assists"]), lmmr=float(r["lmmr"]), sr_points=0.0,
+                    )
+                    for r in _rows
+                ],
+            )
+        ]
+
+
+def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[LeaguePlayerStatsTabOut]:
     with get_conn() as conn:
-        if not _can_view_league_stats(conn, league_id, int(current_user["id"])):
+        if not _can_view_league_stats(conn, league_id, user_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
 
         has_season = conn.execute(
