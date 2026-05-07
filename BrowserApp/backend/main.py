@@ -4419,12 +4419,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
         def _to_utc_dt(raw: str | None) -> datetime | None:
             if not raw:
                 return None
-            # Normalise SQLite "YYYY-MM-DD HH:MM:SS" (space) to ISO "T" format for Python < 3.11
-            raw_s = str(raw).strip().replace(" ", "T", 1)
-            try:
-                dt = datetime.fromisoformat(raw_s)
-            except ValueError:
-                return None
+            dt = datetime.fromisoformat(str(raw))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             else:
@@ -4436,10 +4431,9 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
             (league_id,),
         ).fetchall()
 
-                for season in seasons:
-                    try:
-                        season_start = _to_utc_dt(str(season["start_at"]) if season["start_at"] else None)
-                        season_end = _to_utc_dt(str(season["end_at"]) if season["end_at"] else None)
+        for season in seasons:
+            season_start = _to_utc_dt(str(season["start_at"]) if season["start_at"] else None)
+            season_end = _to_utc_dt(str(season["end_at"]) if season["end_at"] else None)
 
             season_match_ids: list[int] = []
             seasonal_stats: dict[int, dict[str, int]] = {
@@ -4489,17 +4483,17 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
 
             if season_match_ids:
                 placeholders = ",".join("?" for _ in season_match_ids)
-                                event_rows = conn.execute(
-                                        f"""
-                                        SELECT user_id, event_type
-                                        FROM match_events
-                                        WHERE undone = 0
-                                            AND user_id IS NOT NULL
-                                            AND event_type IN ('goal', 'assist', 'own_goal')
-                                            AND match_id IN ({placeholders})
-                                        """,
-                                        tuple(season_match_ids),
-                                ).fetchall()
+                event_rows = conn.execute(
+                    f"""
+                    SELECT user_id, event_type
+                    FROM match_events
+                    WHERE undone = 0
+                      AND user_id IS NOT NULL
+                      AND event_type IN ('goal', 'assist', 'own_goal')
+                      AND match_id IN ({placeholders})
+                    """,
+                    season_match_ids,
+                ).fetchall()
                 for ev in event_rows:
                     uid = int(ev["user_id"])
                     if uid not in seasonal_stats:
@@ -4561,10 +4555,7 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                     rows=rows_out,
                 )
             )
-          except Exception:
-            pass  # skip this season if processing fails
 
-        conn.commit()
     return tabs
 
 
@@ -4573,140 +4564,140 @@ def ban_member(
     league_id: int,
     member_user_id: int,
     payload: LeagueBanPayload,
-        seasons = conn.execute(
-            "SELECT id, name, is_active, start_at, end_at FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC",
-            (league_id,),
-        ).fetchall()
-
-        for season in seasons:
-            try:
-                season_start = _to_utc_dt(str(season["start_at"]) if season["start_at"] else None)
-                season_end = _to_utc_dt(str(season["end_at"]) if season["end_at"] else None)
-
-                season_match_ids: list[int] = []
-                seasonal_stats: dict[int, dict[str, int]] = {
-                    uid: {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0}
-                    for uid in base_by_user.keys()
-                }
-
-                for m in completed_matches:
-                    when = _to_utc_dt(str(m["scheduled_at"]) if m["scheduled_at"] else None)
-                    if when is None:
-                        continue
-                    if season_start is not None and when < season_start:
-                        continue
-                    if season_end is not None and when >= season_end:
-                        continue
-
-                    match_id = int(m["id"])
-                    season_match_ids.append(match_id)
-
-                    team_a = [int(x) for x in json.loads(str(m["team_a"] or "[]"))]
-                    team_b = [int(x) for x in json.loads(str(m["team_b"] or "[]"))]
-                    score_a = int(m["score_a"] or 0)
-                    score_b = int(m["score_b"] or 0)
-
-                    for uid in team_a:
-                        if uid in seasonal_stats:
-                            seasonal_stats[uid]["attendance"] += 1
-                    for uid in team_b:
-                        if uid in seasonal_stats:
-                            seasonal_stats[uid]["attendance"] += 1
-
-                    if score_a == score_b:
-                        for uid in team_a:
-                            if uid in seasonal_stats:
-                                seasonal_stats[uid]["draws"] += 1
-                        for uid in team_b:
-                            if uid in seasonal_stats:
-                                seasonal_stats[uid]["draws"] += 1
-                    elif score_a > score_b:
-                        for uid in team_a:
-                            if uid in seasonal_stats:
-                                seasonal_stats[uid]["wins"] += 1
-                    else:
-                        for uid in team_b:
-                            if uid in seasonal_stats:
-                                seasonal_stats[uid]["wins"] += 1
-
-                if season_match_ids:
-                    placeholders = ",".join("?" for _ in season_match_ids)
-                    event_rows = conn.execute(
-                        f"""
-                        SELECT user_id, event_type
-                        FROM match_events
-                        WHERE undone = 0
-                          AND user_id IS NOT NULL
-                          AND event_type IN ('goal', 'assist', 'own_goal')
-                          AND match_id IN ({placeholders})
-                        """,
-                        tuple(season_match_ids),
-                    ).fetchall()
-                    for ev in event_rows:
-                        uid = int(ev["user_id"])
-                        if uid not in seasonal_stats:
-                            continue
-                        ev_type = str(ev["event_type"])
-                        if ev_type == "goal":
-                            seasonal_stats[uid]["goals"] += 1
-                        elif ev_type == "assist":
-                            seasonal_stats[uid]["assists"] += 1
-                        elif ev_type == "own_goal":
-                            seasonal_stats[uid]["own_goals"] += 1
-
-                rows_out: list[LeaguePlayerStatsTabRow] = []
-                for uid, base in base_by_user.items():
-                    s = seasonal_stats.get(uid, {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0})
-                    attendance = int(s["attendance"])
-                    wins = int(s["wins"])
-                    draws = int(s["draws"])
-                    losses = max(0, attendance - wins - draws)
-                    if attendance > 0:
-                        sr_points = (
-                            float(cfg["sr_start_points"])
-                            + wins * float(cfg["sr_win_points"])
-                            + draws * float(cfg["sr_draw_points"])
-                            + losses * float(cfg["sr_loss_points"])
-                            + int(s["goals"]) * float(cfg["sr_goal_points"])
-                            + int(s["assists"]) * float(cfg["sr_assist_points"])
-                            + int(s["own_goals"]) * float(cfg["sr_own_goal_points"])
-                        )
-                    else:
-                        sr_points = float(cfg["sr_start_points"])
-                    rows_out.append(
-                        LeaguePlayerStatsTabRow(
-                            user_id=uid,
-                            username=base["username"],
-                            display_name=base["display_name"],
-                            attendance=attendance,
-                            wins=wins,
-                            draws=draws,
-                            goals=int(s["goals"]),
-                            own_goals=int(s["own_goals"]),
-                            assists=int(s["assists"]),
-                            lmmr=float(base["lmmr"]),
-                            sr_points=round(float(sr_points), 2),
-                        )
-                    )
-
-                label = str(season["name"])
-                if season["start_at"] or season["end_at"]:
-                    start_lbl = str(season["start_at"] or "?")[:10]
-                    end_lbl = str(season["end_at"] or "...")[:10]
-                    label += f" ({start_lbl} to {end_lbl})"
-                if int(season["is_active"] or 0):
-                    label += " (Current)"
-                tabs.append(
-                    LeaguePlayerStatsTabOut(
-                        key=f"season-{int(season['id'])}",
-                        label=label,
-                        rows=rows_out,
-                    )
-                )
-            except Exception:
-                pass  # skip this season if processing fails
-
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        target = conn.execute(
+            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        ).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+        if target["role"] == "owner":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot ban the owner")
+        # kick first
+        conn.execute(
+            "DELETE FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        )
+        # blacklist
+        conn.execute(
+            """
+            INSERT INTO league_bans(league_id, user_id, banned_by, reason, created_at)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(league_id, user_id) DO UPDATE SET
+                banned_by=excluded.banned_by,
+                reason=excluded.reason,
+                created_at=excluded.created_at
+            """,
+            (league_id, member_user_id, int(current_user["id"]), payload.reason, utc_now_iso()),
+        )
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=member_user_id,
+            action="ban",
+            actor_user_id=int(current_user["id"]),
+            reason=payload.reason,
+        )
         conn.commit()
+    return MessageOut(detail="Member banned and removed from the league.")
+
+
+@app.delete("/leagues/{league_id}/bans/{user_id}", response_model=MessageOut)
+def unban_member(
+    league_id: int,
+    user_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        result = conn.execute(
+            "DELETE FROM league_bans WHERE league_id = ? AND user_id = ?",
+            (league_id, user_id),
+        )
+        if result.rowcount == 0:
+            conn.rollback()
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No ban found for this user.")
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=user_id,
+            action="unban",
+            actor_user_id=int(current_user["id"]),
+            reason=None,
+        )
+        conn.commit()
+    return MessageOut(detail="User unbanned.")
+
+
+@app.post("/leagues/{league_id}/members/{member_user_id}/penalty", response_model=MessageOut)
+def set_member_penalty(
+    league_id: int,
+    member_user_id: int,
+    payload: LeaguePenaltyPayload,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    try:
+        until_dt = datetime.fromisoformat(payload.until)
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
+        if until_dt <= utc_now():
+            raise ValueError
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'until' must be a future ISO datetime.")
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        target = conn.execute(
+            "SELECT role FROM league_memberships WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        ).fetchone()
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+        conn.execute(
+            """
+            INSERT INTO league_penalties(league_id, user_id, penalty_until, reason, imposed_by, created_at)
+            VALUES(?, ?, ?, ?, ?, ?)
+            ON CONFLICT(league_id, user_id) DO UPDATE SET
+                penalty_until=excluded.penalty_until,
+                reason=excluded.reason,
+                imposed_by=excluded.imposed_by,
+                created_at=excluded.created_at
+            """,
+            (league_id, member_user_id, until_dt.isoformat(), payload.reason, int(current_user["id"]), utc_now_iso()),
+        )
+        add_discipline_history(
+            conn,
+            league_id=league_id,
+            user_id=member_user_id,
+            action="penalty_set",
+            actor_user_id=int(current_user["id"]),
+            reason=payload.reason,
+            penalty_until=until_dt.isoformat(),
+        )
+        conn.commit()
+    return MessageOut(detail="Penalty applied.")
+
+
+@app.delete("/leagues/{league_id}/members/{member_user_id}/penalty", response_model=MessageOut)
+def remove_member_penalty(
+    league_id: int,
+    member_user_id: int,
+    current_user: sqlite3.Row = Depends(resolve_current_user),
+) -> MessageOut:
+    with get_conn() as conn:
+        require_league_manager(conn, league_id, int(current_user["id"]))
+        existing = conn.execute(
+            "SELECT penalty_until, reason FROM league_penalties WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        ).fetchone()
+        conn.execute(
+            "DELETE FROM league_penalties WHERE league_id = ? AND user_id = ?",
+            (league_id, member_user_id),
+        )
+        if existing is not None:
+            add_discipline_history(
                 conn,
                 league_id=league_id,
                 user_id=member_user_id,
