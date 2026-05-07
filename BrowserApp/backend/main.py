@@ -4340,6 +4340,16 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
     with get_conn() as conn:
         if not _can_view_league_stats(conn, league_id, int(current_user["id"])):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="League stats are private")
+
+        has_season = conn.execute(
+            "SELECT 1 FROM league_seasons WHERE league_id = ? LIMIT 1",
+            (league_id,),
+        ).fetchone()
+        if has_season is None:
+            conn.execute(
+                "INSERT INTO league_seasons (league_id, name, is_active, created_at) VALUES (?, 'Season 1', 1, ?)",
+                (league_id, utc_now_iso()),
+            )
         _sync_league_season_activation(conn, league_id)
 
         general_rows = conn.execute(
@@ -4419,7 +4429,15 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
         def _to_utc_dt(raw: str | None) -> datetime | None:
             if not raw:
                 return None
-            dt = datetime.fromisoformat(str(raw))
+            raw_s = str(raw).strip()
+            if raw_s.endswith("Z"):
+                raw_s = raw_s[:-1] + "+00:00"
+            if " " in raw_s and "T" not in raw_s:
+                raw_s = raw_s.replace(" ", "T", 1)
+            try:
+                dt = datetime.fromisoformat(raw_s)
+            except ValueError:
+                return None
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             else:
@@ -4434,6 +4452,8 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
         for season in seasons:
             season_start = _to_utc_dt(str(season["start_at"]) if season["start_at"] else None)
             season_end = _to_utc_dt(str(season["end_at"]) if season["end_at"] else None)
+            if (season["start_at"] and season_start is None) or (season["end_at"] and season_end is None):
+                continue
 
             season_match_ids: list[int] = []
             seasonal_stats: dict[int, dict[str, int]] = {
@@ -4555,6 +4575,8 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                     rows=rows_out,
                 )
             )
+
+        conn.commit()
 
     return tabs
 
