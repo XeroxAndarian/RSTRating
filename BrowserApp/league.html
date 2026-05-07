@@ -880,7 +880,7 @@
           apiFetch("/leagues/"+leagueId),
           apiFetch("/auth/me").catch(function(){return null;}),
           apiFetch("/leagues/"+leagueId+"/matches"),
-          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(){return[];}),
+          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(e){console.error("[league] player-stats-tabs failed:",e&&e.message||e);return[];}),
           apiFetch("/leagues/"+leagueId+"/seasons").catch(function(){return[];}),
           apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
