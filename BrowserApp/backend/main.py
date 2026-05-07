@@ -6622,9 +6622,26 @@ def _validate_season_window(start_at_iso: str | None, end_at_iso: str | None) ->
         )
 
 
+def _parse_season_dt(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    s = str(raw).strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    if " " in s and "T" not in s:
+        s = s.replace(" ", "T", 1)
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _season_is_active_at(start_at_raw: str | None, end_at_raw: str | None, at_dt: datetime) -> bool:
-    start_dt = datetime.fromisoformat(str(start_at_raw)) if start_at_raw else None
-    end_dt = datetime.fromisoformat(str(end_at_raw)) if end_at_raw else None
+    start_dt = _parse_season_dt(start_at_raw)
+    end_dt = _parse_season_dt(end_at_raw)
     if start_dt is not None and at_dt < start_dt:
         return False
     if end_dt is not None and at_dt >= end_dt:
@@ -6638,10 +6655,10 @@ def _windows_overlap(
     start_b_raw: str | None,
     end_b_raw: str | None,
 ) -> bool:
-    start_a = datetime.fromisoformat(str(start_a_raw)) if start_a_raw else datetime.min.replace(tzinfo=timezone.utc)
-    end_a = datetime.fromisoformat(str(end_a_raw)) if end_a_raw else datetime.max.replace(tzinfo=timezone.utc)
-    start_b = datetime.fromisoformat(str(start_b_raw)) if start_b_raw else datetime.min.replace(tzinfo=timezone.utc)
-    end_b = datetime.fromisoformat(str(end_b_raw)) if end_b_raw else datetime.max.replace(tzinfo=timezone.utc)
+    start_a = _parse_season_dt(start_a_raw) or datetime.min.replace(tzinfo=timezone.utc)
+    end_a = _parse_season_dt(end_a_raw) or datetime.max.replace(tzinfo=timezone.utc)
+    start_b = _parse_season_dt(start_b_raw) or datetime.min.replace(tzinfo=timezone.utc)
+    end_b = _parse_season_dt(end_b_raw) or datetime.max.replace(tzinfo=timezone.utc)
     return start_a < end_b and start_b < end_a
 
 
