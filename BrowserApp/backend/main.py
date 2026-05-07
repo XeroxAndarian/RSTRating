@@ -4337,9 +4337,27 @@ def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_adm
 
 
 @app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
-def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> list[LeaguePlayerStatsTabOut]:
+def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> list[LeaguePlayerStatsTabOut]:
     try:
-        return _get_league_player_stats_tabs_impl(league_id, int(current_user["id"]))
+        if credentials is None or credentials.scheme.lower() != "bearer":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+        try:
+            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        subject = str(payload.get("sub", ""))
+        if not subject.startswith("user:"):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
+        try:
+            user_id = int(subject.split(":", 1)[1])
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject") from exc
+        user = find_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        if not bool(int(user["is_active"] or 0)):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
+        return _get_league_player_stats_tabs_impl(league_id, user_id)
     except HTTPException:
         raise
     except Exception as _exc:
