@@ -876,12 +876,14 @@
       if(!leagueId){show("Missing league id.","error");return;}
       if(!getToken()){show("Please log in from lobby first.","error");return;}
       try{
+        var statsTabsError="";
+        var seasonsError="";
         var results=await Promise.all([
           apiFetch("/leagues/"+leagueId),
           apiFetch("/auth/me").catch(function(){return null;}),
           apiFetch("/leagues/"+leagueId+"/matches"),
-          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(e){console.error("[league] player-stats-tabs failed:",e&&e.message||e);return[];}),
-          apiFetch("/leagues/"+leagueId+"/seasons").catch(function(){return[];}),
+          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(e){statsTabsError=(e&&e.message)||"Request failed";console.error("[league] player-stats-tabs failed:",statsTabsError);return[];}),
+          apiFetch("/leagues/"+leagueId+"/seasons").catch(function(e){seasonsError=(e&&e.message)||"Request failed";console.error("[league] seasons failed:",seasonsError);return[];}),
           apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),
           apiFetch("/leagues/"+leagueId+"/lmmr-placements/pending").catch(function(){return[];}),
@@ -895,6 +897,13 @@
           statsTabs=[{key:"general",label:"General",rows:[]}].concat(statsTabs.filter(function(t){return t.key!=="general";}));
         }
         seasons=Array.isArray(results[4])?results[4]:[];
+        if(statsTabsError){
+          show("Season stats failed to load: "+statsTabsError,"error");
+        }else if(seasonsError){
+          show("Season list failed to load: "+seasonsError,"error");
+        }else if(statsTabs.length===1&&statsTabs[0]&&statsTabs[0].key==="general"&&seasons.length>0){
+          show("Season tabs missing from API response. Backend likely outdated; redeploy API.","error");
+        }
         joinRequests=Array.isArray(results[5])?results[5]:[];
         pendingPlacements=Array.isArray(results[7])?results[7]:[];
         render();
