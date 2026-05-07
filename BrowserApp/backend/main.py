@@ -4411,7 +4411,24 @@ def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationC
         if not bool(int(user["is_active"] or 0)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
         tabs = _get_league_player_stats_tabs_impl(league_id, user_id)
-        return JSONResponse(content=[t.model_dump() for t in tabs])
+        payload = [t.model_dump() for t in tabs]
+        # Guard against NaN/Infinity values that break strict JSON serialization.
+        for tab in payload:
+            rows = tab.get("rows") if isinstance(tab, dict) else None
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                for key in ("lmmr", "sr_points"):
+                    try:
+                        val = float(row.get(key, 0.0))
+                    except Exception:
+                        val = 0.0
+                    if not math.isfinite(val):
+                        val = 0.0
+                    row[key] = val
+        return JSONResponse(content=payload)
     except HTTPException:
         raise
     except Exception as _exc:
