@@ -4338,7 +4338,7 @@ def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_adm
 
 @app.get("/leagues/{league_id}/player-stats-tabs/debug", response_model=dict)
 def get_league_player_stats_tabs_debug(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict:
-    """Diagnostic: test auth + simple DB query without any stats computation."""
+    """Diagnostic: test auth, DB access, and (optionally) tabs computation."""
     try:
         if credentials is None or credentials.scheme.lower() != "bearer":
             return {"step": "auth", "error": "Missing bearer token"}
@@ -4357,20 +4357,39 @@ def get_league_player_stats_tabs_debug(league_id: int, credentials: HTTPAuthoriz
             member_count = conn.execute(
                 "SELECT COUNT(*) FROM league_memberships WHERE league_id = ?", (league_id,)
             ).fetchone()[0]
+
+        try:
+            tabs = _get_league_player_stats_tabs_impl(league_id, user_id)
+            compute = {
+                "step": "compute_ok",
+                "tab_count": len(tabs),
+                "tab_keys": [t.key for t in tabs],
+                "tab_labels": [t.label for t in tabs],
+            }
+        except Exception as compute_exc:
+            traceback.print_exc()
+            compute = {
+                "step": "compute_exception",
+                "error": str(compute_exc),
+                "error_type": type(compute_exc).__name__,
+            }
+
         return {
             "step": "ok",
             "user_id": user_id,
             "league_id": league_id,
             "seasons": [{"id": int(r["id"]), "name": r["name"], "is_active": r["is_active"]} for r in season_rows],
             "member_count": int(member_count),
+            "compute": compute,
         }
     except Exception as e:
         traceback.print_exc()
         return {"step": "exception", "error": str(e)}
 
 
-@app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
-def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> list[LeaguePlayerStatsTabOut]:
+@app.get("/leagues/{league_id}/player-stats-tabs")
+def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)):
+    _empty_fallback = JSONResponse(content=[{"key": "general", "label": "General", "rows": []}])
     try:
         if credentials is None or credentials.scheme.lower() != "bearer":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
@@ -4390,47 +4409,51 @@ def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationC
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         if not bool(int(user["is_active"] or 0)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is temporarily blocked")
-        return _get_league_player_stats_tabs_impl(league_id, user_id)
+        tabs = _get_league_player_stats_tabs_impl(league_id, user_id)
+        return JSONResponse(content=[t.model_dump() for t in tabs])
     except HTTPException:
         raise
     except Exception as _exc:
         traceback.print_exc()
         print(f"[player-stats-tabs] ERROR for league {league_id}: {_exc}", flush=True)
         # Return just the General tab so the page still loads
-        with get_conn() as _conn:
-            _rows = _conn.execute(
-                """
-                SELECT u.id AS user_id, u.username, u.display_name,
-                       COALESCE(lps.attendance,0) AS attendance,
-                       COALESCE(lps.wins,0) AS wins,
-                       COALESCE(lps.goals,0) AS goals,
-                       COALESCE(lps.own_goals,0) AS own_goals,
-                       COALESCE(lps.assists,0) AS assists,
-                       COALESCE(lps.rating,?) AS lmmr
-                FROM league_memberships AS lm
-                JOIN users AS u ON u.id = lm.user_id
-                LEFT JOIN league_player_stats AS lps ON lps.league_id=lm.league_id AND lps.user_id=lm.user_id
-                WHERE lm.league_id=?
-                ORDER BY lmmr DESC, u.username
-                """,
-                (DEFAULT_GLOBAL_RATING, league_id),
-            ).fetchall()
-        return [
-            LeaguePlayerStatsTabOut(
-                key="general",
-                label="General",
-                rows=[
-                    LeaguePlayerStatsTabRow(
-                        user_id=int(r["user_id"]), username=str(r["username"]),
-                        display_name=r["display_name"],
-                        attendance=int(r["attendance"]), wins=int(r["wins"]), draws=0,
-                        goals=int(r["goals"]), own_goals=int(r["own_goals"]),
-                        assists=int(r["assists"]), lmmr=float(r["lmmr"]), sr_points=0.0,
-                    )
+        try:
+            with get_conn() as _conn:
+                _rows = _conn.execute(
+                    """
+                    SELECT u.id AS user_id, u.username, u.display_name,
+                           COALESCE(lps.attendance,0) AS attendance,
+                           COALESCE(lps.wins,0) AS wins,
+                           COALESCE(lps.goals,0) AS goals,
+                           COALESCE(lps.own_goals,0) AS own_goals,
+                           COALESCE(lps.assists,0) AS assists,
+                           COALESCE(lps.rating,?) AS lmmr
+                    FROM league_memberships AS lm
+                    JOIN users AS u ON u.id = lm.user_id
+                    LEFT JOIN league_player_stats AS lps ON lps.league_id=lm.league_id AND lps.user_id=lm.user_id
+                    WHERE lm.league_id=?
+                    ORDER BY lmmr DESC, u.username
+                    """,
+                    (DEFAULT_GLOBAL_RATING, league_id),
+                ).fetchall()
+            return JSONResponse(content=[{
+                "key": "general",
+                "label": "General",
+                "rows": [
+                    {
+                        "user_id": int(r["user_id"]), "username": str(r["username"]),
+                        "display_name": r["display_name"],
+                        "attendance": int(r["attendance"]), "wins": int(r["wins"]), "draws": 0,
+                        "goals": int(r["goals"]), "own_goals": int(r["own_goals"]),
+                        "assists": int(r["assists"]), "lmmr": float(r["lmmr"]), "sr_points": 0.0,
+                    }
                     for r in _rows
                 ],
-            )
-        ]
+            }])
+        except Exception as _fb_exc:
+            traceback.print_exc()
+            print(f"[player-stats-tabs] FALLBACK ERROR for league {league_id}: {_fb_exc}", flush=True)
+            return _empty_fallback
 
 
 def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[LeaguePlayerStatsTabOut]:
