@@ -4336,6 +4336,39 @@ def admin_recompute_gmmr(current_user: sqlite3.Row = Depends(resolve_current_adm
     return MessageOut(detail=f"Hierarchical GMMR recompute finished. Updated {updated} players.")
 
 
+@app.get("/leagues/{league_id}/player-stats-tabs/debug", response_model=dict)
+def get_league_player_stats_tabs_debug(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict:
+    """Diagnostic: test auth + simple DB query without any stats computation."""
+    try:
+        if credentials is None or credentials.scheme.lower() != "bearer":
+            return {"step": "auth", "error": "Missing bearer token"}
+        try:
+            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError as e:
+            return {"step": "jwt_decode", "error": str(e)}
+        subject = str(payload.get("sub", ""))
+        if not subject.startswith("user:"):
+            return {"step": "jwt_subject", "error": "Bad subject"}
+        user_id = int(subject.split(":", 1)[1])
+        with get_conn() as conn:
+            season_rows = conn.execute(
+                "SELECT id, name, is_active FROM league_seasons WHERE league_id = ?", (league_id,)
+            ).fetchall()
+            member_count = conn.execute(
+                "SELECT COUNT(*) FROM league_memberships WHERE league_id = ?", (league_id,)
+            ).fetchone()[0]
+        return {
+            "step": "ok",
+            "user_id": user_id,
+            "league_id": league_id,
+            "seasons": [{"id": int(r["id"]), "name": r["name"], "is_active": r["is_active"]} for r in season_rows],
+            "member_count": int(member_count),
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return {"step": "exception", "error": str(e)}
+
+
 @app.get("/leagues/{league_id}/player-stats-tabs", response_model=list[LeaguePlayerStatsTabOut])
 def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> list[LeaguePlayerStatsTabOut]:
     try:
