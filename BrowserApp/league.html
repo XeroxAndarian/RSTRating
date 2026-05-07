@@ -890,6 +890,7 @@
         me=results[1]||null;
         matches=Array.isArray(results[2])?results[2]:[];
         statsTabs=Array.isArray(results[3])?results[3]:[];
+        console.log("[league] statsTabs loaded:", statsTabs.length, "tabs", statsTabs.map(function(t){return t.key;}));
         if(!statsTabs.length||!statsTabs.find(function(t){return t.key==="general";})){
           statsTabs=[{key:"general",label:"General",rows:[]}].concat(statsTabs.filter(function(t){return t.key!=="general";}));
         }
