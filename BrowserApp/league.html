@@ -342,10 +342,32 @@
       var headers=Object.assign({},options&&options.headers||{});
       var token=getToken();
       if(token)headers.Authorization="Bearer "+token;
-      var res=await fetch(getApiBase()+path,Object.assign({},options||{},{headers}));
+      var res=null;
+      try{
+        res=await fetch(getApiBase()+path,Object.assign({},options||{},{headers}));
+      }catch(e){
+        var msg=(e&&e.message)||"Failed to fetch";
+        throw new Error(msg+" (API: "+getApiBase()+")");
+      }
       var body=null;try{body=await res.json();}catch(e){}
       if(!res.ok)throw new Error((body&&body.detail)||"Request failed");
       return body;
+    }
+
+    function waitMs(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
+
+    async function apiFetchWithRetry(path, options, retries, delayMs){
+      var attempts=Math.max(0, Number(retries||0));
+      var delay=Math.max(0, Number(delayMs||0));
+      for(var i=0;i<=attempts;i++){
+        try{return await apiFetch(path, options);}catch(err){
+          var msg=String((err&&err.message)||"");
+          var networkIssue=msg.toLowerCase().indexOf("failed to fetch")!==-1||msg.toLowerCase().indexOf("network")!==-1;
+          if(i>=attempts||!networkIssue) throw err;
+          await waitMs(delay);
+        }
+      }
+      throw new Error("Request failed");
     }
 
     function canManage(){var r=detail&&detail.league&&detail.league.member_role;return r==="owner"||r==="admin";}
@@ -876,13 +898,19 @@
       if(!leagueId){show("Missing league id.","error");return;}
       if(!getToken()){show("Please log in from lobby first.","error");return;}
       try{
+        var apiBase=getApiBase();
         var statsTabsError="";
         var seasonsError="";
+        try{
+          await fetch(apiBase+"/health",{method:"GET",cache:"no-store"});
+        }catch(e){
+          show("API health check failed: "+((e&&e.message)||"Failed to fetch")+" (API: "+apiBase+")","error");
+        }
         var results=await Promise.all([
           apiFetch("/leagues/"+leagueId),
           apiFetch("/auth/me").catch(function(){return null;}),
           apiFetch("/leagues/"+leagueId+"/matches"),
-          apiFetch("/leagues/"+leagueId+"/player-stats-tabs").catch(function(e){statsTabsError=(e&&e.message)||"Request failed";console.error("[league] player-stats-tabs failed:",statsTabsError);return[];}),
+          apiFetchWithRetry("/leagues/"+leagueId+"/player-stats-tabs",null,2,700).catch(function(e){statsTabsError=(e&&e.message)||"Request failed";console.error("[league] player-stats-tabs failed:",statsTabsError);return[];}),
           apiFetch("/leagues/"+leagueId+"/seasons").catch(function(e){seasonsError=(e&&e.message)||"Request failed";console.error("[league] seasons failed:",seasonsError);return[];}),
           apiFetch("/leagues/"+leagueId+"/join-requests").catch(function(){return[];}),
           apiFetch("/notifications?league_id="+leagueId).catch(function(){return[];}),

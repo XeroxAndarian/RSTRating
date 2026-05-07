@@ -4376,9 +4376,25 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
             "SELECT team_a, team_b, score_a, score_b FROM matches WHERE league_id = ? AND status IN ('completed', 'finished')",
             (league_id,),
         ).fetchall()
+
+        def _safe_team_ids(raw: object) -> list[int]:
+            try:
+                parsed = json.loads(str(raw or "[]"))
+            except Exception:
+                return []
+            if not isinstance(parsed, list):
+                return []
+            out: list[int] = []
+            for item in parsed:
+                try:
+                    out.append(int(item))
+                except Exception:
+                    continue
+            return out
+
         for _m in _general_completed:
             if int(_m["score_a"] or 0) == int(_m["score_b"] or 0):
-                for _uid in json.loads(str(_m["team_a"] or "[]")) + json.loads(str(_m["team_b"] or "[]")):
+                for _uid in _safe_team_ids(_m["team_a"]) + _safe_team_ids(_m["team_b"]):
                     if int(_uid) in general_draws:
                         general_draws[int(_uid)] += 1
 
@@ -4473,8 +4489,8 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                 match_id = int(m["id"])
                 season_match_ids.append(match_id)
 
-                team_a = [int(x) for x in json.loads(str(m["team_a"] or "[]"))]
-                team_b = [int(x) for x in json.loads(str(m["team_b"] or "[]"))]
+                team_a = _safe_team_ids(m["team_a"])
+                team_b = _safe_team_ids(m["team_b"])
                 score_a = int(m["score_a"] or 0)
                 score_b = int(m["score_b"] or 0)
 
@@ -4502,29 +4518,33 @@ def get_league_player_stats_tabs(league_id: int, current_user: sqlite3.Row = Dep
                             seasonal_stats[uid]["wins"] += 1
 
             if season_match_ids:
-                placeholders = ",".join("?" for _ in season_match_ids)
-                event_rows = conn.execute(
-                    f"""
-                    SELECT user_id, event_type
-                    FROM match_events
-                    WHERE undone = 0
-                      AND user_id IS NOT NULL
-                      AND event_type IN ('goal', 'assist', 'own_goal')
-                      AND match_id IN ({placeholders})
-                    """,
-                    season_match_ids,
-                ).fetchall()
-                for ev in event_rows:
-                    uid = int(ev["user_id"])
-                    if uid not in seasonal_stats:
-                        continue
-                    ev_type = str(ev["event_type"])
-                    if ev_type == "goal":
-                        seasonal_stats[uid]["goals"] += 1
-                    elif ev_type == "assist":
-                        seasonal_stats[uid]["assists"] += 1
-                    elif ev_type == "own_goal":
-                        seasonal_stats[uid]["own_goals"] += 1
+                # SQLite limits bound parameters; query events in chunks for leagues with many matches.
+                chunk_size = 900
+                for i in range(0, len(season_match_ids), chunk_size):
+                    chunk_ids = season_match_ids[i : i + chunk_size]
+                    placeholders = ",".join("?" for _ in chunk_ids)
+                    event_rows = conn.execute(
+                        f"""
+                        SELECT user_id, event_type
+                        FROM match_events
+                        WHERE undone = 0
+                          AND user_id IS NOT NULL
+                          AND event_type IN ('goal', 'assist', 'own_goal')
+                          AND match_id IN ({placeholders})
+                        """,
+                        chunk_ids,
+                    ).fetchall()
+                    for ev in event_rows:
+                        uid = int(ev["user_id"])
+                        if uid not in seasonal_stats:
+                            continue
+                        ev_type = str(ev["event_type"])
+                        if ev_type == "goal":
+                            seasonal_stats[uid]["goals"] += 1
+                        elif ev_type == "assist":
+                            seasonal_stats[uid]["assists"] += 1
+                        elif ev_type == "own_goal":
+                            seasonal_stats[uid]["own_goals"] += 1
 
             rows_out: list[LeaguePlayerStatsTabRow] = []
             for uid, base in base_by_user.items():
