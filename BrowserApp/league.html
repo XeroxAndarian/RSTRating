@@ -9,7 +9,7 @@
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
   <script src="./toast.js"></script>
-  <title>🏆 League Manager</title>
+  <title>League Manager</title>
   <style>
     :root {
       --bg:#d6ece0; --panel:#fff; --card:rgba(248,255,251,.92);
@@ -145,9 +145,20 @@
               <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Goals/Game</h3><div id="statGoalsPerGame" class="mini">-</div></div>
               <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Assists/Game</h3><div id="statAssistsPerGame" class="mini">-</div></div>
               <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">OG/Game</h3><div id="statOgPerGame" class="mini">-</div></div>
-              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">G+A</h3><div id="statGa" class="mini">-</div></div>
-              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Losses</h3><div id="statLosses" class="mini">-</div></div>
-              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Draws</h3><div id="statDraws" class="mini">-</div></div>
+              <div class="stats-box"><h3 id="statPeakLabel" style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Highest LMMR</h3><div id="statPeak" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Winstreak</h3><div id="statWinStreak" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);" title="Calendar weeks where you finished tied for top by weekly points in this scope">Weeks On Top</h3><div id="statWeeksOnTop" class="mini">-</div></div>
+            </div>
+            <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-top:10px;">
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Goals</h3><div id="statRankGoals" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Assists</h3><div id="statRankAssists" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Auto Goals</h3><div id="statRankOwnGoals" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Attendance</h3><div id="statRankAttendance" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Goal Ratio</h3><div id="statRankGoalRatio" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank Assist Ratio</h3><div id="statRankAssistRatio" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Consistency</h3><div id="statConsistency" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">MVPs Gained</h3><div id="statMVPsGained" class="mini">-</div></div>
+              <div class="stats-box"><h3 style="margin:0 0 4px;font-size:.82rem;color:var(--muted);">Rank MVP</h3><div id="statRankMVP" class="mini">-</div></div>
             </div>
           </div>
           <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -589,6 +600,167 @@
       return {wins:wins, losses:losses, draws:draws};
     }
 
+    function getScopeTimeBounds(){
+      var tab=getActiveStatsTab();
+      var tabKey=tab?String(tab.key||"general"):"general";
+      var selectedSeasonId=tabKey.startsWith("season-")?Number(tabKey.split("-")[1]||0):0;
+      var season=selectedSeasonId?seasons.find(function(s){return Number(s.id)===selectedSeasonId;}):null;
+      return {
+        start:season&&season.start_at?new Date(season.start_at).getTime():null,
+        end:season&&season.end_at?new Date(season.end_at).getTime():null
+      };
+    }
+
+    function getScopedCompletedMatches(){
+      var bounds=getScopeTimeBounds();
+      return (Array.isArray(matches)?matches:[])
+        .filter(function(m){
+          if(!(m.status==="completed"||m.status==="finished")) return false;
+          var when=m.scheduled_at?new Date(m.scheduled_at).getTime():0;
+          if(bounds.start!==null && when<bounds.start) return false;
+          if(bounds.end!==null && when>=bounds.end) return false;
+          return true;
+        })
+        .sort(function(a,b){
+          var ta=a.scheduled_at?new Date(a.scheduled_at).getTime():0;
+          var tb=b.scheduled_at?new Date(b.scheduled_at).getTime():0;
+          if(ta!==tb) return ta-tb;
+          return Number(a.id||0)-Number(b.id||0);
+        });
+    }
+
+    function computeCurrentWinStreak(userId){
+      var scoped=getScopedCompletedMatches();
+      var streak=0;
+      for(var i=scoped.length-1;i>=0;i--){
+        var m=scoped[i];
+        var teamA=Array.isArray(m.team_a)?m.team_a:[];
+        var teamB=Array.isArray(m.team_b)?m.team_b:[];
+        var inA=teamA.some(function(p){return Number(p)===Number(userId);});
+        var inB=teamB.some(function(p){return Number(p)===Number(userId);});
+        if(!inA && !inB) continue;
+        var a=Number(m.score_a||0), b=Number(m.score_b||0);
+        if(a===b) break;
+        var won=(inA && a>b) || (inB && b>a);
+        if(won) streak++;
+        else break;
+      }
+      return streak;
+    }
+
+    function isoWeekKey(whenMs){
+      var d=new Date(whenMs);
+      var utcDate=new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      var day=utcDate.getUTCDay()||7;
+      utcDate.setUTCDate(utcDate.getUTCDate()+4-day);
+      var yearStart=new Date(Date.UTC(utcDate.getUTCFullYear(),0,1));
+      var week=Math.ceil((((utcDate - yearStart)/86400000)+1)/7);
+      return utcDate.getUTCFullYear()+"-W"+String(week).padStart(2,"0");
+    }
+
+    function computeWeeksOnTopByPoints(userId){
+      var scoped=getScopedCompletedMatches();
+      var weekly={};
+      scoped.forEach(function(m){
+        var when=m.scheduled_at?new Date(m.scheduled_at).getTime():0;
+        var wk=isoWeekKey(when);
+        if(!weekly[wk]) weekly[wk]={};
+        var a=Number(m.score_a||0), b=Number(m.score_b||0);
+        var teamA=Array.isArray(m.team_a)?m.team_a:[];
+        var teamB=Array.isArray(m.team_b)?m.team_b:[];
+        function addPts(uid, pts){
+          var k=String(Number(uid));
+          weekly[wk][k]=(weekly[wk][k]||0)+pts;
+        }
+        if(a===b){
+          teamA.forEach(function(uid){ addPts(uid,1); });
+          teamB.forEach(function(uid){ addPts(uid,1); });
+        }else if(a>b){
+          teamA.forEach(function(uid){ addPts(uid,3); });
+          teamB.forEach(function(uid){ addPts(uid,0); });
+        }else{
+          teamA.forEach(function(uid){ addPts(uid,0); });
+          teamB.forEach(function(uid){ addPts(uid,3); });
+        }
+      });
+
+      var meKey=String(Number(userId));
+      var count=0;
+      Object.keys(weekly).forEach(function(wk){
+        var board=weekly[wk]||{};
+        var vals=Object.keys(board).map(function(k){return Number(board[k]||0);});
+        if(!vals.length) return;
+        var top=Math.max.apply(null, vals);
+        if(top<=0) return;
+        if(Number(board[meKey]||0)===top) count++;
+      });
+      return count;
+    }
+
+    function computeRank(rows, userId, valueFn, desc){
+      var arr=(Array.isArray(rows)?rows:[]).map(function(r){
+        return { user_id:Number(r.user_id), v:Number(valueFn(r)||0) };
+      });
+      if(!arr.length) return "-";
+      arr.sort(function(a,b){ return desc?(b.v-a.v):(a.v-b.v); });
+      var rank=0;
+      var last=null;
+      for(var i=0;i<arr.length;i++){
+        if(last===null || arr[i].v!==last) rank=i+1;
+        if(arr[i].user_id===Number(userId)) return String(rank)+"/"+String(arr.length);
+        last=arr[i].v;
+      }
+      return "-";
+    }
+
+    function computeConsistencyScore(userId){
+      // Consistency: measures the player's per-match personal contribution (goals+assists)
+      // Higher per-match average = higher consistency score (0-100)
+      var active=getActiveStatsTab();
+      var meRow=Array.isArray(active.rows)?active.rows.find(function(r){return Number(r.user_id)===Number(userId);}):null;
+      if(!meRow) return 0;
+      var att=Number(meRow.attendance||0);
+      if(att<=0) return 0;
+      var goals=Number(meRow.goals||0);
+      var assists=Number(meRow.assists||0);
+      var perMatch=(goals+assists)/att;
+      // Scale 0-100: 0 per-match = 0, 2+ per-match = 100
+      return Math.max(0, Math.min(100, Math.round(perMatch*50)));
+    }
+
+    function computeMVPsGained(userId, rows){
+      // MVPs gained: count of team MVP awards in current scope
+      var count=0;
+      if(!Array.isArray(rows)) return count;
+      var meRow=rows.find(function(r){return Number(r.user_id)===Number(userId);});
+      if(meRow && typeof meRow.mvps_count==='number'){
+        count=Number(meRow.mvps_count);
+      }
+      return count;
+    }
+
+    function computeMVPRank(userId, rows){
+      // MVPs rank: ranking among peers by MVP count in current scope
+      if(!Array.isArray(rows)||rows.length<1) return "-";
+      var arr=rows.map(function(r){
+        return { user_id:Number(r.user_id), mvps:Number(r.mvps_count||0) };
+      }).filter(function(a){ return a.mvps>0; });
+      if(!arr.length) return "-";
+      arr.sort(function(a,b){ return b.mvps-a.mvps; });
+      var rank=0;
+      var last=null;
+      for(var i=0;i<arr.length;i++){
+        if(last===null || arr[i].mvps!==last) rank=i+1;
+        if(arr[i].user_id===Number(userId)) return String(rank)+"/"+String(arr.length);
+        last=arr[i].mvps;
+      }
+      return "-";
+    }
+
+
+
+
+
     function renderScoreboard(rows){
       // Fallback: if statsTabs returned no rows, derive from detail.members
       if(!rows.length && detail && Array.isArray(detail.members) && detail.members.length){
@@ -609,12 +781,11 @@
           "<th>G</th>"+
           "<th>OG</th>"+
           "<th>A</th>"+
-          "<th>LMMR</th>"+
-          (showSr?"<th>SR</th>":"");
+          (showSr?"<th>SR</th>":"<th>LMMR</th>");
       }
       if(!tbody) return;
       if(!rows.length){
-        tbody.innerHTML='<tr><td colspan="'+(showSr?8:7)+'" class="muted">No players.</td></tr>';
+        tbody.innerHTML='<tr><td colspan="7" class="muted">No players.</td></tr>';
         return;
       }
       var items=rows.map(function(r){
@@ -632,20 +803,19 @@
       tbody.innerHTML=items.map(function(it){
         var r=it.row;
         var cls=classifyScoreboardPlayer(r, it.wld);
-        var lmmrClass=r.is_temporary_lmmr?"temp-lmmr":"";
-        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td class=\""+lmmrClass+"\">"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
-            tbody.innerHTML=items.map(function(it){
-              var r=it.row;
-              var cls=classifyScoreboardPlayer(r, it.wld);
-              var lmmrClass=r.is_temporary_lmmr?"temp-lmmr":"";
-              return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td class=\""+lmmrClass+"\">"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
-            }).join("");
+        var lmmrClass=(r.is_temporary_lmmr||Number(r.attendance||0)<11)?"temp-lmmr":"";
+        var lastCol=showSr
+          ?"<td>"+Math.round(Number(r.sr_points||0))+"</td>"
+          :"<td class=\""+lmmrClass+"\">"+Math.round(Number(r.lmmr||0))+"</td>";
+        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td>"+lastCol+"</tr>";
       }).join("");
     }
 
     function setUserStatBoxes(values){
       var v=values||{ attendance:"0", wld:"0-0-0", winrate:"0%", goals:"0", assists:"0", rating:"1000",
-        goalsPerGame:"0.00", assistsPerGame:"0.00", ogPerGame:"0.00", ga:"0", losses:"0", draws:"0" };
+        goalsPerGame:"0.00", assistsPerGame:"0.00", ogPerGame:"0.00", peak:"0", winStreak:"0", weeksOnTop:"0",
+        rankGoals:"-", rankAssists:"-", rankOwnGoals:"-", rankAttendance:"-", rankGoalRatio:"-", rankAssistRatio:"-",
+        consistency:"0", mvpsGained:"0", rankMVP:"-" };
       var attendanceEl=document.getElementById("statAttendance");
       var wldEl=document.getElementById("statWld");
       var winrateEl=document.getElementById("statWinrate");
@@ -661,14 +831,25 @@
       var gpg=document.getElementById("statGoalsPerGame"); if(gpg) gpg.textContent=v.goalsPerGame||"0.00";
       var apg=document.getElementById("statAssistsPerGame"); if(apg) apg.textContent=v.assistsPerGame||"0.00";
       var ogpg=document.getElementById("statOgPerGame"); if(ogpg) ogpg.textContent=v.ogPerGame||"0.00";
-      var gaEl=document.getElementById("statGa"); if(gaEl) gaEl.textContent=v.ga||"0";
-      var lEl=document.getElementById("statLosses"); if(lEl) lEl.textContent=v.losses||"0";
-      var dEl=document.getElementById("statDraws"); if(dEl) dEl.textContent=v.draws||"0";
+      var peakEl=document.getElementById("statPeak"); if(peakEl) peakEl.textContent=v.peak||"0";
+      var wsEl=document.getElementById("statWinStreak"); if(wsEl) wsEl.textContent=v.winStreak||"0";
+      var wotEl=document.getElementById("statWeeksOnTop"); if(wotEl) wotEl.textContent=v.weeksOnTop||"0";
+      var rgEl=document.getElementById("statRankGoals"); if(rgEl) rgEl.textContent=v.rankGoals||"-";
+      var raEl=document.getElementById("statRankAssists"); if(raEl) raEl.textContent=v.rankAssists||"-";
+      var rogEl=document.getElementById("statRankOwnGoals"); if(rogEl) rogEl.textContent=v.rankOwnGoals||"-";
+      var rattEl=document.getElementById("statRankAttendance"); if(rattEl) rattEl.textContent=v.rankAttendance||"-";
+      var rgrEl=document.getElementById("statRankGoalRatio"); if(rgrEl) rgrEl.textContent=v.rankGoalRatio||"-";
+      var rarEl=document.getElementById("statRankAssistRatio"); if(rarEl) rarEl.textContent=v.rankAssistRatio||"-";
+      var consEl=document.getElementById("statConsistency"); if(consEl) consEl.textContent=v.consistency||"0";
+      var mvpsEl=document.getElementById("statMVPsGained"); if(mvpsEl) mvpsEl.textContent=v.mvpsGained||"0";
+      var rankMvpEl=document.getElementById("statRankMVP"); if(rankMvpEl) rankMvpEl.textContent=v.rankMVP||"-";
     }
 
     function renderStatsTabs(){
       var ratingLabelEl=document.getElementById("statRatingLabel");
+      var peakLabelEl=document.getElementById("statPeakLabel");
       if(ratingLabelEl) ratingLabelEl.textContent=(activeStatsTabKey==="general"?"League MMR":"Seasonal Rating");
+      if(peakLabelEl) peakLabelEl.textContent=(activeStatsTabKey==="general"?"Highest LMMR":"Highest SR");
       if(!Array.isArray(statsTabs)||!statsTabs.length){
         if(statsScopeSelect) statsScopeSelect.innerHTML='';
         setUserStatBoxes();
@@ -685,7 +866,15 @@
 
       var active=getActiveStatsTab();
       var rows=Array.isArray(active.rows)?active.rows:[];
+      var isGeneralTab=activeStatsTabKey==="general";
+      var peakValue=rows.length
+        ? Math.max.apply(null, rows.map(function(r){
+            return Number(isGeneralTab ? (r.lmmr||0) : (r.sr_points||0));
+          }))
+        : 0;
       var meRow=me?rows.find(function(r){ return Number(r.user_id)===Number(me.id); }):null;
+      var myWinStreak=me?computeCurrentWinStreak(me.id):0;
+      var myWeeksOnTop=me?computeWeeksOnTopByPoints(me.id):0;
       // Fallback: if not in statsTabs rows, try detail.members
       if(!meRow && me && detail && Array.isArray(detail.members)){
         var meMember=detail.members.find(function(m){ return Number(m.user_id)===Number(me.id); });
@@ -699,6 +888,23 @@
         var meWr=played?Math.round((meW/played)*100):0;
         var att=Math.max(1,Number(meRow.attendance||0)||1);
         var gls=Number(meRow.goals||0); var ass=Number(meRow.assists||0); var og=Number(meRow.own_goals||0);
+        var rankGoals=computeRank(rows, me.id, function(r){ return Number(r.goals||0); }, true);
+        var rankAssists=computeRank(rows, me.id, function(r){ return Number(r.assists||0); }, true);
+        var rankOwnGoals=computeRank(rows, me.id, function(r){ return Number(r.own_goals||0); }, false);
+        var rankAttendance=computeRank(rows, me.id, function(r){ return Number(r.attendance||0); }, true);
+        var rankGoalRatio=computeRank(rows, me.id, function(r){
+          var at=Number(r.attendance||0);
+          if(at<=0) return 0;
+          return Number(r.goals||0)/at;
+        }, true);
+        var rankAssistRatio=computeRank(rows, me.id, function(r){
+          var at=Number(r.attendance||0);
+          if(at<=0) return 0;
+          return Number(r.assists||0)/at;
+        }, true);
+        var consistency=computeConsistencyScore(me.id);
+        var mvpsGained=computeMVPsGained(me.id, rows);
+        var rankMVP=computeMVPRank(me.id, rows);
         setUserStatBoxes({
           attendance:String(meRow.attendance||0),
           wld:meW+"-"+meL+"-"+meD,
@@ -711,12 +917,28 @@
           goalsPerGame:(gls/att).toFixed(2),
           assistsPerGame:(ass/att).toFixed(2),
           ogPerGame:(og/att).toFixed(2),
-          ga:String(gls+ass),
-          losses:String(meL),
-          draws:String(meD)
+          peak:String(Math.round(peakValue)),
+          winStreak:String(myWinStreak),
+          weeksOnTop:String(myWeeksOnTop),
+          rankGoals:rankGoals,
+          rankAssists:rankAssists,
+          rankOwnGoals:rankOwnGoals,
+          rankAttendance:rankAttendance,
+          rankGoalRatio:rankGoalRatio,
+          rankAssistRatio:rankAssistRatio,
+          consistency:String(consistency),
+          mvpsGained:String(mvpsGained),
+          rankMVP:rankMVP
         });
       } else {
-        setUserStatBoxes();
+        setUserStatBoxes({
+          peak:String(Math.round(peakValue)),
+          winStreak:String(myWinStreak),
+          weeksOnTop:String(myWeeksOnTop),
+          consistency:"0",
+          mvpsGained:"0",
+          rankMVP:"-"
+        });
       }
       renderScoreboard(rows);
     }
@@ -742,7 +964,7 @@
       });
       document.getElementById("memberTbody").innerHTML=members.map(function(m){
         var wr=m.attendance>0?Math.round(100*m.wins/m.attendance):0;
-        var ratingClass=(m.is_temporary_lmmr||Number(m.attendance||0)===0)?"temp-lmmr":"";
+        var ratingClass=(m.is_temporary_lmmr||Number(m.attendance||0)<11)?"temp-lmmr":"";
         return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td class=\""+ratingClass+"\">"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
       }).join("");
       document.getElementById("memberCount").textContent=members.length+" member"+(members.length!==1?"s":"");

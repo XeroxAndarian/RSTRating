@@ -798,6 +798,7 @@ class LeaguePlayerStatsTabRow(BaseModel):
     lmmr: float
     sr_points: float
     is_temporary_lmmr: bool = False
+    mvps_count: int = 0
 
 
 class LeaguePlayerStatsTabOut(BaseModel):
@@ -1387,6 +1388,33 @@ def init_db() -> None:
             )
             """
         )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS league_weekly_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                season_id INTEGER,
+                week_start TEXT NOT NULL,
+                lmmr REAL NOT NULL DEFAULT 1000,
+                sr_points REAL NOT NULL DEFAULT 0,
+                attendance INTEGER NOT NULL DEFAULT 0,
+                wins INTEGER NOT NULL DEFAULT 0,
+                goals INTEGER NOT NULL DEFAULT 0,
+                assists INTEGER NOT NULL DEFAULT 0,
+                own_goals INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(league_id, user_id, week_start),
+                FOREIGN KEY(league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(season_id) REFERENCES league_seasons(id) ON DELETE SET NULL
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_lws_league_week ON league_weekly_snapshots(league_id, week_start)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_lws_user_week ON league_weekly_snapshots(user_id, week_start)")
 
         # Ensure one-time unique index and backfill preview tokens for existing rows.
         conn.execute(
@@ -4552,6 +4580,21 @@ def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationC
                     """,
                     (DEFAULT_GLOBAL_RATING, league_id),
                 ).fetchall()
+                
+                # Get MVP counts for fallback
+                _mvp_rows = _conn.execute(
+                    """
+                    SELECT user_id, COUNT(*) as mvp_count
+                    FROM match_player_results
+                    WHERE is_team_mvp = 1 AND match_id IN (
+                        SELECT id FROM matches WHERE league_id = ? AND status IN ('completed', 'finished')
+                    )
+                    GROUP BY user_id
+                    """,
+                    (league_id,),
+                ).fetchall()
+                _mvp_dict = {int(r["user_id"]): int(r["mvp_count"]) for r in _mvp_rows}
+                
             return JSONResponse(content=[{
                 "key": "general",
                 "label": "General",
@@ -4562,6 +4605,7 @@ def get_league_player_stats_tabs(league_id: int, credentials: HTTPAuthorizationC
                         "attendance": int(r["attendance"]), "wins": int(r["wins"]), "draws": 0,
                         "goals": int(r["goals"]), "own_goals": int(r["own_goals"]),
                         "assists": int(r["assists"]), "lmmr": float(r["lmmr"]), "sr_points": 0.0,
+                        "is_temporary_lmmr": False, "mvps_count": _mvp_dict.get(int(r["user_id"]), 0),
                     }
                     for r in _rows
                 ],
@@ -4609,6 +4653,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
 
         # Compute draws for general tab by scanning all completed matches
         general_draws: dict[int, int] = {int(r["user_id"]): 0 for r in general_rows}
+        general_mvps: dict[int, int] = {int(r["user_id"]): 0 for r in general_rows}
         _general_completed = conn.execute(
             "SELECT team_a, team_b, score_a, score_b FROM matches WHERE league_id = ? AND status IN ('completed', 'finished')",
             (league_id,),
@@ -4635,6 +4680,23 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                     if int(_uid) in general_draws:
                         general_draws[int(_uid)] += 1
 
+        # Count MVP awards for general tab
+        mvp_rows = conn.execute(
+            """
+            SELECT user_id, COUNT(*) as mvp_count
+            FROM match_player_results
+            WHERE is_team_mvp = 1 AND match_id IN (
+                SELECT id FROM matches WHERE league_id = ? AND status IN ('completed', 'finished')
+            )
+            GROUP BY user_id
+            """,
+            (league_id,),
+        ).fetchall()
+        for row in mvp_rows:
+            uid = int(row["user_id"])
+            if uid in general_mvps:
+                general_mvps[uid] = int(row["mvp_count"])
+
         tabs: list[LeaguePlayerStatsTabOut] = [
             LeaguePlayerStatsTabOut(
                 key="general",
@@ -4653,6 +4715,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                         lmmr=float(r["lmmr"]),
                         sr_points=0.0,
                         is_temporary_lmmr=bool(r["is_temporary_lmmr"]),
+                        mvps_count=general_mvps.get(int(r["user_id"]), 0),
                     )
                     for r in general_rows
                 ],
@@ -4712,7 +4775,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
 
             season_match_ids: list[int] = []
             seasonal_stats: dict[int, dict[str, int]] = {
-                uid: {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0}
+                uid: {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0, "mvps": 0}
                 for uid in base_by_user.keys()
             }
 
@@ -4785,9 +4848,27 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                         elif ev_type == "own_goal":
                             seasonal_stats[uid]["own_goals"] += 1
 
+                # Count MVP awards for this season
+                for i in range(0, len(season_match_ids), chunk_size):
+                    chunk_ids = season_match_ids[i : i + chunk_size]
+                    placeholders = ",".join("?" for _ in chunk_ids)
+                    mvp_rows = conn.execute(
+                        f"""
+                        SELECT user_id, COUNT(*) as mvp_count
+                        FROM match_player_results
+                        WHERE is_team_mvp = 1 AND match_id IN ({placeholders})
+                        GROUP BY user_id
+                        """,
+                        chunk_ids,
+                    ).fetchall()
+                    for row in mvp_rows:
+                        uid = int(row["user_id"])
+                        if uid in seasonal_stats:
+                            seasonal_stats[uid]["mvps"] += int(row["mvp_count"])
+
             rows_out: list[LeaguePlayerStatsTabRow] = []
             for uid, base in base_by_user.items():
-                s = seasonal_stats.get(uid, {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0})
+                s = seasonal_stats.get(uid, {"attendance": 0, "wins": 0, "draws": 0, "goals": 0, "assists": 0, "own_goals": 0, "mvps": 0})
                 attendance = int(s["attendance"])
                 wins = int(s["wins"])
                 draws = int(s["draws"])
@@ -4818,6 +4899,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                         lmmr=float(base["lmmr"]),
                         sr_points=round(float(sr_points), 2),
                         is_temporary_lmmr=bool(base["is_temporary_lmmr"]),
+                        mvps_count=int(s["mvps"]),
                     )
                 )
 
@@ -6973,6 +7055,75 @@ def _advance_waitlist(conn: sqlite3.Connection, match_id: int) -> None:
     )
 
 
+def _week_start_iso_from_utc(dt: datetime) -> str:
+    d = dt.astimezone(timezone.utc)
+    monday = d - timedelta(days=d.weekday())
+    monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+    return monday.isoformat()
+
+
+def _save_league_weekly_snapshot(conn: sqlite3.Connection, league_id: int) -> None:
+    season_id = _ensure_active_season(conn, league_id)
+    week_start = _week_start_iso_from_utc(utc_now())
+    now_iso = utc_now_iso()
+
+    rows = conn.execute(
+        """
+        SELECT
+            lm.user_id,
+            COALESCE(lps.rating, ?) AS lmmr,
+            COALESCE(lps.attendance, 0) AS attendance,
+            COALESCE(lps.wins, 0) AS wins,
+            COALESCE(lps.goals, 0) AS goals,
+            COALESCE(lps.assists, 0) AS assists,
+            COALESCE(lps.own_goals, 0) AS own_goals,
+            COALESCE(sps.points, 0) AS sr_points
+        FROM league_memberships AS lm
+        LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
+        LEFT JOIN league_season_player_stats AS sps ON sps.season_id = ? AND sps.user_id = lm.user_id
+        WHERE lm.league_id = ?
+        """,
+        (DEFAULT_GLOBAL_RATING, season_id, league_id),
+    ).fetchall()
+
+    for r in rows:
+        conn.execute(
+            """
+            INSERT INTO league_weekly_snapshots (
+                league_id, user_id, season_id, week_start,
+                lmmr, sr_points, attendance, wins, goals, assists, own_goals,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(league_id, user_id, week_start) DO UPDATE SET
+                season_id = excluded.season_id,
+                lmmr = excluded.lmmr,
+                sr_points = excluded.sr_points,
+                attendance = excluded.attendance,
+                wins = excluded.wins,
+                goals = excluded.goals,
+                assists = excluded.assists,
+                own_goals = excluded.own_goals,
+                updated_at = excluded.updated_at
+            """,
+            (
+                league_id,
+                int(r["user_id"]),
+                season_id,
+                week_start,
+                float(r["lmmr"] or DEFAULT_GLOBAL_RATING),
+                float(r["sr_points"] or 0),
+                int(r["attendance"] or 0),
+                int(r["wins"] or 0),
+                int(r["goals"] or 0),
+                int(r["assists"] or 0),
+                int(r["own_goals"] or 0),
+                now_iso,
+                now_iso,
+            ),
+        )
+
+
 def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
     """Update league_player_stats and global ratings after match confirmation."""
     match = conn.execute(
@@ -7378,6 +7529,8 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
              goals_by_player.get(uid, 0), assists_by_player.get(uid, 0),
              own_goals_by_player.get(uid, 0), is_team_mvp),
         )
+
+    _save_league_weekly_snapshot(conn, league_id)
 
 
 # ============================================================
