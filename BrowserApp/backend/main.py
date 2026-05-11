@@ -576,6 +576,7 @@ class LeagueMemberOut(BaseModel):
     goals: int
     assists: int
     rating: float
+    is_temporary_lmmr: bool = False
     penalty_until: str | None = None
     penalty_reason: str | None = None
 
@@ -622,7 +623,7 @@ class PasswordResetRequestOut(BaseModel):
 MATCH_STATUS = frozenset({"upcoming", "registration_open", "registration_closed", "live", "finished", "completed", "cancelled"})
 ELO_K = 32.0
 WAITLIST_OFFER_MINUTES = 15
-TEMP_LMMR_MATCH_LIMIT = 10
+TEMP_LMMR_MATCH_LIMIT = 11
 UNDO_WINDOW_SECONDS = 30
 DEFAULT_RATING_CONFIG = {
     "sr_start_points": 1000.0,
@@ -796,6 +797,7 @@ class LeaguePlayerStatsTabRow(BaseModel):
     assists: int
     lmmr: float
     sr_points: float
+    is_temporary_lmmr: bool = False
 
 
 class LeaguePlayerStatsTabOut(BaseModel):
@@ -2140,6 +2142,7 @@ def serialize_member(row: sqlite3.Row) -> LeagueMemberOut:
         goals=int(row["goals"] or 0),
         assists=int(row["assists"] or 0),
         rating=float(row["rating"] or DEFAULT_GLOBAL_RATING),
+        is_temporary_lmmr=bool(row["is_temporary_lmmr"] or 0) if "is_temporary_lmmr" in row.keys() else False,
         penalty_until=(str(row["penalty_until"]) if "penalty_until" in row.keys() and row["penalty_until"] is not None else None),
         penalty_reason=(str(row["penalty_reason"]) if "penalty_reason" in row.keys() and row["penalty_reason"] is not None else None),
     )
@@ -2332,6 +2335,7 @@ def fetch_league_members(conn: sqlite3.Connection, league_id: int) -> list[sqlit
             COALESCE(lps.goals, 0) AS goals,
             COALESCE(lps.assists, 0) AS assists,
             COALESCE(lps.rating, 1000) AS rating,
+            COALESCE(lps.is_temporary_lmmr, 0) AS is_temporary_lmmr,
             lp.penalty_until,
             lp.reason AS penalty_reason
         FROM league_memberships AS lm
@@ -2406,9 +2410,74 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return r * c
 
 
+def _estimate_temporary_lmmr_from_shared_league_anchors(
+    conn: sqlite3.Connection,
+    league_id: int,
+    user_id: int,
+    user_global: float,
+) -> float | None:
+    """
+    Estimate initial league LMMR using players who:
+    1) already play in the target league, and
+    2) also share at least one other league with the joining user.
+
+    This uses global-rating proximity first, then maps to target-league LMMR.
+    """
+    anchor_rows = conn.execute(
+        """
+        SELECT DISTINCT
+            target_member.user_id AS anchor_user_id,
+            COALESCE(anchor_user.global_rating, ?) AS anchor_global,
+            COALESCE(target_lps.rating, ?) AS anchor_target_lmmr
+        FROM league_memberships AS target_member
+        JOIN users AS anchor_user ON anchor_user.id = target_member.user_id
+        LEFT JOIN league_player_stats AS target_lps
+            ON target_lps.league_id = target_member.league_id
+           AND target_lps.user_id = target_member.user_id
+        WHERE target_member.league_id = ?
+          AND target_member.user_id != ?
+          AND EXISTS (
+              SELECT 1
+              FROM league_memberships AS my_lm
+              JOIN league_memberships AS anchor_lm
+                ON anchor_lm.league_id = my_lm.league_id
+               AND anchor_lm.user_id = target_member.user_id
+              WHERE my_lm.user_id = ?
+                AND my_lm.league_id != ?
+          )
+        """,
+        (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, league_id, user_id, user_id, league_id),
+    ).fetchall()
+
+    if not anchor_rows:
+        return None
+
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for row in anchor_rows:
+        anchor_global = float(row["anchor_global"] or DEFAULT_GLOBAL_RATING)
+        anchor_target_lmmr = float(row["anchor_target_lmmr"] or DEFAULT_GLOBAL_RATING)
+        diff = user_global - anchor_global
+
+        # Keep the influence of global-rating delta bounded for robustness.
+        adjusted = anchor_target_lmmr + max(-120.0, min(120.0, diff)) * 0.35
+        weight = 1.0 / (abs(diff) + 25.0)
+        weighted_sum += adjusted * weight
+        weight_total += weight
+
+    if weight_total <= 0:
+        return None
+    return round(weighted_sum / weight_total, 2)
+
+
 def _estimate_temporary_lmmr_from_global(conn: sqlite3.Connection, league_id: int, user_id: int) -> float:
     user_row = conn.execute("SELECT global_rating FROM users WHERE id = ?", (user_id,)).fetchone()
     user_global = float(user_row["global_rating"] if user_row is not None and user_row["global_rating"] is not None else DEFAULT_GLOBAL_RATING)
+
+    # Prefer shared-league anchors first when available.
+    anchored = _estimate_temporary_lmmr_from_shared_league_anchors(conn, league_id, user_id, user_global)
+    if anchored is not None:
+        return anchored
 
     peer_rows = conn.execute(
         """
@@ -2488,14 +2557,18 @@ def _enqueue_lmmr_placement_if_needed(conn: sqlite3.Connection, league_id: int, 
         (league_id,),
     ).fetchall()
     for m in managers:
-        _create_notification(
-            conn,
-            int(m["user_id"]),
-            "lmmr_placement_needed",
-            "LMMR placement needed",
-            f"Please place {label} on your league rating scale.",
-            {"league_id": league_id, "user_id": user_id},
-        )
+        try:
+            _create_notification(
+                conn,
+                int(m["user_id"]),
+                "lmmr_placement_needed",
+                "LMMR placement needed",
+                f"Please place {label} on your league rating scale.",
+                {"league_id": league_id, "user_id": user_id},
+            )
+        except Exception:
+            # Notification failures should not block member join and temporary seed creation.
+            traceback.print_exc()
 
 
 def _ensure_member_lps_with_temp_rating(conn: sqlite3.Connection, league_id: int, user_id: int) -> None:
@@ -4523,7 +4596,8 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                    COALESCE(lps.goals, 0) AS goals,
                  COALESCE(lps.own_goals, 0) AS own_goals,
                    COALESCE(lps.assists, 0) AS assists,
-                   COALESCE(lps.rating, ?) AS lmmr
+                   COALESCE(lps.rating, ?) AS lmmr,
+                   COALESCE(lps.is_temporary_lmmr, 0) AS is_temporary_lmmr
             FROM league_memberships AS lm
             JOIN users AS u ON u.id = lm.user_id
             LEFT JOIN league_player_stats AS lps ON lps.league_id = lm.league_id AND lps.user_id = lm.user_id
@@ -4578,6 +4652,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                         assists=int(r["assists"]),
                         lmmr=float(r["lmmr"]),
                         sr_points=0.0,
+                        is_temporary_lmmr=bool(r["is_temporary_lmmr"]),
                     )
                     for r in general_rows
                 ],
@@ -4590,6 +4665,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                 "username": str(r["username"]),
                 "display_name": r["display_name"],
                 "lmmr": float(r["lmmr"]),
+                "is_temporary_lmmr": bool(r["is_temporary_lmmr"]),
             }
             for r in general_rows
         }
@@ -4741,6 +4817,7 @@ def _get_league_player_stats_tabs_impl(league_id: int, user_id: int) -> list[Lea
                         assists=int(s["assists"]),
                         lmmr=float(base["lmmr"]),
                         sr_points=round(float(sr_points), 2),
+                        is_temporary_lmmr=bool(base["is_temporary_lmmr"]),
                     )
                 )
 

@@ -8,19 +8,21 @@
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
   <script src="./palette.js"></script>
   <script src="./toast.js"></script>
-  <title>League Manager</title>
+  <title>🏆 League Manager</title>
   <style>
     :root {
       --bg:#d6ece0; --panel:#fff; --card:rgba(248,255,251,.92);
       --text:#0e2c1d; --muted:#4d6f60; --accent:#1f8a4c; --accent-dark:#166337;
       --success:#15803d; --danger:#b42318; --line:rgba(14,44,29,.16);
       --surface:#ffffff; --border:rgba(14,44,29,.18);
+      --temp-color:#2563eb;
     }
     [data-theme="dark"] {
       --bg:#0f1f16; --panel:#1a2e22; --card:rgba(30,48,37,.92);
       --text:#d4edda; --muted:#7faa8e; --accent:#2ab561; --accent-dark:#1d8748;
       --success:#22c55e; --danger:#f87171; --line:rgba(180,220,195,.14);
       --surface:#1a2e22; --border:rgba(180,220,195,.18);
+      --temp-color:#60a5fa;
     }
     body { margin:0; font-family:"Roboto","Segoe UI",sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
     select { padding-right: 2.2em; }
@@ -48,6 +50,7 @@
     .member-table th.sorted { color:var(--accent); }
     .member-table td { padding:7px 8px; border-bottom:1px solid var(--line); }
     .member-table tr:last-child td { border-bottom:none; }
+    .temp-lmmr { color: var(--temp-color); font-weight: 600; }
     .member-table tr:hover td { background:var(--panel-soft); }
     .mt-role { font-size:1.1rem; }
     .mt-name { font-weight:700; }
@@ -628,11 +631,13 @@
       tbody.innerHTML=items.map(function(it){
         var r=it.row;
         var cls=classifyScoreboardPlayer(r, it.wld);
-        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
+        var lmmrClass=r.is_temporary_lmmr?"temp-lmmr":"";
+        return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td class=\""+lmmrClass+"\">"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
             tbody.innerHTML=items.map(function(it){
               var r=it.row;
               var cls=classifyScoreboardPlayer(r, it.wld);
-              return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td>"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
+              var lmmrClass=r.is_temporary_lmmr?"temp-lmmr":"";
+              return "<tr><td class=\"mt-name\"><span class=\"mt-role\" title=\""+esc(classLabel(cls))+"\" style=\"margin-right:6px;vertical-align:middle;\">"+classIcon(cls)+"</span><a href='./player.html?id="+r.user_id+"' style='color:var(--accent);text-decoration:none;'>" + esc(r.display_name||r.username) + "</a></td><td>"+it.wld.wins+"-"+it.wld.losses+"-"+it.wld.draws+"</td><td>"+it.wr+"%</td><td>"+esc(r.goals||0)+"</td><td>"+esc(r.own_goals||0)+"</td><td>"+esc(r.assists||0)+"</td><td class=\""+lmmrClass+"\">"+Math.round(Number(r.lmmr||0))+"</td>"+(showSr?"<td>"+Math.round(Number(r.sr_points||0))+"</td>":"")+"</tr>";
             }).join("");
       }).join("");
     }
@@ -736,7 +741,8 @@
       });
       document.getElementById("memberTbody").innerHTML=members.map(function(m){
         var wr=m.attendance>0?Math.round(100*m.wins/m.attendance):0;
-        return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td>"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
+        var ratingClass=m.is_temporary_lmmr?"temp-lmmr":"";
+        return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td class=\""+ratingClass+"\">"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
       }).join("");
       document.getElementById("memberCount").textContent=members.length+" member"+(members.length!==1?"s":"");
       var labels={name:"Name",goals:"G",assists:"A",winrate:"Win%",mmr:"MMR",rating:"Rating"};
