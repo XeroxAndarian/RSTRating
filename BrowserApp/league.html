@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='0.9em' font-size='56'%3E🏆%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="./trophy.svg">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1f8a4c">
   <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(function(){});}</script>
@@ -742,7 +742,7 @@
       });
       document.getElementById("memberTbody").innerHTML=members.map(function(m){
         var wr=m.attendance>0?Math.round(100*m.wins/m.attendance):0;
-        var ratingClass=m.is_temporary_lmmr?"temp-lmmr":"";
+        var ratingClass=(m.is_temporary_lmmr||Number(m.attendance||0)===0)?"temp-lmmr":"";
         return "<tr><td class=\"mt-role\" title=\""+esc(roleLabel(m.role))+"\">"+roleIcon(m.role)+"</td><td class=\"mt-name\">"+esc(m.display_name||m.username)+"</td><td>"+esc(m.goals||0)+"</td><td>"+esc(m.assists||0)+"</td><td>"+wr+"%</td><td class=\""+ratingClass+"\">"+esc(m.rating?Math.round(m.rating):"-")+"</td></tr>";
       }).join("");
       document.getElementById("memberCount").textContent=members.length+" member"+(members.length!==1?"s":"");
