@@ -2667,6 +2667,31 @@ def _serialize_friend_request(row: sqlite3.Row) -> FriendRequestOut:
     )
 
 
+def _create_notification(
+    conn: sqlite3.Connection,
+    user_id: int,
+    notif_type: str,
+    title: str,
+    message: str,
+    data: dict | None = None,
+) -> None:
+    payload = data if isinstance(data, dict) else {}
+    conn.execute(
+        """
+        INSERT INTO notifications (user_id, notif_type, title, message, data_json, read, created_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?)
+        """,
+        (
+            int(user_id),
+            str(notif_type),
+            str(title),
+            str(message),
+            json.dumps(payload, ensure_ascii=False),
+            utc_now_iso(),
+        ),
+    )
+
+
 def _notify_player_fans(
     conn: sqlite3.Connection,
     *,

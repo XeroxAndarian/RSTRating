@@ -1901,10 +1901,24 @@
                         display_name: displayName || null
                     })
                 });
-                showStatus("Account created. You can sign in now.", "ok");
-                registerForm.reset();
-                openTab("login");
-                loginForm.username.value = username;
+                try {
+                    const tokenData = await apiFetch("/auth/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, password })
+                    });
+                    setToken(tokenData.access_token);
+                    showStatus("Account created. Signed in successfully.", "ok");
+                    registerForm.reset();
+                    window.location.href = './lobby.html';
+                    return;
+                } catch (_) {
+                    showStatus("Account created. Please sign in.", "ok");
+                    registerForm.reset();
+                    openTab("login");
+                    loginForm.username.value = username;
+                    return;
+                }
             } catch (error) {
                 showStatus(error.message || "Registration failed.", "error");
             }
