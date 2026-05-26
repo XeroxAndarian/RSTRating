@@ -337,12 +337,43 @@
     function isCensored(){ return viewMode === "censored"; }
     function isPrivateRestricted(){ return detail?.match?.visibility === "private" && !isAdmin(); }
 
+    function formatRequestError(method, path, err){
+      const raw = String(err?.message || err || "Request failed");
+      if (/failed to fetch/i.test(raw)) {
+        return `Failed to fetch (${method} ${path}). Possible causes: backend crash, CORS, or API server not reachable.`;
+      }
+      return `${method} ${path}: ${raw}`;
+    }
+
+    function actionLabel(act){
+      const labels = {
+        register: "Register",
+        "accept-offer": "Accept offer",
+        "cancel-reg": "Cancel registration",
+        "open-reg": "Open registration",
+        "close-reg": "Close registration",
+        generate: "Generate teams",
+        "edit-teams": "Edit teams",
+        "save-teams": "Save teams",
+        "confirm-teams": "Confirm teams",
+        start: "Start match",
+        pause: "Pause match",
+        resume: "Resume match",
+        finish: "Finish match",
+        confirm: "Confirm result",
+        cancel: "Cancel match",
+        "toggle-vis": "Toggle visibility"
+      };
+      return labels[act] || "Action";
+    }
+
     async function apiFetch(path, options){
       const headers = Object.assign({}, options?.headers || {});
       const token = getToken();
       if (token) headers.Authorization = "Bearer " + token;
       const candidates = getApiCandidates();
       let lastErr = null;
+      const method = String(options?.method || "GET").toUpperCase();
       for (let i = 0; i < candidates.length; i++) {
         try {
           const res = await fetch(candidates[i] + path, Object.assign({}, options || {}, { headers }));
@@ -354,7 +385,7 @@
           if (i < candidates.length - 1) continue;
         }
       }
-      throw lastErr || new Error("Request failed");
+      throw new Error(formatRequestError(method, path, lastErr || new Error("Request failed")));
     }
 
     async function publicFetch(path){
@@ -371,7 +402,7 @@
           if (i < candidates.length - 1) continue;
         }
       }
-      throw lastErr || new Error("Request failed");
+      throw new Error(formatRequestError("GET", path, lastErr || new Error("Request failed")));
     }
 
     function statusLabel(s){
@@ -1013,7 +1044,7 @@
           });
           await load();
         } catch (err) {
-          show(err.message || "Admin registration failed.", "error");
+          show(`Admin registration: ${err.message || "Failed."}`, "error");
         }
         return;
       }
@@ -1083,7 +1114,7 @@
           }
           await load();
         } catch (err) {
-          show(err.message || "Action failed.", "error");
+          show(`${actionLabel(act)}: ${err.message || "Failed."}`, "error");
         }
       }
 
@@ -1105,7 +1136,7 @@
           await apiFetch(`/matches/${detail.match.id}/events/${Number(undoBtn.dataset.undo)}`, { method: "DELETE" });
           await load();
         } catch (err) {
-          show(err.message || "Undo failed.", "error");
+          show(`Undo event: ${err.message || "Failed."}`, "error");
         }
       }
 
@@ -1133,7 +1164,7 @@
             });
             await load();
           } catch (err) {
-            show(err.message || "Failed to add event.", "error");
+            show(`Add event: ${err.message || "Failed."}`, "error");
           }
           return;
         }
@@ -1244,7 +1275,7 @@
         document.getElementById("eventModal").style.display = "none";
         await load();
       } catch (err) {
-        show(err.message || "Failed to add event.", "error");
+        show(`Add event: ${err.message || "Failed."}`, "error");
       }
     });
 

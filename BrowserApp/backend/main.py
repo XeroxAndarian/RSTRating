@@ -7724,6 +7724,35 @@ def _match_registration_status(conn: sqlite3.Connection, match_id: int, user_id:
     return str(row["status"]) if row else None
 
 
+def _confirm_schema_gaps(conn: sqlite3.Connection) -> dict[str, list[str]]:
+    required: dict[str, set[str]] = {
+        "league_player_stats": {
+            "id", "league_id", "user_id", "attendance", "wins", "goals", "assists", "own_goals", "rating",
+            "is_temporary_lmmr", "temporary_lmmr_match_limit",
+        },
+        "league_season_player_stats": {
+            "id", "season_id", "user_id", "attendance", "wins", "goals", "assists", "own_goals", "points",
+        },
+        "match_player_results": {
+            "match_id", "user_id", "team", "lmmr_before", "lmmr_after", "lmmr_delta",
+            "sr_delta", "sr_goal_pts", "sr_assist_pts", "sr_own_goal_pts", "sr_result_pts",
+            "goals", "assists", "own_goals", "is_team_mvp",
+        },
+        "matches": {
+            "id", "league_id", "status", "team_a", "team_b", "score_a", "score_b", "started_at", "ended_at",
+        },
+        "match_events": {
+            "id", "match_id", "event_type", "user_id", "team", "event_seconds", "created_at", "undone",
+        },
+    }
+
+    missing: dict[str, list[str]] = {}
+    for table_name, expected in required.items():
+        cols = table_columns(conn, table_name)
+        missing[table_name] = sorted(expected - cols)
+    return missing
+
+
 # ============================================================
 # MATCH ENDPOINTS
 # ============================================================
@@ -7955,33 +7984,11 @@ def get_match_schema_debug(match_id: int, current_user: sqlite3.Row = Depends(re
         league_id = int(row["league_id"])
         require_league_manager(conn, league_id, user_id)
 
-        required: dict[str, set[str]] = {
-            "league_player_stats": {
-                "id", "league_id", "user_id", "attendance", "wins", "goals", "assists", "own_goals", "rating",
-                "is_temporary_lmmr", "temporary_lmmr_match_limit",
-            },
-            "league_season_player_stats": {
-                "id", "season_id", "user_id", "attendance", "wins", "goals", "assists", "own_goals", "points",
-            },
-            "match_player_results": {
-                "match_id", "user_id", "team", "lmmr_before", "lmmr_after", "lmmr_delta",
-                "sr_delta", "sr_goal_pts", "sr_assist_pts", "sr_own_goal_pts", "sr_result_pts",
-                "goals", "assists", "own_goals", "is_team_mvp",
-            },
-            "matches": {
-                "id", "league_id", "status", "team_a", "team_b", "score_a", "score_b", "started_at", "ended_at",
-            },
-            "match_events": {
-                "id", "match_id", "event_type", "user_id", "team", "event_seconds", "created_at", "undone",
-            },
-        }
-
         tables: dict[str, list[str]] = {}
-        missing: dict[str, list[str]] = {}
-        for table_name, expected in required.items():
+        for table_name in _confirm_schema_gaps(conn).keys():
             cols = table_columns(conn, table_name)
             tables[table_name] = sorted(cols)
-            missing[table_name] = sorted(expected - cols)
+        missing = _confirm_schema_gaps(conn)
 
         return MatchSchemaDebugOut(
             match_id=match_id,
@@ -8873,35 +8880,48 @@ def finish_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_curr
 def confirm_match(match_id: int, current_user: sqlite3.Row = Depends(resolve_current_user)) -> MessageOut:
     user_id = int(current_user["id"])
     with get_conn() as conn:
-        row = _fetch_match_row(conn, match_id)
-        if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
-        require_league_manager(conn, int(row["league_id"]), user_id)
-        if str(row["status"]) != "finished":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match must be in finished state to confirm")
-
         try:
+            row = _fetch_match_row(conn, match_id)
+            if row is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+            require_league_manager(conn, int(row["league_id"]), user_id)
+            if str(row["status"]) != "finished":
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match must be in finished state to confirm")
+
+            missing = _confirm_schema_gaps(conn)
+            missing_nonempty = {k: v for k, v in missing.items() if v}
+            if missing_nonempty:
+                gap_text = "; ".join(f"{tbl}: {', '.join(cols)}" for tbl, cols in missing_nonempty.items())
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Database schema missing required columns for confirm: {gap_text}",
+                )
+
             _apply_match_stats(conn, match_id)
+            conn.execute(
+                "UPDATE matches SET status = 'completed', updated_at = ? WHERE id = ?",
+                (utc_now_iso(), match_id),
+            )
+
+            match_title = str(row["title"])
+            score_a = int(row["score_a"])
+            score_b = int(row["score_b"])
+            _notify_league_members(
+                conn, int(row["league_id"]), "match_result",
+                f"Match result: {match_title}",
+                f"The match '{match_title}' has ended: Team A {score_a} – {score_b} Team B. Ratings updated.",
+                {"match_id": match_id},
+            )
+            conn.commit()
         except HTTPException:
+            conn.rollback()
             raise
         except Exception as exc:
             conn.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Match confirmation failed: {exc}") from exc
-        conn.execute(
-            "UPDATE matches SET status = 'completed', updated_at = ? WHERE id = ?",
-            (utc_now_iso(), match_id),
-        )
-
-        match_title = str(row["title"])
-        score_a = int(row["score_a"])
-        score_b = int(row["score_b"])
-        _notify_league_members(
-            conn, int(row["league_id"]), "match_result",
-            f"Match result: {match_title}",
-            f"The match '{match_title}' has ended: Team A {score_a} – {score_b} Team B. Ratings updated.",
-            {"match_id": match_id},
-        )
-        conn.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Match confirmation failed: {exc.__class__.__name__}: {exc}",
+            ) from exc
     return MessageOut(detail="Match confirmed. Stats and ratings updated.")
 
 
