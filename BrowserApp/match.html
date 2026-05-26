@@ -337,12 +337,15 @@
     function isCensored(){ return viewMode === "censored"; }
     function isPrivateRestricted(){ return detail?.match?.visibility === "private" && !isAdmin(); }
 
-    function formatRequestError(method, path, err){
+    function formatRequestError(method, path, err, attemptedHosts){
       const raw = String(err?.message || err || "Request failed");
+      const hostInfo = attemptedHosts && attemptedHosts.length
+        ? ` Hosts: ${attemptedHosts.join(" -> ")}.`
+        : "";
       if (/failed to fetch/i.test(raw)) {
-        return `Failed to fetch (${method} ${path}). Possible causes: backend crash, CORS, or API server not reachable.`;
+        return `Failed to fetch (${method} ${path}). Possible causes: backend crash, CORS, or API server not reachable.${hostInfo}`;
       }
-      return `${method} ${path}: ${raw}`;
+      return `${method} ${path}: ${raw}${hostInfo}`;
     }
 
     function actionLabel(act){
@@ -372,9 +375,11 @@
       const token = getToken();
       if (token) headers.Authorization = "Bearer " + token;
       const candidates = getApiCandidates();
+      const attemptedHosts = [];
       let lastErr = null;
       const method = String(options?.method || "GET").toUpperCase();
       for (let i = 0; i < candidates.length; i++) {
+        attemptedHosts.push(candidates[i]);
         try {
           const res = await fetch(candidates[i] + path, Object.assign({}, options || {}, { headers }));
           let body = null; try { body = await res.json(); } catch {}
@@ -385,13 +390,15 @@
           if (i < candidates.length - 1) continue;
         }
       }
-      throw new Error(formatRequestError(method, path, lastErr || new Error("Request failed")));
+      throw new Error(formatRequestError(method, path, lastErr || new Error("Request failed"), attemptedHosts));
     }
 
     async function publicFetch(path){
       const candidates = getApiCandidates();
+      const attemptedHosts = [];
       let lastErr = null;
       for (let i = 0; i < candidates.length; i++) {
+        attemptedHosts.push(candidates[i]);
         try {
           const res = await fetch(candidates[i] + path);
           let body = null; try { body = await res.json(); } catch {}
@@ -402,7 +409,24 @@
           if (i < candidates.length - 1) continue;
         }
       }
-      throw new Error(formatRequestError("GET", path, lastErr || new Error("Request failed")));
+      throw new Error(formatRequestError("GET", path, lastErr || new Error("Request failed"), attemptedHosts));
+    }
+
+    async function diagnoseConfirmFailure(matchId, originalMessage){
+      const base = `Confirm result failed. ${originalMessage || ""}`.trim();
+      try {
+        const dbg = await apiFetch(`/matches/${matchId}/schema-debug`, { method: "GET" });
+        const missing = dbg?.missing_required_columns || {};
+        const gaps = Object.entries(missing)
+          .filter(([, cols]) => Array.isArray(cols) && cols.length)
+          .map(([tbl, cols]) => `${tbl}: ${cols.join(", ")}`);
+        if (gaps.length) {
+          return `${base} Schema gaps: ${gaps.join("; ")}`;
+        }
+        return `${base} Schema-debug endpoint is reachable and reports no missing confirm columns. Likely runtime crash inside confirm logic.`;
+      } catch (diagErr) {
+        return `${base} Also failed to call schema-debug: ${diagErr?.message || diagErr}`;
+      }
     }
 
     function statusLabel(s){
@@ -1114,7 +1138,12 @@
           }
           await load();
         } catch (err) {
-          show(`${actionLabel(act)}: ${err.message || "Failed."}`, "error");
+          if (act === "confirm" && m && m.id) {
+            const diag = await diagnoseConfirmFailure(m.id, err.message || "Failed.");
+            show(diag, "error");
+          } else {
+            show(`${actionLabel(act)}: ${err.message || "Failed."}`, "error");
+          }
         }
       }
 
