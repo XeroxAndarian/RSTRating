@@ -1257,6 +1257,13 @@ def init_db() -> None:
         ensure_column(conn, "league_player_stats", "temporary_lmmr_match_limit", "INTEGER NOT NULL DEFAULT 10")
         ensure_column(conn, "league_player_stats", "temp_lmmr_seed", "REAL")
         ensure_column(conn, "league_player_stats", "own_goals", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "own_goals", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_goal_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_assist_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_own_goal_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_result_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "is_team_mvp", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(conn, "league_season_player_stats", "own_goals", "INTEGER NOT NULL DEFAULT 0")
 
         conn.execute(
             """
@@ -7289,10 +7296,10 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             new_rating = round(old_rating + base_change + contribution_adj.get(uid, 0.0), 2)
             conn.execute(
                 """
-                INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, rating)
-                VALUES (?, ?, 1, ?, ?, ?, ?)
+                INSERT INTO league_player_stats (league_id, user_id, attendance, wins, goals, assists, own_goals, rating)
+                VALUES (?, ?, 1, ?, ?, ?, ?, ?)
                 """,
-                (league_id, uid, 1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), new_rating),
+                (league_id, uid, 1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), own_goals_by_player.get(uid, 0), new_rating),
             )
         else:
             old_rating = float(existing["rating"])
@@ -7309,11 +7316,13 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
                     wins = wins + ?,
                     goals = goals + ?,
                     assists = assists + ?,
+                    own_goals = own_goals + ?,
                     rating = ?,
                     is_temporary_lmmr = CASE WHEN ? THEN 0 ELSE is_temporary_lmmr END
                 WHERE id = ?
                 """,
-                (1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), new_rating, 1 if should_disable_temp else 0, int(existing["id"])),
+                (1 if won else 0, goals_by_player.get(uid, 0), assists_by_player.get(uid, 0), own_goals_by_player.get(uid, 0), new_rating, 1 if should_disable_temp else 0, int(existing["id"])),
+
             )
 
         # Track LMMR change for receipt
@@ -7584,6 +7593,37 @@ def _fetch_match_row(conn: sqlite3.Connection, match_id: int) -> sqlite3.Row | N
         """,
         (match_id,),
     ).fetchone()
+
+
+def _match_active_elapsed_seconds(conn: sqlite3.Connection, match_id: int, started_at: str) -> int:
+    """Return the number of active (non-paused) seconds since the match started."""
+    now_dt = datetime.now(tz=timezone.utc)
+    started_dt = _parse_season_dt(started_at)
+    if started_dt is None:
+        return 0
+    total_elapsed = max(0, int((now_dt - started_dt).total_seconds()))
+
+    markers = conn.execute(
+        """
+        SELECT event_type, event_seconds FROM match_events
+        WHERE match_id = ? AND undone = 0 AND event_type IN ('pause', 'resume')
+        ORDER BY event_seconds ASC, created_at ASC
+        """,
+        (match_id,),
+    ).fetchall()
+
+    paused_total = 0
+    paused_from: int | None = None
+    for m in markers:
+        if str(m["event_type"]) == "pause":
+            paused_from = int(m["event_seconds"] or 0)
+        elif str(m["event_type"]) == "resume" and paused_from is not None:
+            paused_total += max(0, int(m["event_seconds"] or 0) - paused_from)
+            paused_from = None
+    if paused_from is not None:
+        paused_total += max(0, total_elapsed - paused_from)
+
+    return max(0, total_elapsed - paused_total)
 
 
 def _fetch_league_matches(conn: sqlite3.Connection, league_id: int) -> list[sqlite3.Row]:
