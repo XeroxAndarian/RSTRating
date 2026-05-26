@@ -116,6 +116,13 @@
       <div id="registrationsSection">
         <h3 style="margin-bottom:8px;">Registrations</h3>
         <div id="regs" class="list"></div>
+        <div id="adminRegisterBox" class="item" style="display:none;margin-top:10px;">
+          <div class="small muted">Admin registration</div>
+          <div class="row" style="justify-content:flex-start;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <select id="adminRegisterPlayer" style="min-width:220px;max-width:420px;"></select>
+            <button class="btn primary" id="adminRegisterBtn" type="button">Add player</button>
+          </div>
+        </div>
       </div>
       <div id="teamsSection" style="display:none;">
         <h3 style="margin-bottom:8px;">Teams</h3>
@@ -291,6 +298,8 @@
     const teamsCard = document.getElementById("teamsCard");
     const teamsSection = document.getElementById("teamsSection");
     const registrationsSection = document.getElementById("registrationsSection");
+    const adminRegisterBox = document.getElementById("adminRegisterBox");
+    const adminRegisterPlayer = document.getElementById("adminRegisterPlayer");
     const eventsCard = document.getElementById("eventsCard");
     const leagueLink = document.getElementById("leagueLink");
     const statusEl = document.getElementById("status");
@@ -305,6 +314,7 @@
     let detail = null;
     let playerResults = null; // fetched for completed matches
     let leagueRole = null;
+    let leagueMembers = [];
     let viewMode = "normal"; // admin | normal | censored
     let editingTeams = false;
     let editingEvents = false;
@@ -688,10 +698,52 @@
       if (isCensored()) {
         const regs = detail.registrations || [];
         regsEl.innerHTML = regs.map((r) => `<div class="item"><strong>Player</strong> <span class="pill">${esc(r.status)}</span></div>`).join("") || '<div class="item muted">No registrations.</div>';
+        if (adminRegisterBox) adminRegisterBox.style.display = "none";
         return;
       }
       const regs = detail.registrations || [];
       regsEl.innerHTML = regs.map((r) => `<div class="item"><strong>${esc(r.display_name || r.username)}</strong> <span class="pill">${esc(r.status)}</span></div>`).join("") || '<div class="item muted">No registrations.</div>';
+
+      if (!adminRegisterBox || !adminRegisterPlayer) return;
+      const canAdminRegister = isAdmin() && detail?.match?.status === "registration_open";
+      if (!canAdminRegister) {
+        adminRegisterBox.style.display = "none";
+        return;
+      }
+
+      const activeIds = new Set(
+        regs
+          .filter((r) => ["registered", "waitlisted", "offered"].includes(String(r.status || "")))
+          .map((r) => Number(r.user_id))
+      );
+      const candidates = (leagueMembers || [])
+        .filter((m) => m && Number.isFinite(Number(m.user_id)) && !activeIds.has(Number(m.user_id)))
+        .sort((a, b) => {
+          const an = String(a.display_name || a.username || "").toLowerCase();
+          const bn = String(b.display_name || b.username || "").toLowerCase();
+          return an.localeCompare(bn);
+        });
+
+      const previous = adminRegisterPlayer.value;
+      if (!candidates.length) {
+        adminRegisterPlayer.innerHTML = '<option value="">All league members are already registered or queued</option>';
+        adminRegisterPlayer.disabled = true;
+        const btn = document.getElementById("adminRegisterBtn");
+        if (btn) btn.disabled = true;
+      } else {
+        adminRegisterPlayer.innerHTML = candidates.map((m) => {
+          const uid = Number(m.user_id);
+          const name = m.display_name || m.username || `#${uid}`;
+          return `<option value="${uid}">${esc(name)}</option>`;
+        }).join("");
+        if (previous && candidates.some((m) => String(m.user_id) === previous)) {
+          adminRegisterPlayer.value = previous;
+        }
+        adminRegisterPlayer.disabled = false;
+        const btn = document.getElementById("adminRegisterBtn");
+        if (btn) btn.disabled = false;
+      }
+      adminRegisterBox.style.display = "block";
     }
 
     function renderEvents(){
@@ -876,6 +928,7 @@
           detail = await publicFetch(`/preview/matches/${encodeURIComponent(previewToken)}`);
           viewMode = "censored";
           leagueRole = null;
+          leagueMembers = [];
           editingTeams = false;
           draft = { teamA: [], teamB: [] };
           render();
@@ -891,24 +944,28 @@
             try {
               const leagueDetail = await apiFetch(`/leagues/${detail.match.league_id}`, { method: "GET" });
               leagueRole = leagueDetail.league.member_role;
+              leagueMembers = Array.isArray(leagueDetail.members) ? leagueDetail.members : [];
               const isActualMember = leagueRole === "owner" || leagueRole === "admin" || leagueRole === "member";
               viewMode = (leagueRole === "owner" || leagueRole === "admin") ? "admin"
                        : isActualMember ? "normal"
                        : (detail.match.visibility === "public" ? "normal" : "censored");
             } catch {
               leagueRole = null;
+              leagueMembers = [];
               viewMode = detail.match.visibility === "public" ? "normal" : "censored";
             }
           } catch (authErr) {
             // User is logged in but not a member - try as public
             detail = await publicFetch(`/matches/${matchId}`);
             leagueRole = null;
+            leagueMembers = [];
             viewMode = detail.match.visibility === "public" ? "normal" : "censored";
           }
         } else {
           // Not logged in - outsider view
           detail = await publicFetch(`/matches/${matchId}`);
           leagueRole = null;
+          leagueMembers = [];
           viewMode = detail.match.visibility === "public" ? "normal" : "censored";
         }
 
@@ -941,6 +998,26 @@
 
     document.body.addEventListener("click", async (e) => {
       const m = detail?.match;
+      const adminRegisterBtn = e.target.closest("#adminRegisterBtn");
+      if (adminRegisterBtn && m && isAdmin() && m.status === "registration_open") {
+        const selected = Number(adminRegisterPlayer?.value || 0);
+        if (!selected) {
+          show("Select a player to register.", "error");
+          return;
+        }
+        try {
+          await apiFetch(`/matches/${m.id}/register-player`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: selected }),
+          });
+          await load();
+        } catch (err) {
+          show(err.message || "Admin registration failed.", "error");
+        }
+        return;
+      }
+
       const actBtn = e.target.closest("[data-act]");
       if (actBtn && m) {
         const act = actBtn.dataset.act;
