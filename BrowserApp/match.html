@@ -832,20 +832,38 @@
               if (!players.length) return "";
               const rows = players.map(r => {
                 const badge = r.user_id === overallMvpId ? "🏆 " : (r.is_team_mvp ? "⭐ " : "");
+                const receiptName = r.display_name && String(r.display_name).trim() && String(r.display_name).trim().toLowerCase() !== "none"
+                  ? r.display_name
+                  : `Player ${r.user_id}`;
+                const bonusItems = Array.isArray(r.sr_bonus_meta) ? r.sr_bonus_meta : [];
+                const bonusLines = bonusItems
+                  .map((b) => `${esc(String(b.label || "Bonus"))}: ${Number(b.points || 0).toFixed(1)}`)
+                  .join("<br>");
+                const bonusRowId = `srbonus-${teamKey}-${r.user_id}`;
+                const bonusBtn = (Number(r.sr_bonus_pts || 0) !== 0 && bonusItems.length)
+                  ? ` <button type="button" class="btn ghost small" data-bonus-toggle="${bonusRowId}" aria-expanded="false" style="padding:2px 6px;min-width:24px;line-height:1;">+</button>`
+                  : "";
                 const deltaSign = r.lmmr_delta >= 0 ? "+" : "";
                 const deltaColor = r.lmmr_delta > 0 ? "var(--success,#2a9d4e)" : r.lmmr_delta < 0 ? "var(--danger,#c0392b)" : "inherit";
                 const srColor = r.sr_delta > 0 ? "var(--success,#2a9d4e)" : r.sr_delta < 0 ? "var(--danger,#c0392b)" : "inherit";
-                return `<tr>
-                  <td>${badge}${esc(r.display_name)}</td>
+                const mainRow = `<tr>
+                  <td>${badge}${esc(receiptName)}</td>
                   <td style="text-align:center;">${r.goals}</td>
                   <td style="text-align:center;">${r.assists}</td>
                   <td style="text-align:center;">${r.own_goals || 0}</td>
                   <td style="text-align:right;">${r.sr_goal_pts > 0 ? "+" : ""}${r.sr_goal_pts.toFixed(1)}</td>
                   <td style="text-align:right;">${r.sr_assist_pts > 0 ? "+" : ""}${r.sr_assist_pts.toFixed(1)}</td>
                   <td style="text-align:right;">${r.sr_result_pts >= 0 ? "+" : ""}${r.sr_result_pts.toFixed(1)}</td>
+                  <td style="text-align:right;">${(r.sr_bonus_pts || 0) >= 0 ? "+" : ""}${Number(r.sr_bonus_pts || 0).toFixed(1)}${bonusBtn}</td>
                   <td style="text-align:right;font-weight:700;color:${srColor};">${r.sr_delta >= 0 ? "+" : ""}${r.sr_delta.toFixed(1)}</td>
                   <td style="text-align:right;color:${deltaColor};font-weight:700;">${deltaSign}${r.lmmr_delta.toFixed(1)}</td>
                 </tr>`;
+                const detailsRow = (bonusBtn && bonusLines)
+                  ? `<tr id="${bonusRowId}" data-bonus-row="1" style="display:none;">
+                      <td colspan="10" style="padding:6px 8px;background:var(--panel-soft,#f4f6fb);font-size:.84em;line-height:1.35;">${bonusLines}</td>
+                    </tr>`
+                  : "";
+                return mainRow + detailsRow;
               }).join("");
               return `<div style="margin-bottom:14px;">
                 <div style="font-weight:700;margin-bottom:4px;">${esc(teamLabel)}</div>
@@ -858,6 +876,7 @@
                     <th style="text-align:right;padding:3px 6px;">SR Goals</th>
                     <th style="text-align:right;padding:3px 6px;">SR Ast</th>
                     <th style="text-align:right;padding:3px 6px;">SR Result</th>
+                    <th style="text-align:right;padding:3px 6px;">SR Bonus</th>
                     <th style="text-align:right;padding:3px 6px;">SR Total</th>
                     <th style="text-align:right;padding:3px 6px;">LMMR Δ</th>
                   </tr></thead>
@@ -1053,6 +1072,19 @@
 
     document.body.addEventListener("click", async (e) => {
       const m = detail?.match;
+      const bonusToggleBtn = e.target.closest("[data-bonus-toggle]");
+      if (bonusToggleBtn) {
+        const rowId = bonusToggleBtn.getAttribute("data-bonus-toggle");
+        const detailsRow = rowId ? document.getElementById(rowId) : null;
+        if (detailsRow) {
+          const isOpen = detailsRow.style.display !== "none";
+          detailsRow.style.display = isOpen ? "none" : "table-row";
+          bonusToggleBtn.textContent = isOpen ? "+" : "−";
+          bonusToggleBtn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+        }
+        return;
+      }
+
       const adminRegisterBtn = e.target.closest("#adminRegisterBtn");
       if (adminRegisterBtn && m && isAdmin() && m.status === "registration_open") {
         const selected = Number(adminRegisterPlayer?.value || 0);

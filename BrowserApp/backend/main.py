@@ -649,6 +649,10 @@ DEFAULT_RATING_CONFIG = {
     # With base=10 and span=5 this yields roughly 5..15.
     "sr_mvp_bonus_base": 10.0,
     "sr_mvp_bonus_dynamic_span": 5.0,
+    "sr_team_mvp_bonus": 5.0,
+    "sr_deciding_goal_bonus": 5.0,
+    "sr_deciding_assist_bonus": 5.0,
+    "sr_win_streak_bonus_per_win": 3.0,
     "elo_mvp_bonus_base": 10.0,
     "elo_mvp_bonus_dynamic_span": 5.0,
 }
@@ -1352,6 +1356,8 @@ def init_db() -> None:
                 sr_assist_pts REAL NOT NULL DEFAULT 0,
                 sr_own_goal_pts REAL NOT NULL DEFAULT 0,
                 sr_result_pts REAL NOT NULL DEFAULT 0,
+                sr_bonus_pts REAL NOT NULL DEFAULT 0,
+                sr_bonus_meta TEXT NOT NULL DEFAULT '[]',
                 goals INTEGER NOT NULL DEFAULT 0,
                 assists INTEGER NOT NULL DEFAULT 0,
                 own_goals INTEGER NOT NULL DEFAULT 0,
@@ -1367,6 +1373,8 @@ def init_db() -> None:
         ensure_column(conn, "match_player_results", "sr_assist_pts", "REAL NOT NULL DEFAULT 0")
         ensure_column(conn, "match_player_results", "sr_own_goal_pts", "REAL NOT NULL DEFAULT 0")
         ensure_column(conn, "match_player_results", "sr_result_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_bonus_pts", "REAL NOT NULL DEFAULT 0")
+        ensure_column(conn, "match_player_results", "sr_bonus_meta", "TEXT NOT NULL DEFAULT '[]'")
         ensure_column(conn, "match_player_results", "is_team_mvp", "INTEGER NOT NULL DEFAULT 0")
 
         conn.execute(
@@ -7197,7 +7205,7 @@ def _save_league_weekly_snapshot(conn: sqlite3.Connection, league_id: int) -> No
 def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
     """Update league_player_stats and global ratings after match confirmation."""
     match = conn.execute(
-        "SELECT league_id, team_a, team_b, score_a, score_b FROM matches WHERE id = ?",
+        "SELECT league_id, team_a, team_b, score_a, score_b, scheduled_at FROM matches WHERE id = ?",
         (match_id,),
     ).fetchone()
     if match is None:
@@ -7340,7 +7348,8 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
 
     # Per-player receipts accumulated during the loop
     lmmr_results: dict[int, tuple[float, float, float]] = {}  # uid -> (before, after, delta)
-    sr_results: dict[int, tuple[float, float, float, float, float]] = {}  # uid -> (total, goal, assist, own_goal, result)
+    sr_results: dict[int, tuple[float, float, float, float, float, float]] = {}  # uid -> (total, goal, assist, own_goal, result, bonus)
+    sr_bonus_meta: dict[int, list[dict[str, float | str]]] = {}
 
     adj_a = _zero_sum_adjustments(team_a_ids)
     adj_b = _zero_sum_adjustments(team_b_ids)
@@ -7465,10 +7474,11 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
         sr_assist_pts = round(assists_by_player.get(uid, 0) * float(cfg["sr_assist_points"]), 2)
         sr_own_goal_pts = round(own_goals_by_player.get(uid, 0) * float(cfg["sr_own_goal_points"]), 2)
         sr_result_pts = round(won_bonus, 2)
-        delta_points = sr_goal_pts + sr_assist_pts + sr_own_goal_pts + sr_result_pts
+        sr_bonus_pts = 0.0
+        delta_points = sr_goal_pts + sr_assist_pts + sr_own_goal_pts + sr_result_pts + sr_bonus_pts
 
         # Store SR receipt breakdown for this player
-        sr_results[uid] = (round(delta_points, 2), sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts)
+        sr_results[uid] = (round(delta_points, 2), sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts, sr_bonus_pts)
 
         if season_row is None:
             start_points = float(cfg["sr_start_points"])
@@ -7524,6 +7534,26 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
     mvp_a = _team_mvp(team_a_ids)
     mvp_b = _team_mvp(team_b_ids)
 
+    def _add_sr_bonus(uid: int, label: str, points: float) -> None:
+        if abs(points) < 1e-9:
+            return
+        total_sr, g_sr, a_sr, og_sr, r_sr, b_sr = sr_results.get(uid, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+        b_sr = round(b_sr + points, 2)
+        total_sr = round(total_sr + points, 2)
+        sr_results[uid] = (total_sr, g_sr, a_sr, og_sr, r_sr, b_sr)
+        sr_bonus_meta.setdefault(uid, []).append({"label": label, "points": round(points, 2)})
+        conn.execute(
+            "UPDATE league_season_player_stats SET points = points + ? WHERE season_id = ? AND user_id = ?",
+            (round(points, 2), season_id, uid),
+        )
+
+    # Team MVP SR bonus (separate from result points).
+    team_mvp_sr_bonus = float(cfg.get("sr_team_mvp_bonus", 5.0))
+    for tmvp in [mvp_a, mvp_b]:
+        if tmvp is None:
+            continue
+        _add_sr_bonus(int(tmvp), "Team MVP", float(team_mvp_sr_bonus))
+
     # Overall match MVP: highest contribution regardless of team
     overall_mvp: int | None = None
     overall_best = -1.0
@@ -7568,36 +7598,124 @@ def _apply_match_stats(conn: sqlite3.Connection, match_id: int) -> None:
             "UPDATE league_season_player_stats SET points = points + ? WHERE season_id = ? AND user_id = ?",
             (sr_mvp_bonus, season_id, overall_mvp),
         )
-        total_sr, g_sr, a_sr, og_sr, r_sr = sr_results.get(overall_mvp, (0.0, 0.0, 0.0, 0.0, 0.0))
-        total_sr = round(total_sr + sr_mvp_bonus, 2)
-        r_sr = round(r_sr + sr_mvp_bonus, 2)
-        sr_results[overall_mvp] = (total_sr, g_sr, a_sr, og_sr, r_sr)
+        _add_sr_bonus(int(overall_mvp), "Match MVP", float(sr_mvp_bonus))
 
         _recompute_global_rating(conn, overall_mvp)
+
+    # Deciding goal / pass bonus: final 3 minutes and goal that becomes the permanent winning lead.
+    deciding_goal_bonus = float(cfg.get("sr_deciding_goal_bonus", 5.0))
+    deciding_assist_bonus = float(cfg.get("sr_deciding_assist_bonus", 5.0))
+    scored_rows = conn.execute(
+        """
+        SELECT id, event_type, user_id, team, event_seconds, created_at
+        FROM match_events
+        WHERE match_id = ? AND undone = 0 AND event_type IN ('goal', 'own_goal', 'assist')
+        ORDER BY event_seconds ASC, created_at ASC, id ASC
+        """,
+        (match_id,),
+    ).fetchall()
+    max_sec = max((int(r["event_seconds"] or 0) for r in scored_rows), default=0)
+    if a_won or b_won:
+        winner = "a" if a_won else "b"
+        ra = 0
+        rb = 0
+        decisive_time: int | None = None
+        for ev in [r for r in scored_rows if str(r["event_type"]) in {"goal", "own_goal"} and str(r["team"]) in {"a", "b"}]:
+            if str(ev["team"]) == "a":
+                ra += 1
+            else:
+                rb += 1
+            sec_now = int(ev["event_seconds"] or 0)
+            # Winner gains lead and keeps it until final score.
+            if winner == "a" and ra > rb:
+                if (score_a - ra) <= (score_b - rb):
+                    decisive_time = sec_now
+                    break
+            if winner == "b" and rb > ra:
+                if (score_b - rb) <= (score_a - ra):
+                    decisive_time = sec_now
+                    break
+
+        if decisive_time is not None and decisive_time >= max(0, max_sec - 180):
+            # Goal scorer bonus
+            deciding_goal = next((r for r in scored_rows if str(r["event_type"]) == "goal" and str(r["team"]) == winner and int(r["event_seconds"] or 0) == decisive_time and r["user_id"] is not None), None)
+            if deciding_goal is not None:
+                dg_uid = int(deciding_goal["user_id"])
+                _add_sr_bonus(dg_uid, "Decisive goal", float(deciding_goal_bonus))
+
+            # Assist bonus for assists logged at the deciding goal timestamp/team.
+            for assist_ev in [r for r in scored_rows if str(r["event_type"]) == "assist" and str(r["team"]) == winner and int(r["event_seconds"] or 0) == decisive_time and r["user_id"] is not None]:
+                da_uid = int(assist_ev["user_id"])
+                _add_sr_bonus(da_uid, "Decisive pass", float(deciding_assist_bonus))
+
+    # Win streak bonus: consecutive wins in league matches before this match.
+    streak_bonus_per_win = float(cfg.get("sr_win_streak_bonus_per_win", 3.0))
+    current_match_sched = _parse_season_dt(str(match["scheduled_at"]))
+    history_rows = conn.execute(
+        """
+        SELECT id, team_a, team_b, score_a, score_b, scheduled_at
+        FROM matches
+        WHERE league_id = ? AND id <> ? AND status IN ('completed', 'finished')
+        ORDER BY COALESCE(scheduled_at, created_at) DESC, id DESC
+        """,
+        (league_id, match_id),
+    ).fetchall()
+
+    def _prior_win_streak(uid: int, team_key: str) -> int:
+        streak = 0
+        for hr in history_rows:
+            hdt = _parse_season_dt(str(hr["scheduled_at"]))
+            if current_match_sched is not None and hdt is not None and hdt >= current_match_sched:
+                continue
+            ha = {int(x) for x in json.loads(str(hr["team_a"] or "[]"))}
+            hb = {int(x) for x in json.loads(str(hr["team_b"] or "[]"))}
+            if uid not in ha and uid not in hb:
+                continue
+            sa = int(hr["score_a"] or 0)
+            sb = int(hr["score_b"] or 0)
+            won_hist = (uid in ha and sa > sb) or (uid in hb and sb > sa)
+            if won_hist:
+                streak += 1
+                continue
+            break
+        return streak
+
+    if streak_bonus_per_win > 0:
+        for uid, team in all_participants:
+            won_now = (team == "a" and a_won) or (team == "b" and b_won)
+            if not won_now:
+                continue
+            prior_streak = _prior_win_streak(uid, team)
+            if prior_streak <= 0:
+                continue
+            streak_bonus = round(prior_streak * streak_bonus_per_win, 2)
+            _add_sr_bonus(uid, f"Winstreak {prior_streak}", float(streak_bonus))
 
     conn.execute("UPDATE matches SET mvp_user_id = ? WHERE id = ?", (overall_mvp, match_id))
 
     for uid, team in all_participants:
         lmmr_before, lmmr_after, lmmr_delta = lmmr_results.get(uid, (DEFAULT_GLOBAL_RATING, DEFAULT_GLOBAL_RATING, 0.0))
-        sr_delta, sr_g, sr_a, sr_og, sr_r = sr_results.get(uid, (0.0, 0.0, 0.0, 0.0, 0.0))
+        sr_delta, sr_g, sr_a, sr_og, sr_r, sr_b = sr_results.get(uid, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
         is_team_mvp = 1 if (team == "a" and uid == mvp_a) or (team == "b" and uid == mvp_b) else 0
         conn.execute(
             """
             INSERT INTO match_player_results
                 (match_id, user_id, team, lmmr_before, lmmr_after, lmmr_delta,
-                 sr_delta, sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts,
+                 sr_delta, sr_goal_pts, sr_assist_pts, sr_own_goal_pts, sr_result_pts, sr_bonus_pts, sr_bonus_meta,
                  goals, assists, own_goals, is_team_mvp)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(match_id, user_id) DO UPDATE SET
                 lmmr_before=excluded.lmmr_before, lmmr_after=excluded.lmmr_after,
                 lmmr_delta=excluded.lmmr_delta, sr_delta=excluded.sr_delta,
                 sr_goal_pts=excluded.sr_goal_pts, sr_assist_pts=excluded.sr_assist_pts,
                 sr_own_goal_pts=excluded.sr_own_goal_pts, sr_result_pts=excluded.sr_result_pts,
+                sr_bonus_pts=excluded.sr_bonus_pts,
+                sr_bonus_meta=excluded.sr_bonus_meta,
                 goals=excluded.goals, assists=excluded.assists, own_goals=excluded.own_goals,
                 is_team_mvp=excluded.is_team_mvp
             """,
             (match_id, uid, team, lmmr_before, lmmr_after, lmmr_delta,
-             sr_delta, sr_g, sr_a, sr_og, sr_r,
+             sr_delta, sr_g, sr_a, sr_og, sr_r, sr_b, json.dumps(sr_bonus_meta.get(uid, [])),
              goals_by_player.get(uid, 0), assists_by_player.get(uid, 0),
              own_goals_by_player.get(uid, 0), is_team_mvp),
         )
@@ -7786,7 +7904,7 @@ def _confirm_schema_gaps(conn: sqlite3.Connection) -> dict[str, list[str]]:
         },
         "match_player_results": {
             "match_id", "user_id", "team", "lmmr_before", "lmmr_after", "lmmr_delta",
-            "sr_delta", "sr_goal_pts", "sr_assist_pts", "sr_own_goal_pts", "sr_result_pts",
+                "sr_delta", "sr_goal_pts", "sr_assist_pts", "sr_own_goal_pts", "sr_result_pts", "sr_bonus_pts",
             "goals", "assists", "own_goals", "is_team_mvp",
         },
         "matches": {
@@ -8988,6 +9106,8 @@ class MatchPlayerResultOut(BaseModel):
     sr_assist_pts: float
     sr_own_goal_pts: float
     sr_result_pts: float
+    sr_bonus_pts: float
+    sr_bonus_meta: list[dict[str, float | str]] = Field(default_factory=list)
     goals: int
     assists: int
     own_goals: int
@@ -9007,10 +9127,10 @@ def get_match_player_results(match_id: int, current_user: sqlite3.Row = Depends(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         rows = conn.execute(
             """
-            SELECT mpr.user_id, u.display_name, mpr.team,
+            SELECT mpr.user_id, u.display_name, u.username, mpr.team,
                    mpr.lmmr_before, mpr.lmmr_after, mpr.lmmr_delta,
                    mpr.sr_delta, mpr.sr_goal_pts, mpr.sr_assist_pts,
-                   mpr.sr_own_goal_pts, mpr.sr_result_pts,
+                     mpr.sr_own_goal_pts, mpr.sr_result_pts, mpr.sr_bonus_pts, mpr.sr_bonus_meta,
                    mpr.goals, mpr.assists, mpr.own_goals, mpr.is_team_mvp
             FROM match_player_results mpr
             JOIN users u ON u.id = mpr.user_id
@@ -9025,7 +9145,7 @@ def get_match_player_results(match_id: int, current_user: sqlite3.Row = Depends(
         players=[
             MatchPlayerResultOut(
                 user_id=int(r["user_id"]),
-                display_name=str(r["display_name"]),
+                display_name=str(r["display_name"] or r["username"] or f"Player {int(r['user_id'])}"),
                 team=str(r["team"]),
                 lmmr_before=float(r["lmmr_before"] or 0),
                 lmmr_after=float(r["lmmr_after"] or 0),
@@ -9035,6 +9155,8 @@ def get_match_player_results(match_id: int, current_user: sqlite3.Row = Depends(
                 sr_assist_pts=float(r["sr_assist_pts"] or 0),
                 sr_own_goal_pts=float(r["sr_own_goal_pts"] or 0),
                 sr_result_pts=float(r["sr_result_pts"] or 0),
+                sr_bonus_pts=float(r["sr_bonus_pts"] or 0),
+                sr_bonus_meta=(json.loads(str(r["sr_bonus_meta"] or "[]")) if str(r["sr_bonus_meta"] or "").strip() else []),
                 goals=int(r["goals"] or 0),
                 assists=int(r["assists"] or 0),
                 own_goals=int(r["own_goals"] or 0),
