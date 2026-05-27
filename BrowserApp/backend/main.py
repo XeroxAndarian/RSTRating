@@ -6763,6 +6763,28 @@ def _load_league_rating_config(conn: sqlite3.Connection, league_id: int) -> dict
     return cfg
 
 
+def _recompute_global_rating(conn: sqlite3.Connection, user_id: int) -> None:
+    """Recompute one user's global rating from league ratings with attendance weights."""
+    rows = conn.execute(
+        "SELECT rating, attendance FROM league_player_stats WHERE user_id = ? AND attendance > 0",
+        (user_id,),
+    ).fetchall()
+    if not rows:
+        gmmr = float(DEFAULT_GLOBAL_RATING)
+    else:
+        weighted_sum = 0.0
+        total_weight = 0
+        for r in rows:
+            w = max(1, int(r["attendance"] or 0))
+            weighted_sum += float(r["rating"] or DEFAULT_GLOBAL_RATING) * w
+            total_weight += w
+        gmmr = round(weighted_sum / max(1, total_weight), 2)
+    conn.execute(
+        "UPDATE users SET global_rating = ?, updated_at = ? WHERE id = ?",
+        (gmmr, utc_now_iso(), user_id),
+    )
+
+
 def _fit_hierarchical_map_backend(
     y: list[float],
     league_idx: list[int],
@@ -6987,6 +7009,35 @@ def _sync_league_season_activation(conn: sqlite3.Connection, league_id: int) -> 
     if active_id is not None:
         conn.execute("UPDATE league_seasons SET is_active = 1 WHERE id = ?", (active_id,))
     return active_id
+
+
+def _ensure_active_season(conn: sqlite3.Connection, league_id: int) -> int:
+    """Return active season id, creating Season 1 if the league has no seasons."""
+    has_any = conn.execute(
+        "SELECT 1 FROM league_seasons WHERE league_id = ? LIMIT 1",
+        (league_id,),
+    ).fetchone()
+    if has_any is None:
+        now_iso = utc_now_iso()
+        conn.execute(
+            "INSERT INTO league_seasons (league_id, name, is_active, start_at, end_at, created_at) VALUES (?, 'Season 1', 1, ?, NULL, ?)",
+            (league_id, now_iso, now_iso),
+        )
+    active_id = _sync_league_season_activation(conn, league_id)
+    if active_id is not None:
+        return int(active_id)
+
+    # Fallback for leagues with historical seasons but no active one.
+    fallback = conn.execute(
+        "SELECT id FROM league_seasons WHERE league_id = ? ORDER BY COALESCE(start_at, created_at) DESC, id DESC LIMIT 1",
+        (league_id,),
+    ).fetchone()
+    if fallback is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not resolve active season")
+    fid = int(fallback["id"])
+    conn.execute("UPDATE league_seasons SET is_active = 0 WHERE league_id = ?", (league_id,))
+    conn.execute("UPDATE league_seasons SET is_active = 1 WHERE id = ?", (fid,))
+    return fid
 
 
 def _notify_league_members(
